@@ -1,0 +1,7 @@
+{
+    "Tenancy": true,
+    "Identity": true,
+    "Settings": true,
+    "Audit": true,
+    "Api": true
+}

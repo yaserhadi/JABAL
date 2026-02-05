@@ -1,0 +1,11 @@
+{
+    "name": "Tenancy",
+    "alias": "tenancy",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Tenancy\\Providers\\TenancyServiceProvider"
+    ],
+    "files": []
+}
