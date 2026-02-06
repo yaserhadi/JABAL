@@ -63,6 +63,14 @@ class TenantContext implements TenantContextInterface
         return $this->tenant?->id;
     }
 
+    /**
+     * Get tenant ID (alias).
+     */
+    public function getTenantId(): ?string
+    {
+        return $this->id();
+    }
+
     public function toArray(): array
     {
         return [

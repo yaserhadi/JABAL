@@ -14,19 +14,25 @@ class ApiResponse
     /**
      * Success response with data.
      *
-     * @param  array<string, mixed>|object  $data
+     * @param  array<string, mixed>|object|null  $data
+     * @param  int|string  $messageOrStatus  Optional message (string) or status code (int)
+     * @param  int  $status  Status code when message is provided
      */
-    public static function success($data = [], int $status = 200): JsonResponse
+    public static function success($data = [], int|string $messageOrStatus = 200, int $status = 200): JsonResponse
     {
         $requestContext = RequestContext::getInstance();
-
-        return response()->json([
+        $payload = [
             'data' => $data,
             'meta' => [
                 'request_id' => $requestContext->requestId(),
                 'timestamp' => now()->toIso8601String(),
             ],
-        ], $status);
+        ];
+        if (is_string($messageOrStatus)) {
+            $payload['message'] = $messageOrStatus;
+            return response()->json($payload, $status);
+        }
+        return response()->json($payload, $messageOrStatus);
     }
 
     /**

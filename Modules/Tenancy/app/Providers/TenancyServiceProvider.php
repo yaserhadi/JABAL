@@ -2,8 +2,12 @@
 
 namespace Modules\Tenancy\Providers;
 
+use App\Support\Context\TenantContext;
+use App\Support\Contracts\Tenancy\TenantContextInterface;
+use App\Support\Contracts\Tenancy\TenantResolverInterface;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use Modules\Tenancy\Services\TenantResolver;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -34,6 +38,14 @@ class TenancyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Bind TenantResolverInterface to TenantResolver implementation
+        $this->app->bind(TenantResolverInterface::class, TenantResolver::class);
+
+        // Register TenantContext as singleton
+        $this->app->singleton(TenantContextInterface::class, function () {
+            return TenantContext::getInstance();
+        });
+
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }

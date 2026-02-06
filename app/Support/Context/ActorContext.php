@@ -44,6 +44,14 @@ class ActorContext
         return $this->actorType;
     }
 
+    /**
+     * Get actor type (alias).
+     */
+    public function getType(): string
+    {
+        return $this->type();
+    }
+
     public function isUser(): bool
     {
         return $this->actorType === 'user';

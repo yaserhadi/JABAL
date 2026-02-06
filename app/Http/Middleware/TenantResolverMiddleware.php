@@ -54,7 +54,7 @@ class TenantResolverMiddleware
                     }
                 }
             }
-        } else {
+        } elseif ($request->hasSession()) {
             $tenantId = $request->session()->get('active_tenant_id');
         }
 

@@ -3,20 +3,42 @@
 namespace Modules\Settings\Events;
 
 use App\Support\Events\DomainEvent;
+use App\Support\Events\Concerns\HasTenantContext;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 
-class SettingUpdated extends DomainEvent
+/**
+ * SettingUpdated Domain Event
+ *
+ * Dispatched when a platform setting is updated.
+ * This event captures the setting change context (old and new values)
+ * and is dispatched after the database transaction commits to ensure
+ * data consistency. Settings are central, so tenant context may be null.
+ */
+class SettingUpdated extends DomainEvent implements ShouldDispatchAfterCommit
 {
+    use HasTenantContext;
+
+    /**
+     * Create a new SettingUpdated event instance.
+     *
+     * @param  string  $group  The setting group name
+     * @param  string  $key  The setting key
+     * @param  mixed  $oldValue  The previous value of the setting
+     * @param  mixed  $newValue  The new value of the setting
+     */
     public function __construct(
+        public readonly string $group,
         public readonly string $key,
         public readonly mixed $oldValue,
-        public readonly mixed $newValue,
-        public readonly string $group = 'general'
+        public readonly mixed $newValue
     ) {
         parent::__construct();
     }
 
     /**
      * Get the event payload as an array.
+     *
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {
@@ -26,8 +48,8 @@ class SettingUpdated extends DomainEvent
             'tenant_id' => $this->tenantId,
             'actor_id' => $this->actorId,
             'setting' => [
-                'key' => $this->key,
                 'group' => $this->group,
+                'key' => $this->key,
                 'old_value' => $this->oldValue,
                 'new_value' => $this->newValue,
             ],
