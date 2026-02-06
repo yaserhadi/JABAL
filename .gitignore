@@ -17,3 +17,14 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+env.workspace
+branch_audit_*.json
+
+# Cursor IDE
+.cursor/
+
+# GitHub workflows (if local only)
+.github/
+
+# Specstory
+.specstory/
