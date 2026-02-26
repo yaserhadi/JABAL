@@ -718,22 +718,17 @@ $user = User::factory()->create(['tenant_id' => 1]);
 
 1. Use `RefreshDatabase` instead of `DatabaseMigrations`
 2. Mock external services (mail, HTTP, etc.)
-3. Use in-memory database for SQLite tests (CI only)
+3. Use in-memory database for SQLite tests when applicable
 4. Run tests in parallel: `php artisan test --parallel`
 5. Cache expensive operations in `setUp()`
 
-## Continuous Integration
+## Running Tests
 
-Tests run automatically on:
-- Every push to `main` or `develop`
-- Every pull request
+Tests are run manually. No CI/CD automation exists in this repository (per PROJECT_MANIFEST Hard Constraints).
 
-CI Pipeline runs:
-1. **Lint**: Pint code style check
-2. **Tests**: PHPUnit with PostgreSQL
-3. **Coverage**: Upload to Codecov
-
-See `.github/workflows/ci.yml` for full CI configuration.
+To run locally:
+- **Lint**: `./vendor/bin/pint --test`
+- **Tests**: `php artisan test --parallel` (requires PostgreSQL configured in `.env`)
 
 ## Test Coverage Goals
 
