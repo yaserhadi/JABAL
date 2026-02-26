@@ -122,7 +122,7 @@ When syncing with PROJECT_MANIFEST / INTEGRITY_RULES:
 
 | Field | Value |
 |-------|-------|
-| Git commit | Phase 1.5 closure (see below) |
+| Git commit | `ee34ce5dc44805f1cb718c34989f3c2e672830c1` |
 | Date/time | 2026-02-21 (Asia/Riyadh) |
 | Command | `git rev-parse HEAD` |
 | Note | Phase 1.5 closed. stancl v3.9.1 installed; config published; middleware unchanged; all tests pass; exit criteria met. |
