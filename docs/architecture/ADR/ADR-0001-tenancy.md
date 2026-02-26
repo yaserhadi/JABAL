@@ -122,7 +122,7 @@ When syncing with PROJECT_MANIFEST / INTEGRITY_RULES:
 
 | Field | Value |
 |-------|-------|
-| Git commit | `9d12fc50cacfd7e11750a96143814c72b705b2f0` |
-| Date/time | 2026-02-26 01:03 +03 (Asia/Riyadh) |
+| Git commit | Phase 1.5 closure (see below) |
+| Date/time | 2026-02-21 (Asia/Riyadh) |
 | Command | `git rev-parse HEAD` |
-| Note | stancl dependency introduced; not activated. Stancl introduced: v3.9.1; config published; middleware unchanged. |
+| Note | Phase 1.5 closed. stancl v3.9.1 installed; config published; middleware unchanged; all tests pass; exit criteria met. |
