@@ -20,14 +20,14 @@ class PlatformSettingsService
     {
         $oldValue = $this->repository->get($key);
         $this->repository->set($key, $value);
-        SettingUpdated::dispatch($key, $oldValue, $value, 'general');
+        SettingUpdated::dispatch('general', $key, $oldValue, $value);
     }
 
     public function forget(string $key): void
     {
         $oldValue = $this->repository->get($key);
         $this->repository->forget($key);
-        SettingUpdated::dispatch($key, $oldValue, null, 'general');
+        SettingUpdated::dispatch('general', $key, $oldValue, null);
     }
 
     public function has(string $key): bool

@@ -1,0 +1,65 @@
+<?php
+
+namespace Modules\Tenancy\Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+use Modules\Tenancy\Models\Tenant;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\Modules\Tenancy\Models\Tenant>
+ */
+class TenantFactory extends Factory
+{
+    /**
+     * The name of the factory's corresponding model.
+     */
+    protected $model = Tenant::class;
+
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        $name = fake()->company();
+
+        return [
+            'name' => $name,
+            'slug' => Str::slug($name) . '-' . Str::random(6),
+            'type' => 'organization',
+            'isolation_level' => 'shared',
+        ];
+    }
+
+    /**
+     * Indicate that the tenant is personal type.
+     */
+    public function personal(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'personal',
+        ]);
+    }
+
+    /**
+     * Indicate that the tenant is organization type.
+     */
+    public function organization(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'organization',
+        ]);
+    }
+
+    /**
+     * Set the isolation level.
+     */
+    public function isolationLevel(string $level): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'isolation_level' => $level,
+        ]);
+    }
+}

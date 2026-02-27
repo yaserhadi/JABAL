@@ -4,12 +4,23 @@ namespace Modules\Tenancy\Models;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class TenantUser extends Model
+class TenantUser extends Pivot
 {
+    use HasFactory;
     use HasUuids;
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected static function newFactory(): \Illuminate\Database\Eloquent\Factories\Factory
+    {
+        return \Database\Factories\TenantUserFactory::new();
+    }
 
     protected $table = 'tenant_users';
 

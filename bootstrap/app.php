@@ -9,6 +9,8 @@ use Illuminate\Foundation\Configuration\Middleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../Modules/Api/routes/api.php',
+        apiPrefix: 'api',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -20,6 +22,13 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\TenantResolverMiddleware::class,
         ]);
 
+        // Inertia middleware (PR-2): only register when inertiajs/inertia-laravel is installed
+        if (class_exists(\Inertia\Middleware::class)) {
+            $middleware->web(append: [
+                \App\Http\Middleware\HandleInertiaRequests::class,
+            ]);
+        }
+
         $middleware->api([
             \App\Http\Middleware\RequestContextMiddleware::class,
             \App\Http\Middleware\ExecutionContextMiddleware::class,
@@ -27,38 +36,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Handle DomainException with consistent API/Web responses
+        // Custom exception handling for DomainException
         $exceptions->render(function (DomainException $e, $request) {
-            $requestContext = RequestContext::getInstance();
-
             if ($request->expectsJson()) {
-                // API Response
                 return response()->json([
                     'error' => [
                         'code' => $e->errorCode(),
                         'message' => $e->getMessage(),
-                        'details' => $e->errorDetails(),
-                    ],
-                    'meta' => [
-                        'request_id' => $requestContext->requestId(),
-                        'timestamp' => now()->toIso8601String(),
+                        'request_id' => RequestContext::getInstance()->getRequestId() ?? null,
                     ],
                 ], $e->getCode() ?: 500);
             }
 
-            // Web Response: Redirect back with error message
-            if ($request->hasSession()) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'error' => $e->getMessage(),
-                    ]);
-            }
-
-            // Fallback: Simple error response
-            return response()->view('errors.custom', [
-                'code' => $e->errorCode(),
-                'message' => $e->getMessage(),
-            ], $e->getCode() ?: 500);
+            return redirect()->back()->with('error', $e->getMessage());
         });
     })->create();

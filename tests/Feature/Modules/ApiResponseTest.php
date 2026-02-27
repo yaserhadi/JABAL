@@ -12,7 +12,7 @@ class ApiResponseTest extends TestCase
 
     public function test_api_returns_json_response(): void
     {
-        $response = $this->getJson('/api/v1/apis');
+        $response = $this->getJson('/api/v1/me');
 
         $response->assertHeader('Content-Type', 'application/json');
         $response->assertStatus(401);
@@ -25,7 +25,7 @@ class ApiResponseTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/apis');
+            ->getJson('/api/v1/me');
 
         $response->assertStatus(200);
         $response->assertJsonStructure([

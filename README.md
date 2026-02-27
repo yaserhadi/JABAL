@@ -1,66 +1,306 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Jabal SaaS Core Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+> **Phase 1 - Technical Foundation**
 
-## About Laravel
+A modern, modular SaaS platform built on Laravel 11 with multi-tenancy support, designed for scalability and maintainability.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Project Overview
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Jabal is a SaaS Core Platform that provides a solid technical foundation for building multi-tenant applications. The platform emphasizes:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Modular Architecture**: Domain-driven design with nWidart modules
+- **Multi-Tenancy**: Central identity with tenant-scoped data separation
+- **Event-Driven**: Foundation for event-driven architecture
+- **Modern Stack**: Laravel 11, Vue 3, Inertia.js, and PostgreSQL
 
-## Learning Laravel
+## Tech Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **Backend**: Laravel 11
+- **Database**: PostgreSQL 14+
+- **Frontend**: Vue 3 + Inertia.js + Vuetify 3
+- **Architecture**: Modular Monolith (nWidart/laravel-modules)
+- **Authentication**: Laravel Sanctum (API) + Session (Web)
+- **Code Quality**: Laravel Pint (PSR-12), PHPUnit
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## Requirements
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- PHP 8.2 or higher
+- PostgreSQL 14 or higher
+- Composer 2.x
+- Node.js 18+ and NPM
+- Git
 
-## Laravel Sponsors
+## Installation
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 1. Clone Repository
 
-### Premium Partners
+```bash
+git clone <repository-url>
+cd Jabal
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### 2. Environment Setup
+
+Copy the environment example file and configure your database:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and configure your database connection:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=jabal
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
+
+### 3. Install Dependencies
+
+Install PHP dependencies:
+
+```bash
+composer install
+```
+
+Install Inertia.js and Ziggy for route generation:
+
+```bash
+composer require inertiajs/inertia-laravel tightenco/ziggy
+```
+
+Install Node.js dependencies:
+
+```bash
+npm install
+```
+
+### 4. Generate Application Key
+
+```bash
+php artisan key:generate
+```
+
+### 5. Run Migrations
+
+```bash
+php artisan migrate
+```
+
+### 6. Seed Database
+
+```bash
+php artisan db:seed
+```
+
+This will create:
+- Admin user
+- Personal tenant for admin
+- Default system settings
+
+### 7. Build Frontend Assets
+
+For development:
+
+```bash
+npm run dev
+```
+
+For production:
+
+```bash
+npm run build
+```
+
+### 8. Start Development Server
+
+In one terminal, start Laravel:
+
+```bash
+php artisan serve
+```
+
+In another terminal (if using `npm run dev`), the Vite dev server will run automatically.
+
+Visit `http://localhost:8000` in your browser.
+
+## Development
+
+### Running Tests
+
+Run all tests:
+
+```bash
+php artisan test
+```
+
+Run tests in parallel:
+
+```bash
+php artisan test --parallel
+```
+
+Run specific test suite:
+
+```bash
+php artisan test --testsuite=Unit
+php artisan test --testsuite=Feature
+```
+
+Run specific test file:
+
+```bash
+php artisan test tests/Feature/Modules/Identity/UserAuthTest.php
+```
+
+### Code Style
+
+Laravel Pint is configured for code style. Run:
+
+```bash
+./vendor/bin/pint
+```
+
+To check without fixing:
+
+```bash
+./vendor/bin/pint --test
+```
+
+### Development Workflow
+
+1. **Backend Development**: 
+   - Run `php artisan serve` for Laravel
+   - Code changes auto-reload
+
+2. **Frontend Development**:
+   - Run `npm run dev` for Vite hot-reload
+   - Vue components auto-reload on save
+
+3. **Database Changes**:
+   - Create migrations: `php artisan make:migration create_table_name`
+   - Run migrations: `php artisan migrate`
+   - Rollback: `php artisan migrate:rollback`
+
+## Architecture
+
+### Module Structure
+
+The platform uses a modular monolith architecture with 5 core modules:
+
+| Module | Purpose |
+|--------|---------|
+| **Tenancy** | Tenant management, context resolution, membership |
+| **Identity** | User authentication, registration, session management |
+| **Settings** | Central platform settings (key-value store) |
+| **Audit** | Audit logging for model changes |
+| **Api** | API versioning, standard response format, middleware |
+
+### Data Separation
+
+- **Central Data**: Users, Tenants, Tenant Users, Platform Settings, Audit Logs
+- **Tenant-Scoped Data**: All domain data includes `tenant_id` for isolation
+
+### Event-Driven Foundation
+
+Phase 1 implements event infrastructure with 3 core events:
+- `UserRegistered` - Dispatched after user registration
+- `TenantCreated` - Dispatched after tenant creation
+- `SettingUpdated` - Dispatched after setting changes
+
+### Testing Conventions
+
+- **Unit Tests**: `tests/Unit/Modules/{ModuleName}/` - Fast, no database
+- **Feature Tests**: `tests/Feature/Modules/{ModuleName}/` - Full request/response cycles
+- Each module has at least one smoke test
+
+See [tests/README.md](tests/README.md) for detailed testing guidelines.
+
+## Documentation
+
+- **[Database Conventions](docs/database-conventions.md)**: Naming, UUID usage, indexing, tenant scoping
+- **[API Conventions](docs/api-conventions.md)**: Response format, versioning, authentication
+- **[Testing Guide](tests/README.md)**: Test structure, conventions, best practices
+
+## Phase 1 Status
+
+### ✅ Completed
+
+- Repository setup with Laravel 11 + PostgreSQL
+- Modular architecture (nWidart) with 5 modules
+- Context layer (Request, Actor, Tenant, Execution)
+- Identity & Authentication (Users, Sessions, Sanctum)
+- API Module (Versioning, Standard Responses)
+- Frontend Foundation (Inertia + Vue 3 + Vuetify)
+- Settings Module (Central platform settings)
+- Audit Module (Auditable trait, logging)
+- Database conventions documentation
+- Testing foundation with helpers
+- CI/CD pipeline
+
+### 🔄 In Progress
+
+- Additional feature tests
+- Frontend pages refinement
+
+### 📋 Phase 1 Definition of Done
+
+- ✅ User can register (creates Personal Tenant automatically)
+- ✅ User can login/logout
+- ✅ User is linked to Personal Tenant as owner
+- ✅ TenantContext works in every request
+- ✅ Tenant resolution falls back to personal tenant
+- ✅ Platform settings can be saved, read, and cached
+- ✅ Audit logs every create/update/delete on Auditable models
+- ✅ No domain logic exists outside `Modules/`
+- ✅ All cross-module dependencies use Contracts
+- ✅ 3 domain events dispatched
+- ✅ Exception handling returns consistent responses
+- ✅ CI pipeline passes (lint + tests)
+- ✅ At least 1 passing test per module
+- ✅ Database conventions documented
+- ✅ API responses follow standard format
+
+## Project Structure
+
+```
+Jabal/
+├── app/                    # Shared primitives only
+│   ├── Support/           # Contracts, Context, Events, Helpers
+│   └── Exceptions/        # Custom exceptions
+├── Modules/                # Domain modules
+│   ├── Tenancy/           # Tenant management
+│   ├── Identity/          # Authentication
+│   ├── Settings/          # Platform settings
+│   ├── Audit/             # Audit logging
+│   └── Api/               # API infrastructure
+├── database/
+│   ├── migrations/        # Database migrations
+│   └── seeders/           # Database seeders
+├── resources/
+│   ├── js/                # Vue 3 + Inertia.js frontend
+│   └── views/            # Blade templates
+├── tests/                 # PHPUnit tests
+│   ├── Unit/             # Unit tests
+│   └── Feature/          # Feature tests
+└── docs/                  # Project documentation
+```
 
 ## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+1. Follow database conventions: [docs/database-conventions.md](docs/database-conventions.md)
+2. Follow API conventions: [docs/api-conventions.md](docs/api-conventions.md)
+3. Write tests for new features
+4. Run Pint before committing: `./vendor/bin/pint`
+5. Ensure all tests pass: `php artisan test`
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is proprietary software. All rights reserved.
+
+## Support
+
+For questions or issues, please refer to the documentation in the `docs/` directory or create an issue in the project repository.

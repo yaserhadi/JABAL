@@ -4,6 +4,7 @@ namespace Tests\Unit\Modules;
 
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Modules\Audit\Models\AuditLog;
 use Modules\Audit\Services\AuditLogger;
 use Tests\TestCase;
@@ -22,9 +23,10 @@ class AuditLoggingTest extends TestCase
     {
         $logger = app(AuditLoggerInterface::class);
 
+        $uuid = Str::uuid()->toString();
         $logger->log('test.event', [
             'auditable_type' => 'TestModel',
-            'auditable_id' => 'test-id',
+            'auditable_id' => $uuid,
             'new_values' => ['foo' => 'bar'],
         ]);
 

@@ -3,10 +3,26 @@
 namespace Modules\Tenancy\Events;
 
 use App\Support\Events\DomainEvent;
+use App\Support\Events\Concerns\HasTenantContext;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Modules\Tenancy\Models\Tenant;
 
-class TenantCreated extends DomainEvent
+/**
+ * TenantCreated Domain Event
+ *
+ * Dispatched when a new tenant is created in the system.
+ * This event captures the tenant creation context and is dispatched
+ * after the database transaction commits to ensure data consistency.
+ */
+class TenantCreated extends DomainEvent implements ShouldDispatchAfterCommit
 {
+    use HasTenantContext;
+
+    /**
+     * Create a new TenantCreated event instance.
+     *
+     * @param  Tenant  $tenant  The newly created tenant
+     */
     public function __construct(
         public readonly Tenant $tenant
     ) {
@@ -15,6 +31,8 @@ class TenantCreated extends DomainEvent
 
     /**
      * Get the event payload as an array.
+     *
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {

@@ -13,6 +13,11 @@ class Tenant extends Model
 {
     use Auditable;
     use HasFactory;
+
+    protected static function newFactory(): \Illuminate\Database\Eloquent\Factories\Factory
+    {
+        return \Database\Factories\TenantFactory::new();
+    }
     use HasUuids;
     use SoftDeletes;
 
@@ -56,6 +61,11 @@ class Tenant extends Model
     public function scopePersonal($query)
     {
         return $query->where('type', 'personal');
+    }
+
+    public function isPersonal(): bool
+    {
+        return $this->type === 'personal';
     }
 
     /**
