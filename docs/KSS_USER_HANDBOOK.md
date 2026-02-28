@@ -68,6 +68,7 @@ This writes `.cursor/memory/HANDOFF.md` before you close the chat. **Run this in
 | INTEGRITY_RULES.md | Non-negotiable guardrails | `.cursor/memory/INTEGRITY_RULES.md` |
 | VERSIONS.md | Version facts | `.cursor/memory/VERSIONS.md` |
 | LESSONS.md | Mistakes to avoid (optional) | `.cursor/memory/LESSONS.md` |
+| conventions/ | Engineering standards (API, DB) | `.cursor/memory/conventions/` |
 | GOALS.md | Strategic goals only | `.cursor/goals/GOALS.md` |
 | reports-location.md | Reports in `.cursor/reports/` | `.cursor/rules/reports-location.md` |
 | AGENT_RESPONSE_CHECKLIST.md | Pre-response validation | `.cursor/rules/AGENT_RESPONSE_CHECKLIST.md` |
