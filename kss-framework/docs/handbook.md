@@ -80,9 +80,9 @@ Copy to `~/.cursor/commands/`.
 | boot | Load project context at session start |
 | session-end | Persist handoff to HANDOFF.md |
 | docpack | Detect → Propose → Apply doc updates |
-| gw-triage | Triage request, propose safest plan |
-| gw-riskcheck | Risk assessment, CAB review flag |
-| gw-review | Review diff for safety/compliance |
+| gw-triage | Triage request, propose safest plan; detect architectural decisions |
+| gw-riskcheck | Risk assessment, CAB review flag; includes ADR check |
+| gw-review | Review diff for safety/compliance; catch unrecorded decisions |
 | gw-handoff | Summarize changes for reviewer |
 | git-prepare | Create branch from main |
 | git-save | Commit progress (no push) |
@@ -164,9 +164,9 @@ Copy to `~/.cursor/rules/`:
 
 | Command | When to Use |
 |---------|-------------|
-| `/gw-triage` | Request is unclear; triage and propose safest plan |
-| `/gw-riskcheck` | Before production/security/data changes |
-| `/gw-review` | Review changes before merge |
+| `/gw-triage` | Request is unclear; triage and propose safest plan; detect architectural decisions |
+| `/gw-riskcheck` | Before production/security/data changes; includes ADR check |
+| `/gw-review` | Review changes before merge; catch unrecorded decisions |
 | `/gw-handoff` | In-session summary for reviewer |
 
 ### Git Commands

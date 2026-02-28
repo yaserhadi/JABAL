@@ -21,6 +21,12 @@
    - Follows modular boundaries
    - Least privilege applied
    - Audit trail maintained where required
+5. **Architectural Decision Check**:
+   - Does this change involve a choice between alternatives?
+   - Does it establish a new pattern, API contract, or module boundary?
+   - Does it have long-term architectural implications?
+   - Does it affect security boundaries or data access rules?
+   - Is there an existing ADR that covers this decision?
 
 **Output Format**:
 ```
@@ -61,7 +67,24 @@
 
 **Evidence Referenced**:
 - [files/commands/tests that support the conclusions]
+
+**Architectural Decision Check**:
+- [ ] Involves architectural choice: Yes / No
+- [ ] Decision type: [DB/API/Security/Module/Integration/None]
+- [ ] Existing ADR covers this: [ADR-XXXX] / None found / N/A
+- [ ] ADR recommended: Yes / No
+
+**If ADR Recommended**:
+> Run `/adr` before proceeding. Paste the discussion context.
+> Decision indicators detected: [list what triggered this]
 ```
+
+**Decision Indicators** (triggers ADR recommendation):
+- Trade-off language: "chose X over Y", "decided to", "alternative considered"
+- New patterns: database schema, API endpoint design, authentication flow
+- Breaking changes: contract modifications, interface changes
+- Security boundaries: permission model, data access rules
+- Module boundaries: new module, cross-module dependency
 
 ---
 
