@@ -27,11 +27,42 @@ Extract signals from the session:
 - Was there user impact?
 - Were there lessons learned?
 
+### 2.5 ADR Completeness Check (Advisory)
+
+Scan session context for decision indicators:
+
+**Triggers** (any of these suggests an architectural decision):
+- Module boundary created or changed
+- API contract modified (routes, DTOs, auth flow, versioning)
+- Tenancy / DB schema / migrations changed
+- Security model / RBAC / permissions changed
+- Language in commits/discussion: "decided", "chose", "alternative", "trade-off", "breaking change"
+
+**Check:**
+- If triggers detected AND no new/updated ADR found in session:
+  - Output **ADR Missing Warning** (advisory, not blocking)
+
+**Output Format:**
+```
+**ADR Completeness Check (Advisory)**:
+- Decision indicators detected: [list what triggered]
+- ADR coverage found: [ADR-XXXX] / None
+- Status: OK / Warning
+
+**If Warning**:
+> Recommended: Run `/adr` to capture the decision context.
+> If ADR not needed, document rationale: "ADR Not Needed: <reason>"
+```
+
+**Important:** This check is advisory only. It does not block docpack execution.
+
 ### 3. Propose
 Present update plan:
 
 ```
 DOCPACK PROPOSAL
+
+**ADR Completeness Check**: [OK / Warning - see above]
 
 AI Track Updates (.cursor/memory/):
 - [ ] HANDOFF.md - Session summary [required]
@@ -40,7 +71,7 @@ AI Track Updates (.cursor/memory/):
 - [ ] VERSIONS.md - [if breaking change]
 
 Architecture:
-- [ ] docs/architecture/ADR/ - [if architecture decision]
+- [ ] docs/architecture/ADR/ - [if architecture decision, run /adr]
 
 User Track Updates (docs/):
 - [ ] docs/reference/[name].md - [if user impact detected]
