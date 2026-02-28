@@ -25,10 +25,10 @@ class ApiResponseTest extends TestCase
     {
         $user = User::factory()->create();
         $tenant = $this->createPersonalTenant($user);
-        $token = $user->createToken('test', ['tenant:' . $tenant->id])->plainTextToken;
+        $token = $user->createToken('test', ['tenant:'.$tenant->id])->plainTextToken;
 
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $tenant->id,
         ])->getJson('/api/v1/me');
 

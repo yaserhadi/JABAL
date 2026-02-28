@@ -6,7 +6,7 @@ use App\Support\Context\RequestContext;
 use Illuminate\Http\JsonResponse;
 
 /**
- * API Response Helper
+ * API Response Helper.
  *
  * Provides static methods for standardized API responses.
  * All responses include request_id from RequestContext and timestamp in meta.
@@ -18,7 +18,6 @@ class ApiResponse
      *
      * @param  array<string, mixed>|object  $data
      * @param  array<string, mixed>  $meta  Additional metadata to include
-     * @return \Illuminate\Http\JsonResponse
      */
     public static function success($data, array $meta = []): JsonResponse
     {
@@ -39,7 +38,6 @@ class ApiResponse
      * @param  string  $code  Error code
      * @param  string  $message  Human-readable error message
      * @param  array<string, mixed>  $details  Additional error details
-     * @return \Illuminate\Http\JsonResponse
      */
     public static function error(string $code, string $message, array $details = []): JsonResponse
     {
@@ -64,7 +62,6 @@ class ApiResponse
      * @param  array<int, mixed>  $data  Array of data items
      * @param  array<string, mixed>  $pagination  Pagination information
      * @param  array<string, mixed>  $meta  Additional metadata to include
-     * @return \Illuminate\Http\JsonResponse
      */
     public static function paginated(array $data, array $pagination, array $meta = []): JsonResponse
     {

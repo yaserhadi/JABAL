@@ -37,7 +37,7 @@ return [
 
     /**
      * Database tenancy config. Used by DatabaseTenancyBootstrapper.
-     * 
+     *
      * PHASE 2 LOCK: Shared tenant DB architecture.
      * - NO template_tenant_connection (no per-tenant DB creation)
      * - NO prefix/suffix (no dynamic DB naming)

@@ -46,10 +46,10 @@ class ApiTest extends TestCase
         $tenant = $this->createPersonalTenant($user);
 
         // Create token with tenant ability
-        $token = $user->createToken('test-token', ['tenant:' . $tenant->id])->plainTextToken;
+        $token = $user->createToken('test-token', ['tenant:'.$tenant->id])->plainTextToken;
 
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $tenant->id,
         ])->getJson('/api/v1/me');
 

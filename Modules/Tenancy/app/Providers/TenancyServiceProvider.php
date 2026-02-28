@@ -31,7 +31,7 @@ class TenancyServiceProvider extends ServiceProvider
 
     /**
      * Register the service provider.
-     * 
+     *
      * PHASE 2: Removed TenantResolverInterface and TenantContextInterface bindings.
      * Stancl tenancy() is now the single source of truth for tenant context.
      */
@@ -42,7 +42,7 @@ class TenancyServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register commands in the format of Command::class
+     * Register commands in the format of Command::class.
      */
     protected function registerCommands(): void
     {
@@ -132,7 +132,7 @@ class TenancyServiceProvider extends ServiceProvider
 
         $this->loadViewsFrom(array_merge($this->getPublishableViewPaths(), [$sourcePath]), $this->nameLower);
 
-        Blade::componentNamespace(config('modules.namespace').'\\' . $this->name . '\\View\\Components', $this->nameLower);
+        Blade::componentNamespace(config('modules.namespace').'\\'.$this->name.'\\View\\Components', $this->nameLower);
     }
 
     /**

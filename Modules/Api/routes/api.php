@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Middleware\ValidateTenantToken;
 use Illuminate\Support\Facades\Route;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Http\Controllers\Api\TokenController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
-use App\Http\Middleware\ValidateTenantToken;
 
 /*
 |--------------------------------------------------------------------------

@@ -2,12 +2,12 @@
 
 namespace Modules\Settings\Events;
 
-use App\Support\Events\DomainEvent;
 use App\Support\Events\Concerns\HasTenantContext;
+use App\Support\Events\DomainEvent;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 
 /**
- * SettingUpdated Domain Event
+ * SettingUpdated Domain Event.
  *
  * Dispatched when a platform setting is updated.
  * This event captures the setting change context (old and new values)

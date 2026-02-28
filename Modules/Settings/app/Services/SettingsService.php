@@ -8,8 +8,7 @@ class SettingsService
 {
     public function __construct(
         private SettingsRepositoryInterface $repository
-    ) {
-    }
+    ) {}
 
     /**
      * Get a platform setting.

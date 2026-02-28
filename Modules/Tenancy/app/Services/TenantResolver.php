@@ -10,16 +10,13 @@ use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * Tenant Resolver Service
+ * Tenant Resolver Service.
  *
  * Resolves the current tenant from session or user's personal tenant.
  * Implements the TenantResolverInterface for dependency injection.
  */
 class TenantResolver implements TenantResolverInterface
 {
-    /**
-     * @var UserService
-     */
     protected UserService $userService;
 
     public function __construct(UserService $userService)

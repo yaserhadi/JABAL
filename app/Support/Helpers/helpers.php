@@ -7,13 +7,13 @@ use Modules\Tenancy\Models\TenantUser;
  * PHASE 2: Helpers now use Stancl tenancy() instead of TenantContext.
  * tenancy() is the global Stancl helper function.
  */
-
 if (! function_exists('current_tenant')) {
     function current_tenant(): ?Tenant
     {
-        if (!tenancy()->initialized) {
+        if (! tenancy()->initialized) {
             return null;
         }
+
         return tenancy()->tenant;
     }
 }

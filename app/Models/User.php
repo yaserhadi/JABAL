@@ -7,6 +7,4 @@ namespace App\Models;
  * All domain logic (tenancy, personalTenant) lives in Modules\Identity\Models\User.
  * Lock 2: This file MUST NOT contain tenancy relations, business methods, or Modules imports.
  */
-class User extends \Modules\Identity\Models\User
-{
-}
+class User extends \Modules\Identity\Models\User {}

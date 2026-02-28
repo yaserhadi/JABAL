@@ -9,7 +9,7 @@ use Modules\Tenancy\Models\TenantUser;
 
 /**
  * UserService handles all user-related business logic.
- * 
+ *
  * This service manages user-tenant relationships and membership operations,
  * keeping the User model clean of business logic (Lock 2 compliance).
  */
@@ -17,11 +17,8 @@ class UserService
 {
     /**
      * Get a user's personal tenant.
-     * 
-     * Returns the tenant where type is 'personal' and the user is the owner.
      *
-     * @param User $user
-     * @return Tenant|null
+     * Returns the tenant where type is 'personal' and the user is the owner.
      */
     public function getPersonalTenant(User $user): ?Tenant
     {
@@ -37,7 +34,6 @@ class UserService
     /**
      * Get all tenants the user belongs to.
      *
-     * @param User $user
      * @return Collection<int, Tenant>
      */
     public function getTenants(User $user): Collection
@@ -51,7 +47,6 @@ class UserService
     /**
      * Get all tenant memberships for a user.
      *
-     * @param User $user
      * @return Collection<int, TenantUser>
      */
     public function getTenantMemberships(User $user): Collection
@@ -64,10 +59,6 @@ class UserService
 
     /**
      * Get a specific tenant membership for a user.
-     *
-     * @param User $user
-     * @param Tenant $tenant
-     * @return TenantUser|null
      */
     public function getTenantMembership(User $user, Tenant $tenant): ?TenantUser
     {
@@ -78,10 +69,6 @@ class UserService
 
     /**
      * Check if user is an owner of a specific tenant.
-     *
-     * @param User $user
-     * @param Tenant $tenant
-     * @return bool
      */
     public function isOwner(User $user, Tenant $tenant): bool
     {
@@ -94,10 +81,6 @@ class UserService
 
     /**
      * Check if user is an admin of a specific tenant.
-     *
-     * @param User $user
-     * @param Tenant $tenant
-     * @return bool
      */
     public function isAdmin(User $user, Tenant $tenant): bool
     {
@@ -110,14 +93,11 @@ class UserService
 
     /**
      * Get user's membership type for a specific tenant.
-     *
-     * @param User $user
-     * @param Tenant $tenant
-     * @return string|null
      */
     public function getMembershipType(User $user, Tenant $tenant): ?string
     {
         $membership = $this->getTenantMembership($user, $tenant);
+
         return $membership?->membership_type;
     }
 
@@ -125,15 +105,12 @@ class UserService
      * Create a personal tenant for a user.
      *
      * PHASE 2: Sets status = 'active' and created_by = user ID.
-     *
-     * @param User $user
-     * @return Tenant
      */
     public function createPersonalTenant(User $user): Tenant
     {
         $tenant = Tenant::create([
-            'name' => $user->name . "'s Workspace",
-            'slug' => 'personal-' . $user->id,
+            'name' => $user->name."'s Workspace",
+            'slug' => 'personal-'.$user->id,
             'type' => 'personal',
             'isolation_level' => 'shared',
             'status' => 'active',
@@ -153,12 +130,6 @@ class UserService
 
     /**
      * Add a user to a tenant with specified membership type.
-     *
-     * @param User $user
-     * @param Tenant $tenant
-     * @param string $membershipType
-     * @param string $status
-     * @return TenantUser
      */
     public function addUserToTenant(
         User $user,
@@ -177,10 +148,6 @@ class UserService
 
     /**
      * Remove a user from a tenant.
-     *
-     * @param User $user
-     * @param Tenant $tenant
-     * @return bool
      */
     public function removeUserFromTenant(User $user, Tenant $tenant): bool
     {

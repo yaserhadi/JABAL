@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * API Version Middleware
+ * API Version Middleware.
  *
  * Checks Accept header for API version (default: v1).
  * Sets request attribute 'api_version' for use in version routing.

@@ -26,7 +26,7 @@ class TenancySecurityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->userA = User::factory()->create();
         $this->userB = User::factory()->create();
         $this->tenantA = $this->createPersonalTenant($this->userA);
@@ -40,10 +40,10 @@ class TenancySecurityTest extends TestCase
     public function test_web_route_param_mismatch_returns_403(): void
     {
         $this->actingAs($this->userA);
-        
+
         // UserA tries to access tenantB's dashboard
-        $response = $this->get('/t/' . $this->tenantB->id . '/dashboard');
-        
+        $response = $this->get('/t/'.$this->tenantB->id.'/dashboard');
+
         $response->assertStatus(403);
     }
 
@@ -51,11 +51,11 @@ class TenancySecurityTest extends TestCase
     {
         // Deactivate tenant
         $this->tenantA->update(['status' => 'suspended']);
-        
+
         $this->actingAs($this->userA);
-        
-        $response = $this->get('/t/' . $this->tenantA->id . '/dashboard');
-        
+
+        $response = $this->get('/t/'.$this->tenantA->id.'/dashboard');
+
         $response->assertStatus(403);
     }
 
@@ -65,11 +65,11 @@ class TenancySecurityTest extends TestCase
         TenantUser::where('user_id', $this->userA->id)
             ->where('tenant_id', $this->tenantA->id)
             ->delete();
-        
+
         $this->actingAs($this->userA);
-        
-        $response = $this->get('/t/' . $this->tenantA->id . '/dashboard');
-        
+
+        $response = $this->get('/t/'.$this->tenantA->id.'/dashboard');
+
         $response->assertStatus(403);
     }
 
@@ -79,13 +79,13 @@ class TenancySecurityTest extends TestCase
 
     public function test_api_no_x_tenant_id_header_returns_401(): void
     {
-        $token = $this->userA->createToken('test', ['tenant:' . $this->tenantA->id])->plainTextToken;
-        
+        $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
+
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             // Missing X-Tenant-Id
         ])->getJson('/api/v1/me');
-        
+
         $response->assertStatus(401)
             ->assertJson(['error' => 'X-Tenant-Id header required']);
     }
@@ -96,7 +96,7 @@ class TenancySecurityTest extends TestCase
             'X-Tenant-Id' => $this->tenantA->id,
             // Missing Authorization
         ])->getJson('/api/v1/me');
-        
+
         $response->assertStatus(401);
     }
 
@@ -104,12 +104,12 @@ class TenancySecurityTest extends TestCase
     {
         // Token without tenant ability
         $token = $this->userA->createToken('test', ['*'])->plainTextToken;
-        
+
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $this->tenantA->id,
         ])->getJson('/api/v1/me');
-        
+
         $response->assertStatus(403)
             ->assertJson(['error' => 'Token missing tenant ability']);
     }
@@ -117,8 +117,8 @@ class TenancySecurityTest extends TestCase
     public function test_api_token_ability_mismatch_with_header_returns_403(): void
     {
         // Token scoped to tenantA, but header requests tenantB
-        $token = $this->userA->createToken('test', ['tenant:' . $this->tenantA->id])->plainTextToken;
-        
+        $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
+
         // Add userA to tenantB for this test
         TenantUser::create([
             'tenant_id' => $this->tenantB->id,
@@ -127,12 +127,12 @@ class TenancySecurityTest extends TestCase
             'status' => 'active',
             'joined_at' => now(),
         ]);
-        
+
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $this->tenantB->id,
         ])->getJson('/api/v1/me');
-        
+
         $response->assertStatus(403)
             ->assertJson(['error' => 'Header does not match token ability']);
     }
@@ -140,14 +140,14 @@ class TenancySecurityTest extends TestCase
     public function test_api_tenant_inactive_returns_403(): void
     {
         $this->tenantA->update(['status' => 'suspended']);
-        
-        $token = $this->userA->createToken('test', ['tenant:' . $this->tenantA->id])->plainTextToken;
-        
+
+        $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
+
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $this->tenantA->id,
         ])->getJson('/api/v1/me');
-        
+
         $response->assertStatus(403)
             ->assertJson(['error' => 'Tenant not found or inactive']);
     }
@@ -158,14 +158,14 @@ class TenancySecurityTest extends TestCase
         TenantUser::where('user_id', $this->userA->id)
             ->where('tenant_id', $this->tenantA->id)
             ->delete();
-        
-        $token = $this->userA->createToken('test', ['tenant:' . $this->tenantA->id])->plainTextToken;
-        
+
+        $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
+
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $this->tenantA->id,
         ])->getJson('/api/v1/me');
-        
+
         $response->assertStatus(403)
             ->assertJson(['error' => 'User is not a member of this tenant']);
     }
@@ -180,10 +180,10 @@ class TenancySecurityTest extends TestCase
         if (tenancy()->initialized) {
             tenancy()->end();
         }
-        
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Cannot query tenant-scoped model');
-        
+
         // Create a test model that uses BelongsToTenant
         TenantScopedTestModel::query()->get();
     }
@@ -194,10 +194,10 @@ class TenancySecurityTest extends TestCase
         if (tenancy()->initialized) {
             tenancy()->end();
         }
-        
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Cannot create tenant-scoped model');
-        
+
         TenantScopedTestModel::create(['name' => 'test']);
     }
 
@@ -207,12 +207,12 @@ class TenancySecurityTest extends TestCase
         if (tenancy()->initialized) {
             tenancy()->end();
         }
-        
+
         // Should NOT throw exception when tenant_id is explicitly provided
-        $model = new TenantScopedTestModel();
+        $model = new TenantScopedTestModel;
         $model->tenant_id = $this->tenantA->id;
         $model->name = 'test';
-        
+
         // We can't actually save without a table, but the creating event should not throw
         // Instead, we verify that the creating callback doesn't throw when tenant_id is set
         $this->assertEquals($this->tenantA->id, $model->tenant_id);
@@ -226,7 +226,7 @@ class TenancySecurityTest extends TestCase
 class TenantScopedTestModel extends Model
 {
     use BelongsToTenant;
-    
+
     protected $table = 'tenant_scoped_test';
     protected $fillable = ['name', 'tenant_id'];
     public $timestamps = false;

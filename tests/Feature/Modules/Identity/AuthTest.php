@@ -18,7 +18,7 @@ class AuthTest extends TestCase
     }
 
     /**
-     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard
+     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard.
      */
     public function test_users_can_authenticate_with_valid_credentials(): void
     {
@@ -34,7 +34,7 @@ class AuthTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect('/t/' . $tenant->id . '/dashboard');
+        $response->assertRedirect('/t/'.$tenant->id.'/dashboard');
     }
 
     public function test_users_cannot_authenticate_with_invalid_password(): void

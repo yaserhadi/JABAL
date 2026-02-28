@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\TenantContextTestJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -12,11 +11,11 @@ use Tests\TestCase;
 
 /**
  * Phase 2 Bootstrapper Tests: Verify tenancy context is properly initialized.
- * 
+ *
  * NOTE: Full cache isolation tests require a cache driver that supports tags
  * (e.g., Redis). The array driver used in tests doesn't support tags, so
  * we verify tenant context availability instead of tag-based isolation.
- * 
+ *
  * PHASE 2 LOCK: Tests verify tenancy context is available after initialization.
  * No schema changes required.
  */
@@ -30,7 +29,7 @@ class TenancyBootstrapTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $userA = User::factory()->create();
         $userB = User::factory()->create();
         $this->tenantA = $this->createPersonalTenant($userA);
@@ -43,14 +42,14 @@ class TenancyBootstrapTest extends TestCase
     public function test_tenancy_context_can_be_initialized_and_ended(): void
     {
         $this->assertFalse(tenancy()->initialized);
-        
+
         tenancy()->initialize($this->tenantA);
-        
+
         $this->assertTrue(tenancy()->initialized);
         $this->assertEquals($this->tenantA->id, tenancy()->tenant->id);
-        
+
         tenancy()->end();
-        
+
         $this->assertFalse(tenancy()->initialized);
     }
 
@@ -62,11 +61,11 @@ class TenancyBootstrapTest extends TestCase
         tenancy()->initialize($this->tenantA);
         $this->assertEquals($this->tenantA->id, tenancy()->tenant->id);
         tenancy()->end();
-        
+
         tenancy()->initialize($this->tenantB);
         $this->assertEquals($this->tenantB->id, tenancy()->tenant->id);
         tenancy()->end();
-        
+
         tenancy()->initialize($this->tenantA);
         $this->assertEquals($this->tenantA->id, tenancy()->tenant->id);
         tenancy()->end();
@@ -74,32 +73,32 @@ class TenancyBootstrapTest extends TestCase
 
     /**
      * Test that cache operations work within tenant context.
-     * 
+     *
      * Note: This tests that cache works with tenancy, not that it's isolated.
      * Full isolation requires a tagged cache driver (Redis, etc.).
      */
     public function test_cache_operations_work_within_tenant_context(): void
     {
-        $cacheKey = 'test:tenant_aware_key:' . Str::uuid();
-        
+        $cacheKey = 'test:tenant_aware_key:'.Str::uuid();
+
         tenancy()->initialize($this->tenantA);
-        
+
         Cache::put($cacheKey, 'test_value', 60);
         $this->assertEquals('test_value', Cache::get($cacheKey));
-        
+
         Cache::forget($cacheKey);
         $this->assertNull(Cache::get($cacheKey));
-        
+
         tenancy()->end();
     }
 
     /**
      * Test that queued jobs receive tenant context.
-     * 
+     *
      * NOTE: This test verifies that the QueueTenancyBootstrapper is enabled.
      * Full queue tenant isolation requires a real queue driver (database, Redis)
      * and is verified in integration/staging environments.
-     * 
+     *
      * With sync driver in tests, we verify that tenancy context is available
      * when manually dispatching and handling a job in the same process.
      */
@@ -107,7 +106,7 @@ class TenancyBootstrapTest extends TestCase
     {
         // Verify that QueueTenancyBootstrapper is in the config
         $bootstrappers = config('tenancy.bootstrappers');
-        
+
         $this->assertContains(
             \Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper::class,
             $bootstrappers,
@@ -121,7 +120,7 @@ class TenancyBootstrapTest extends TestCase
     public function test_tenant_model_implements_tenant_contract(): void
     {
         $tenant = $this->tenantA;
-        
+
         $this->assertEquals('id', $tenant->getTenantKeyName());
         $this->assertEquals($tenant->id, $tenant->getTenantKey());
     }
@@ -137,10 +136,10 @@ class TenancyBootstrapTest extends TestCase
                 'tenant_id' => tenancy()->tenant?->id,
             ];
         });
-        
+
         $this->assertTrue($result['initialized']);
         $this->assertEquals($this->tenantA->id, $result['tenant_id']);
-        
+
         // Context should be ended after run()
         $this->assertFalse(tenancy()->initialized);
     }

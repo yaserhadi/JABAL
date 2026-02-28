@@ -12,7 +12,7 @@ class UserAuthTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard
+     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard.
      */
     public function test_login_redirects_to_dashboard(): void
     {
@@ -27,7 +27,7 @@ class UserAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $response->assertRedirect('/t/' . $tenant->id . '/dashboard');
+        $response->assertRedirect('/t/'.$tenant->id.'/dashboard');
         $this->assertAuthenticated();
     }
 

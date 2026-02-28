@@ -16,7 +16,6 @@ abstract class TestCase extends BaseTestCase
      * Set the currently authenticated user to act as a specific tenant.
      * Uses Stancl tenancy() for context management.
      *
-     * @param  Tenant  $tenant
      * @return $this
      */
     protected function actingAsTenant(Tenant $tenant): static
@@ -31,7 +30,7 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * Create a personal tenant for the given user.
-     * 
+     *
      * PHASE 2: Sets status = 'active'.
      *
      * @param  mixed  $user

@@ -45,7 +45,6 @@ class Handler extends ExceptionHandler
      * Render an exception into an HTTP response.
      *
      * @param  Request  $request
-     * @param  Throwable  $e
      * @return Response
      *
      * @throws Throwable
@@ -62,10 +61,6 @@ class Handler extends ExceptionHandler
 
     /**
      * Render a DomainException with consistent API/Web responses.
-     *
-     * @param  Request  $request
-     * @param  DomainException  $e
-     * @return Response
      */
     protected function renderDomainException(Request $request, DomainException $e): Response
     {
@@ -83,10 +78,6 @@ class Handler extends ExceptionHandler
 
     /**
      * Render exception as API JSON response.
-     *
-     * @param  DomainException  $e
-     * @param  int  $statusCode
-     * @return Response
      */
     protected function renderApiException(DomainException $e, int $statusCode): Response
     {
@@ -109,11 +100,6 @@ class Handler extends ExceptionHandler
 
     /**
      * Render exception as Web HTML response.
-     *
-     * @param  Request  $request
-     * @param  DomainException  $e
-     * @param  int  $statusCode
-     * @return Response
      */
     protected function renderWebException(Request $request, DomainException $e, int $statusCode): Response
     {
@@ -142,9 +128,6 @@ class Handler extends ExceptionHandler
 
     /**
      * Get HTTP status code for exception type.
-     *
-     * @param  DomainException  $e
-     * @return int
      */
     protected function getStatusCodeForException(DomainException $e): int
     {

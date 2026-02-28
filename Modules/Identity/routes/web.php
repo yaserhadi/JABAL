@@ -1,17 +1,17 @@
 <?php
 
+use App\Http\Middleware\EnsureUserBelongsToTenant;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByPath;
-use App\Http\Middleware\EnsureUserBelongsToTenant;
 
 /*
 |--------------------------------------------------------------------------
 | Identity Module Web Routes (auth, dashboard) — Inertia + Vuetify
 |--------------------------------------------------------------------------
 |
-| PHASE 2: 
+| PHASE 2:
 | - Central routes (login, register, logout) remain unchanged
 | - Dashboard moved to /t/{tenant}/dashboard with tenant context
 |
@@ -41,6 +41,7 @@ Route::prefix('t/{tenant}')
     ->group(function () {
         Route::get('/dashboard', function () {
             $tenant = tenancy()->tenant;
+
             return Inertia::render('Dashboard', [
                 'tenant' => $tenant ? [
                     'id' => $tenant->id,

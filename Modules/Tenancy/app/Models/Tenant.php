@@ -14,7 +14,7 @@ use Stancl\Tenancy\Database\Concerns\TenantRun;
 
 /**
  * Tenant model implementing Stancl TenantContract.
- * 
+ *
  * PHASE 2 LOCK:
  * - Implements TenantContract only (NO HasDatabase trait)
  * - Uses explicit 'central' connection

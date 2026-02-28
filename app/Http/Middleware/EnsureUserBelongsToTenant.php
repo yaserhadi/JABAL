@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Web middleware: Ensure authenticated user belongs to the current tenant.
- * 
+ *
  * PHASE 2 LOCK:
  * - Runs AFTER InitializeTenancyByPath
  * - Checks tenant context, route param match, tenant status, and membership
@@ -20,36 +20,36 @@ class EnsureUserBelongsToTenant
     public function handle(Request $request, Closure $next): Response
     {
         $tenant = tenancy()->tenant;
-        
-        if (!$tenant) {
+
+        if (! $tenant) {
             abort(403, 'No tenant context');
         }
-        
+
         $routeTenant = $request->route('tenant');
         $routeTenantId = is_object($routeTenant) ? ($routeTenant->id ?? null) : $routeTenant;
-        
+
         if ($routeTenantId && $routeTenantId !== $tenant->id) {
             abort(403, 'Route tenant does not match tenancy context');
         }
-        
+
         if ($tenant->status !== 'active') {
             abort(403, 'Tenant is not active');
         }
-        
+
         $user = $request->user();
-        if (!$user) {
+        if (! $user) {
             return redirect()->route('login');
         }
-        
+
         $isMember = TenantUser::where('user_id', $user->id)
             ->where('tenant_id', $tenant->id)
             ->where('status', 'active')
             ->exists();
-        
-        if (!$isMember) {
+
+        if (! $isMember) {
             abort(403, 'You are not a member of this tenant');
         }
-        
+
         return $next($request);
     }
 }

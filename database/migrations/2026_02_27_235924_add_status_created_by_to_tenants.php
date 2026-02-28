@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     * 
+     *
      * Phase 2: Add status and created_by fields to tenants table.
      */
     public function up(): void

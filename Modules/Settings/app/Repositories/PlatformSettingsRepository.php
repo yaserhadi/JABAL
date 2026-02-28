@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Modules\Settings\Models\PlatformSettings;
 
 /**
- * Platform Settings Repository
+ * Platform Settings Repository.
  *
  * Implements the settings repository interface with caching and tag-based invalidation.
  * Supports 'group.key' format for keys, splitting on the first dot.
@@ -33,10 +33,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
      * Get a setting value by key.
      *
      * Key format: 'group.key' or 'key' (defaults to 'general' group)
-     *
-     * @param  string  $key
-     * @param  mixed  $default
-     * @return mixed
      */
     public function get(string $key, mixed $default = null): mixed
     {
@@ -63,10 +59,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
      * Set a setting value.
      *
      * Key format: 'group.key' or 'key' (defaults to 'general' group)
-     *
-     * @param  string  $key
-     * @param  mixed  $value
-     * @return void
      */
     public function set(string $key, mixed $value): void
     {
@@ -97,9 +89,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
      * Remove a setting.
      *
      * Key format: 'group.key' or 'key' (defaults to 'general' group)
-     *
-     * @param  string  $key
-     * @return void
      */
     public function forget(string $key): void
     {
@@ -116,9 +105,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
      * Check if a setting exists.
      *
      * Key format: 'group.key' or 'key' (defaults to 'general' group)
-     *
-     * @param  string  $key
-     * @return bool
      */
     public function has(string $key): bool
     {
@@ -138,7 +124,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
     /**
      * Get all settings in a group.
      *
-     * @param  string  $group
      * @return array<string, mixed>
      */
     public function getGroup(string $group): array
@@ -165,7 +150,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
      * Format: 'group.key' splits on first dot
      * If no dot, defaults to 'general' group
      *
-     * @param  string  $key
      * @return array{0: string, 1: string}
      */
     private function parseKey(string $key): array
@@ -184,10 +168,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
 
     /**
      * Get cache key for a specific setting.
-     *
-     * @param  string  $group
-     * @param  string  $key
-     * @return string
      */
     private function getCacheKey(string $group, string $key): string
     {
@@ -196,9 +176,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
 
     /**
      * Get cache key for a group.
-     *
-     * @param  string  $group
-     * @return string
      */
     private function getGroupCacheKey(string $group): string
     {
@@ -207,10 +184,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
 
     /**
      * Invalidate cache for a setting or group.
-     *
-     * @param  string  $group
-     * @param  string|null  $key
-     * @return void
      */
     private function invalidateCache(string $group, ?string $key = null): void
     {
@@ -229,9 +202,6 @@ class PlatformSettingsRepository implements SettingsRepositoryInterface
 
     /**
      * Determine if a setting key should be encrypted.
-     *
-     * @param  string  $key
-     * @return bool
      */
     private function shouldEncrypt(string $key): bool
     {

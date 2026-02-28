@@ -19,7 +19,7 @@ trait Auditable
         });
 
         static::updated(function ($model) {
-            if ($model->wasChanged() && !$model->wasRecentlyCreated) {
+            if ($model->wasChanged() && ! $model->wasRecentlyCreated) {
                 $model->auditEvent('updated');
             }
         });

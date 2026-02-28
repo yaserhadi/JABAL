@@ -27,7 +27,7 @@ class TenantFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . Str::random(6),
+            'slug' => Str::slug($name).'-'.Str::random(6),
             'type' => 'organization',
             'isolation_level' => 'shared',
         ];

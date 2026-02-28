@@ -17,12 +17,12 @@ class SettingsRepository implements SettingsRepositoryInterface
      */
     public function get(string $key, mixed $default = null): mixed
     {
-        $cacheKey = self::CACHE_PREFIX . $key;
+        $cacheKey = self::CACHE_PREFIX.$key;
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($key, $default) {
             $setting = PlatformSetting::where('key', $key)->first();
 
-            if (!$setting) {
+            if (! $setting) {
                 return $default;
             }
 
@@ -45,7 +45,7 @@ class SettingsRepository implements SettingsRepositoryInterface
         $setting->save();
 
         // Invalidate cache (only clear cache, don't delete the record)
-        Cache::forget(self::CACHE_PREFIX . $key);
+        Cache::forget(self::CACHE_PREFIX.$key);
 
         // Dispatch event
         event(new SettingUpdated($group, $key, $oldValue, $value));
@@ -65,7 +65,7 @@ class SettingsRepository implements SettingsRepositoryInterface
     public function forget(string $key): void
     {
         PlatformSetting::where('key', $key)->delete();
-        Cache::forget(self::CACHE_PREFIX . $key);
+        Cache::forget(self::CACHE_PREFIX.$key);
     }
 
     /**

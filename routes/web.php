@@ -16,9 +16,11 @@ Route::get('/', function () {
         $user = auth()->user();
         $personalTenant = $user->personalTenant();
         if ($personalTenant) {
-            return redirect('/t/' . $personalTenant->id . '/dashboard');
+            return redirect('/t/'.$personalTenant->id.'/dashboard');
         }
+
         return redirect()->route('login');
     }
+
     return redirect()->route('login');
 });

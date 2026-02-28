@@ -16,14 +16,12 @@ class RequestContext
 
     private ?string $url = null;
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function getInstance(): self
     {
         if (self::$instance === null) {
-            self::$instance = new self();
+            self::$instance = new self;
         }
 
         return self::$instance;

@@ -38,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // PHASE 2: Configure Stancl middleware to use X-Tenant-Id header
         InitializeTenancyByRequestData::$header = 'X-Tenant-Id';
-        
+
         // PHASE 2: Handle missing/invalid tenant gracefully
         InitializeTenancyByRequestData::$onFail = function ($exception, $request, $next) {
             return response()->json([

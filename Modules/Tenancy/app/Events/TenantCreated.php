@@ -2,13 +2,13 @@
 
 namespace Modules\Tenancy\Events;
 
-use App\Support\Events\DomainEvent;
 use App\Support\Events\Concerns\HasTenantContext;
+use App\Support\Events\DomainEvent;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * TenantCreated Domain Event
+ * TenantCreated Domain Event.
  *
  * Dispatched when a new tenant is created in the system.
  * This event captures the tenant creation context and is dispatched

@@ -65,7 +65,7 @@ class TokenTest extends TestCase
         ]);
 
         $personalTenant = $userService->createPersonalTenant($user);
-        
+
         $orgTenant = \Modules\Tenancy\Models\Tenant::factory()->create([
             'type' => 'organization',
         ]);
@@ -121,7 +121,7 @@ class TokenTest extends TestCase
         ]);
 
         $userService->createPersonalTenant($user);
-        
+
         $otherTenant = \Modules\Tenancy\Models\Tenant::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/token', [
@@ -150,7 +150,7 @@ class TokenTest extends TestCase
 
         $this->assertDatabaseHas('personal_access_tokens', ['id' => $tokenId]);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->deleteJson('/api/v1/auth/token');
 
         $response->assertStatus(200);

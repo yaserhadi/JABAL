@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * API middleware: Validate X-Tenant-Id header matches token ability and membership.
- * 
+ *
  * PHASE 2 LOCK:
  * - Runs AFTER auth:sanctum and InitializeTenancyByRequestData
  * - X-Tenant-Id header is REQUIRED
@@ -22,47 +22,47 @@ class ValidateTenantToken
     public function handle(Request $request, Closure $next): Response
     {
         $headerTenantId = $request->header('X-Tenant-Id');
-        
-        if (!$headerTenantId) {
+
+        if (! $headerTenantId) {
             return response()->json(['success' => false, 'error' => 'X-Tenant-Id header required'], 401);
         }
-        
+
         $tenant = Tenant::find($headerTenantId);
-        if (!$tenant || $tenant->status !== 'active') {
+        if (! $tenant || $tenant->status !== 'active') {
             return response()->json(['success' => false, 'error' => 'Tenant not found or inactive'], 403);
         }
-        
+
         $user = $request->user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json(['success' => false, 'error' => 'Unauthenticated'], 401);
         }
-        
+
         $token = $user->currentAccessToken();
-        
-        if (!$token) {
+
+        if (! $token) {
             return response()->json(['success' => false, 'error' => 'No access token found'], 401);
         }
-        
+
         $tokenTenantId = $this->extractTenantFromAbilities($token->abilities ?? []);
-        if (!$tokenTenantId) {
+        if (! $tokenTenantId) {
             return response()->json(['success' => false, 'error' => 'Token missing tenant ability'], 403);
         }
-        
+
         if ($headerTenantId !== $tokenTenantId) {
             return response()->json(['success' => false, 'error' => 'Header does not match token ability'], 403);
         }
-        
+
         if (tenancy()->initialized && tenancy()->tenant) {
             if (tenancy()->tenant->id !== $headerTenantId) {
                 return response()->json(['success' => false, 'error' => 'Tenancy context mismatch'], 403);
             }
         }
-        
-        if (!$this->userHasTenantAccess($user, $headerTenantId)) {
+
+        if (! $this->userHasTenantAccess($user, $headerTenantId)) {
             return response()->json(['success' => false, 'error' => 'User is not a member of this tenant'], 403);
         }
-        
+
         return $next($request);
     }
 
@@ -73,6 +73,7 @@ class ValidateTenantToken
                 return substr($ability, 7);
             }
         }
+
         return null;
     }
 

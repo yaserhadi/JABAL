@@ -30,10 +30,10 @@ class TenantTest extends TestCase
     public function test_user_can_have_personal_tenant(): void
     {
         $user = User::factory()->create();
-        
+
         $personalTenant = Tenant::factory()->personal()->create([
-            'name' => $user->name . ' Personal',
-            'slug' => 'personal-' . $user->id,
+            'name' => $user->name.' Personal',
+            'slug' => 'personal-'.$user->id,
         ]);
 
         TenantUser::factory()->owner()->create([
@@ -51,7 +51,7 @@ class TenantTest extends TestCase
     public function test_user_can_belong_to_multiple_tenants(): void
     {
         $user = User::factory()->create();
-        
+
         $tenant1 = Tenant::factory()->create();
         $tenant2 = Tenant::factory()->create();
 

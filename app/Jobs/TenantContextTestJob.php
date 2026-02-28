@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * Test job for verifying tenant context in queued jobs.
- * 
+ *
  * PHASE 2: Used by TenancyBootstrapTest to verify QueueTenancyBootstrapper.
  * Stores the current tenant ID in both cache and static property for testing.
  */
@@ -29,7 +29,7 @@ class TenantContextTestJob implements ShouldQueue
     {
         // Store in static property for test verification
         static::$lastTenantId = tenancy()->tenant?->id;
-        
+
         // Also store in cache for alternative verification
         Cache::put($this->cacheKey, tenancy()->tenant?->id, 60);
     }
