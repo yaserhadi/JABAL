@@ -1,0 +1,10 @@
+# STATE.template.yaml
+# Copy to: .cursor/memory/STATE.yaml
+# This file controls execution status. Check before any task.
+
+project: <project_name>
+phase: <phase_number>
+stage: <stage_name>
+status: <status>  # active | paused | blocked | manual-oversight
+focus: <current_focus>
+blockers: []
