@@ -6,9 +6,16 @@ Welcome to Jabal! This documentation will help you understand and use the system
 
 Jabal is a Laravel-based modular monolith application featuring:
 - Multi-tenancy support
-- RBAC planned for Phase 2
+- Multi-tenancy and RBAC (Phase 2)
 - Comprehensive audit logging
 - Modular architecture
+
+## Governance
+
+This project uses **KSS (Knowledge Stewardship System)** for AI-assisted development governance.
+- See [KSS User Handbook](KSS_USER_HANDBOOK.md) for conceptual guide
+- AI memory lives in `.cursor/memory/` (not in docs/)
+- Human ADRs live in `docs/architecture/ADR/`
 
 ## Quick Links
 
@@ -21,4 +28,11 @@ Jabal is a Laravel-based modular monolith application featuring:
 
 ## Documentation Structure
 
-Technical documentation. For questions, contact your system administrator.
+| Folder | Purpose |
+|--------|---------|
+| `architecture/ADR/` | Architecture Decision Records (human deliberation) |
+| `guides/` | Installation and operational guides |
+| `reference/` | Canonical command and path references |
+| `roadmap/` | Strategic product direction |
+
+For AI governance structure, see `.cursor/memory/` (not documented here).

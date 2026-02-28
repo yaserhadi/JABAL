@@ -221,8 +221,8 @@ See [tests/README.md](tests/README.md) for detailed testing guidelines.
 
 ## Documentation
 
-- **[Database Conventions](docs/database-conventions.md)**: Naming, UUID usage, indexing, tenant scoping
-- **[API Conventions](docs/api-conventions.md)**: Response format, versioning, authentication
+- **[Database Conventions](.cursor/memory/conventions/database-conventions.md)**: Naming, UUID usage, indexing, tenant scoping
+- **[API Conventions](.cursor/memory/conventions/api-conventions.md)**: Response format, versioning, authentication
 - **[Testing Guide](tests/README.md)**: Test structure, conventions, best practices
 
 ## Phase 1 Status
@@ -291,8 +291,8 @@ Jabal/
 
 ## Contributing
 
-1. Follow database conventions: [docs/database-conventions.md](docs/database-conventions.md)
-2. Follow API conventions: [docs/api-conventions.md](docs/api-conventions.md)
+1. Follow database conventions: [.cursor/memory/conventions/database-conventions.md](.cursor/memory/conventions/database-conventions.md)
+2. Follow API conventions: [.cursor/memory/conventions/api-conventions.md](.cursor/memory/conventions/api-conventions.md)
 3. Write tests for new features
 4. Run Pint before committing: `./vendor/bin/pint`
 5. Ensure all tests pass: `php artisan test`

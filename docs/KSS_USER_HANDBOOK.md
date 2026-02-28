@@ -21,7 +21,7 @@ Colleagues adopting KSS: developers, architects, and anyone using Cursor with AI
 
 ### 1. Install Global Rules
 
-Add the 7 organizational rules via **Cursor Settings > Rules for AI** (see [Global User Rules](docs/guides/Cursor%20settings/Installation/01-Global-User-Rules.md) in the distribution pack).
+Add the 7 organizational rules via **Cursor Settings > Rules for AI** (see [Global User Rules](guides/Cursor%20settings/Installation/01-Global-User-Rules.md) in the distribution pack).
 
 ### 2. Start Every Session
 
@@ -67,6 +67,7 @@ This writes `.cursor/memory/HANDOFF.md` before you close the chat. **Run this in
 | HANDOFF.md | Session continuity, next actions | `.cursor/memory/HANDOFF.md` |
 | INTEGRITY_RULES.md | Non-negotiable guardrails | `.cursor/memory/INTEGRITY_RULES.md` |
 | VERSIONS.md | Version facts | `.cursor/memory/VERSIONS.md` |
+| LESSONS.md | Mistakes to avoid (optional) | `.cursor/memory/LESSONS.md` |
 | GOALS.md | Strategic goals only | `.cursor/goals/GOALS.md` |
 | reports-location.md | Reports in `.cursor/reports/` | `.cursor/rules/reports-location.md` |
 | AGENT_RESPONSE_CHECKLIST.md | Pre-response validation | `.cursor/rules/AGENT_RESPONSE_CHECKLIST.md` |
@@ -113,6 +114,8 @@ Copy to `~/.cursor/agents/`.
 | ai-knowledge-steward | Maintain .cursor/memory/ (via /docpack) |
 | user-doc-steward | Maintain user docs in docs/ (via /docpack) |
 
+> Subagents are execution tools. They never own authority. All decisions remain with human governance.
+
 ### Skills (Optional)
 
 | Skill | Path | Purpose |
@@ -138,7 +141,7 @@ Add via **Cursor Settings > Rules for AI**. These apply to all projects:
 6. **Production Environment Safety** — No destructive ops in prod without approval and rollback
 7. **Git Change Management & Branching** — All work on branches, no direct main commits
 
-Full text: see [01-Global-User-Rules](docs/guides/Cursor%20settings/Installation/01-Global-User-Rules.md) in the distribution pack.
+Full text: see [01-Global-User-Rules](guides/Cursor%20settings/Installation/01-Global-User-Rules.md) in the distribution pack.
 
 ### 3 File-Based Rules (Global)
 
@@ -241,10 +244,11 @@ When information conflicts, resolve in this order:
 
 1. DOC_POLICY (paths)
 2. PROJECT_MANIFEST (constraints)
-3. docs/architecture/ADR (human deliberation; non-authoritative)
-4. STATE (execution)
-5. HANDOFF (continuity)
-6. GOALS (strategic)
+3. INTEGRITY_RULES (guardrails)
+4. docs/architecture/ADR (human deliberation; non-authoritative)
+5. STATE (execution)
+6. HANDOFF (continuity)
+7. GOALS (strategic)
 
 ---
 
@@ -284,5 +288,5 @@ When information conflicts, resolve in this order:
 
 ## Where to Get Files
 
-**Get the copyable files:** [docs/guides/Cursor settings/](docs/guides/Cursor%20settings/) — commands, agents, rules, skills, and installation guides.
+**Get the copyable files:** [guides/Cursor settings/](guides/Cursor%20settings/) — commands, agents, rules, skills, and installation guides.
 
