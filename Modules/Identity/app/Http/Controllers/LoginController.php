@@ -12,8 +12,6 @@ class LoginController extends Controller
 {
     /**
      * Show the login form.
-     *
-     * @return \Inertia\Response
      */
     public function showLoginForm(): Response
     {
@@ -22,9 +20,6 @@ class LoginController extends Controller
 
     /**
      * Handle a login request.
-     *
-     * @param \Modules\Identity\Http\Requests\LoginRequest $request
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function login(LoginRequest $request): RedirectResponse
     {

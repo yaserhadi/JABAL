@@ -17,9 +17,6 @@ use Modules\Tenancy\Events\TenantCreated;
 
 class RegisterController extends Controller
 {
-    /**
-     * @var UserService
-     */
     protected UserService $userService;
 
     public function __construct(UserService $userService)
@@ -29,8 +26,6 @@ class RegisterController extends Controller
 
     /**
      * Show the registration form.
-     *
-     * @return \Inertia\Response
      */
     public function showRegisterForm(): Response
     {
@@ -41,9 +36,6 @@ class RegisterController extends Controller
      * Handle a registration request.
      *
      * Creates user, personal tenant, and owner membership within a transaction.
-     *
-     * @param \Modules\Identity\Http\Requests\RegisterRequest $request
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function register(RegisterRequest $request): RedirectResponse
     {

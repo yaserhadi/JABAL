@@ -26,8 +26,8 @@ abstract class DomainEvent implements DomainEventInterface
     public function __construct()
     {
         $this->eventId = (string) Str::uuid();
-        $this->occurredAt = new DateTimeImmutable();
-        
+        $this->occurredAt = new DateTimeImmutable;
+
         // Auto-capture context from current request
         $this->tenantId = $this->captureTenantId();
         $this->actorId = $this->captureActorId();
@@ -73,12 +73,12 @@ abstract class DomainEvent implements DomainEventInterface
     /**
      * Capture current tenant ID from context.
      * Override in subclasses if different behavior needed.
+     *
+     * PHASE 2: Uses Stancl tenancy() for tenant context.
      */
     protected function captureTenantId(): ?string
     {
-        // TODO: Implement once TenantContext is available
-        // return current_tenant()?->id;
-        return null;
+        return tenancy()->tenant?->id;
     }
 
     /**

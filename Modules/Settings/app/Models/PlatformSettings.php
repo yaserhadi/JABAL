@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
 
 /**
- * Platform Settings Model
+ * Platform Settings Model.
  *
  * Stores platform-level configuration settings.
  * Supports encryption for sensitive values and JSON storage for complex data.
@@ -67,8 +67,6 @@ class PlatformSettings extends Model
 
     /**
      * Get the decrypted/unwrapped value.
-     *
-     * @return mixed
      */
     public function getValue(): mixed
     {
@@ -94,10 +92,6 @@ class PlatformSettings extends Model
 
     /**
      * Set the value, optionally encrypting it.
-     *
-     * @param  mixed  $value
-     * @param  bool  $encrypt
-     * @return void
      */
     public function setValue(mixed $value, bool $encrypt = false): void
     {

@@ -6,9 +6,9 @@ use App\Support\Audit\Auditable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
@@ -27,6 +27,7 @@ class User extends Authenticatable
     use Notifiable;
     use SoftDeletes;
 
+    protected $connection = 'central';
     protected $table = 'users';
 
     protected $keyType = 'string';

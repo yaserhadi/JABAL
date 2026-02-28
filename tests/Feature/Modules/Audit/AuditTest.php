@@ -5,7 +5,6 @@ namespace Tests\Feature\Modules\Audit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Audit\Models\AuditLog;
-use Modules\Audit\Traits\Auditable;
 use Tests\TestCase;
 
 class AuditTest extends TestCase
@@ -26,7 +25,7 @@ class AuditTest extends TestCase
     public function test_audit_log_is_created_on_model_update(): void
     {
         $user = User::factory()->create();
-        
+
         $user->update(['name' => 'Updated Name']);
 
         $this->assertDatabaseHas('audit_logs', [
@@ -40,7 +39,7 @@ class AuditTest extends TestCase
     {
         $user = User::factory()->create();
         $userId = $user->id;
-        
+
         $user->delete();
 
         $this->assertDatabaseHas('audit_logs', [
@@ -53,7 +52,7 @@ class AuditTest extends TestCase
     public function test_audit_log_captures_old_and_new_values(): void
     {
         $user = User::factory()->create(['name' => 'Old Name']);
-        
+
         $user->update(['name' => 'New Name']);
 
         $auditLog = AuditLog::where('event', 'user.updated')

@@ -9,7 +9,6 @@ interface AuditLoggerInterface
      *
      * @param  string  $event  Event name (e.g., 'user.created', 'tenant.updated')
      * @param  array  $context  Additional context data
-     * @return void
      */
     public function log(string $event, array $context = []): void;
 

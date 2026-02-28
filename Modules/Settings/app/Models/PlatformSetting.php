@@ -9,6 +9,7 @@ class PlatformSetting extends Model
 {
     use HasUuids;
 
+    protected $connection = 'central';
     protected $table = 'platform_settings';
 
     protected $fillable = [

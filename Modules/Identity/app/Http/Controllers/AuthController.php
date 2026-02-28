@@ -25,6 +25,8 @@ class AuthController extends Controller
 
     /**
      * Handle login request.
+     *
+     * PHASE 2: Redirects to tenant-scoped dashboard /t/{tenant}/dashboard
      */
     public function login(Request $request)
     {
@@ -33,7 +35,7 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+        if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => __('The provided credentials do not match our records.'),
             ]);
@@ -41,7 +43,14 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        $user = Auth::user();
+        $personalTenant = $user->personalTenant();
+
+        if ($personalTenant) {
+            return redirect()->intended('/t/'.$personalTenant->id.'/dashboard');
+        }
+
+        return redirect()->route('login');
     }
 
     /**
@@ -55,6 +64,8 @@ class AuthController extends Controller
     /**
      * Handle registration request.
      * Creates user, personal tenant, and owner membership (Phase 1).
+     *
+     * PHASE 2: Redirects to tenant-scoped dashboard /t/{tenant}/dashboard
      */
     public function register(Request $request)
     {
@@ -80,7 +91,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard');
+        return redirect('/t/'.$tenant->id.'/dashboard');
     }
 
     /**

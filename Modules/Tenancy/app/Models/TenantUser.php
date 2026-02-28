@@ -13,6 +13,7 @@ class TenantUser extends Pivot
     use HasFactory;
     use HasUuids;
 
+    protected $connection = 'central';
     public $incrementing = false;
 
     protected $keyType = 'string';

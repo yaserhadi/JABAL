@@ -13,15 +13,12 @@ use Modules\Identity\Services\UserService;
 
 /**
  * TokenController handles API authentication token generation.
- * 
+ *
  * This controller implements the API authentication endpoint that generates
  * Sanctum tokens with tenant-specific abilities.
  */
 class TokenController extends Controller
 {
-    /**
-     * @var UserService
-     */
     protected UserService $userService;
 
     public function __construct(UserService $userService)
@@ -31,14 +28,12 @@ class TokenController extends Controller
 
     /**
      * Generate an API token for the user.
-     * 
+     *
      * POST /api/v1/auth/token
-     * 
+     *
      * Accepts: email, password, optional tenant_id
      * Returns: Sanctum token with tenant:{uuid} ability
      *
-     * @param Request $request
-     * @return JsonResponse
      * @throws ValidationException
      */
     public function store(Request $request): JsonResponse
@@ -106,11 +101,8 @@ class TokenController extends Controller
 
     /**
      * Revoke the current access token.
-     * 
-     * DELETE /api/v1/auth/token
      *
-     * @param Request $request
-     * @return JsonResponse
+     * DELETE /api/v1/auth/token
      */
     public function destroy(Request $request): JsonResponse
     {

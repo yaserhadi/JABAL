@@ -30,8 +30,10 @@ class ApiResponse
         ];
         if (is_string($messageOrStatus)) {
             $payload['message'] = $messageOrStatus;
+
             return response()->json($payload, $status);
         }
+
         return response()->json($payload, $messageOrStatus);
     }
 

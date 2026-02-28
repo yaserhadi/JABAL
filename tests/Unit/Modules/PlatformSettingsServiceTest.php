@@ -4,7 +4,6 @@ namespace Tests\Unit\Modules;
 
 use App\Support\Contracts\Settings\SettingsRepositoryInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Modules\Settings\Models\PlatformSetting;
 use Modules\Settings\Services\PlatformSettingsRepository;
 use Modules\Settings\Services\PlatformSettingsService;
 use Tests\TestCase;

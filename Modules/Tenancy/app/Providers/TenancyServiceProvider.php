@@ -2,12 +2,8 @@
 
 namespace Modules\Tenancy\Providers;
 
-use App\Support\Context\TenantContext;
-use App\Support\Contracts\Tenancy\TenantContextInterface;
-use App\Support\Contracts\Tenancy\TenantResolverInterface;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
-use Modules\Tenancy\Services\TenantResolver;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -35,23 +31,18 @@ class TenancyServiceProvider extends ServiceProvider
 
     /**
      * Register the service provider.
+     *
+     * PHASE 2: Removed TenantResolverInterface and TenantContextInterface bindings.
+     * Stancl tenancy() is now the single source of truth for tenant context.
      */
     public function register(): void
     {
-        // Bind TenantResolverInterface to TenantResolver implementation
-        $this->app->bind(TenantResolverInterface::class, TenantResolver::class);
-
-        // Register TenantContext as singleton
-        $this->app->singleton(TenantContextInterface::class, function () {
-            return TenantContext::getInstance();
-        });
-
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }
 
     /**
-     * Register commands in the format of Command::class
+     * Register commands in the format of Command::class.
      */
     protected function registerCommands(): void
     {
@@ -141,7 +132,7 @@ class TenancyServiceProvider extends ServiceProvider
 
         $this->loadViewsFrom(array_merge($this->getPublishableViewPaths(), [$sourcePath]), $this->nameLower);
 
-        Blade::componentNamespace(config('modules.namespace').'\\' . $this->name . '\\View\\Components', $this->nameLower);
+        Blade::componentNamespace(config('modules.namespace').'\\'.$this->name.'\\View\\Components', $this->nameLower);
     }
 
     /**

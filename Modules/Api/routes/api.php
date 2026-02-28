@@ -1,9 +1,10 @@
 <?php
 
-use App\Support\Context\TenantContext;
+use App\Http\Middleware\ValidateTenantToken;
 use Illuminate\Support\Facades\Route;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Http\Controllers\Api\TokenController;
+use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,10 +14,13 @@ use Modules\Identity\Http\Controllers\Api\TokenController;
 | All API routes are prefixed with /api/v1
 | Authentication via Laravel Sanctum
 |
+| PHASE 2: Tenant-scoped routes use InitializeTenancyByRequestData + ValidateTenantToken
+| Tenant is identified via X-Tenant-Id header, validated against token ability tenant:{uuid}
+|
 */
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
-    // Public routes
+    // Public routes (no tenant context)
     Route::get('/health', function () {
         return ApiResponse::success([
             'status' => 'ok',
@@ -25,15 +29,25 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ]);
     })->name('health');
 
-    // Authentication routes (public)
+    // Authentication routes (public, no tenant context)
     Route::post('/auth/token', [TokenController::class, 'store'])->name('auth.token.store');
 
-    // Protected routes
+    // Protected routes (require auth but NOT tenant context)
     Route::middleware('auth:sanctum')->group(function () {
+        // Token management (central, no tenant context needed)
+        Route::delete('/auth/token', [TokenController::class, 'destroy'])->name('auth.token.destroy');
+    });
+
+    // Tenant-scoped protected routes (require auth + tenant context)
+    Route::middleware([
+        'auth:sanctum',
+        InitializeTenancyByRequestData::class,
+        ValidateTenantToken::class,
+    ])->group(function () {
         // Current user endpoint with tenant context (GET /api/v1/me)
         Route::get('/me', function () {
             $user = auth()->user();
-            $tenant = TenantContext::getInstance()->get();
+            $tenant = tenancy()->tenant;
             $currentTenant = $tenant ? [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
@@ -48,9 +62,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 'current_tenant' => $currentTenant,
             ]);
         })->name('me');
-
-        // Token management
-        Route::delete('/auth/token', [TokenController::class, 'destroy'])->name('auth.token.destroy');
 
         // Tenant routes (placeholder)
         Route::prefix('tenants')->name('tenants.')->group(function () {

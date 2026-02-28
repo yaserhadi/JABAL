@@ -2,22 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\Context\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * PHASE 2: Uses Stancl tenancy() for tenant context.
+ */
 class DashboardController extends Controller
 {
     /**
      * Display the dashboard.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return \Inertia\Response
      */
     public function index(Request $request): Response
     {
-        $tenant = TenantContext::getInstance()->get();
+        $tenant = tenancy()->tenant;
         $user = $request->user();
 
         $tenantData = null;

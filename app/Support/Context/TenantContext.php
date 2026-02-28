@@ -10,14 +10,12 @@ class TenantContext implements TenantContextInterface
 
     private ?object $tenant = null;
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function getInstance(): self
     {
         if (self::$instance === null) {
-            self::$instance = new self();
+            self::$instance = new self;
         }
 
         return self::$instance;

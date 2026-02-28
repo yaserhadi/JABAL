@@ -17,7 +17,7 @@ class ExecutionContextMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $context = ExecutionContext::getInstance();
-        
+
         // Determine execution mode
         $mode = $this->determineMode($request);
         $context->setMode($mode);
