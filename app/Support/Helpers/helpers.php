@@ -1,15 +1,20 @@
 <?php
 
-use App\Support\Context\TenantContext;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
+
+/**
+ * PHASE 2: Helpers now use Stancl tenancy() instead of TenantContext.
+ * tenancy() is the global Stancl helper function.
+ */
 
 if (! function_exists('current_tenant')) {
     function current_tenant(): ?Tenant
     {
-        $context = TenantContext::getInstance()->get();
-
-        return $context instanceof Tenant ? $context : null;
+        if (!tenancy()->initialized) {
+            return null;
+        }
+        return tenancy()->tenant;
     }
 }
 
@@ -29,7 +34,7 @@ if (! function_exists('tenant')) {
 if (! function_exists('is_tenant_context')) {
     function is_tenant_context(): bool
     {
-        return current_tenant() !== null;
+        return tenancy()->initialized && tenancy()->tenant !== null;
     }
 }
 

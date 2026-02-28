@@ -6,6 +6,7 @@ use App\Support\Context\ActorContext;
 use App\Support\Context\ExecutionContext;
 use App\Support\Context\RequestContext;
 use Illuminate\Support\ServiceProvider;
+use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +36,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // PHASE 2: Configure Stancl middleware to use X-Tenant-Id header
+        InitializeTenancyByRequestData::$header = 'X-Tenant-Id';
+        
+        // PHASE 2: Handle missing/invalid tenant gracefully
+        InitializeTenancyByRequestData::$onFail = function ($exception, $request, $next) {
+            return response()->json([
+                'success' => false,
+                'error' => 'X-Tenant-Id header required',
+            ], 401);
+        };
     }
 }

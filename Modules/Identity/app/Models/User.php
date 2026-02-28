@@ -27,6 +27,7 @@ class User extends Authenticatable
     use Notifiable;
     use SoftDeletes;
 
+    protected $connection = 'central';
     protected $table = 'users';
 
     protected $keyType = 'string';

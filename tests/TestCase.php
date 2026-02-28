@@ -2,29 +2,37 @@
 
 namespace Tests;
 
-use App\Support\Context\TenantContext;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Str;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
 
+/**
+ * PHASE 2: TestCase uses Stancl tenancy() for tenant context.
+ */
 abstract class TestCase extends BaseTestCase
 {
     /**
      * Set the currently authenticated user to act as a specific tenant.
+     * Uses Stancl tenancy() for context management.
      *
-     * @param  mixed  $tenant
+     * @param  Tenant  $tenant
      * @return $this
      */
-    protected function actingAsTenant($tenant)
+    protected function actingAsTenant(Tenant $tenant): static
     {
-        TenantContext::getInstance()->set($tenant);
+        if (tenancy()->initialized) {
+            tenancy()->end();
+        }
+        tenancy()->initialize($tenant);
 
         return $this;
     }
 
     /**
      * Create a personal tenant for the given user.
+     * 
+     * PHASE 2: Sets status = 'active'.
      *
      * @param  mixed  $user
      * @return \Modules\Tenancy\Models\Tenant
@@ -36,6 +44,7 @@ abstract class TestCase extends BaseTestCase
             'slug' => Str::slug($user->name).'-'.Str::random(6),
             'type' => 'personal',
             'isolation_level' => 'shared',
+            'status' => 'active',
         ]);
 
         TenantUser::create([
@@ -58,8 +67,19 @@ abstract class TestCase extends BaseTestCase
      */
     protected function assertTenantScoped($model, $tenant = null)
     {
-        $tenant = $tenant ?? TenantContext::getInstance()->get();
+        $tenant = $tenant ?? tenancy()->tenant;
         $this->assertNotNull($tenant);
         $this->assertEquals($tenant->id, $model->tenant_id ?? $model->getAttribute('tenant_id'));
+    }
+
+    /**
+     * Cleanup tenancy context after each test.
+     */
+    protected function tearDown(): void
+    {
+        if (tenancy()->initialized) {
+            tenancy()->end();
+        }
+        parent::tearDown();
     }
 }

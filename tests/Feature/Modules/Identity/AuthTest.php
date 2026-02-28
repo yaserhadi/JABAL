@@ -17,12 +17,16 @@ class AuthTest extends TestCase
         $response->assertStatus(200);
     }
 
+    /**
+     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard
+     */
     public function test_users_can_authenticate_with_valid_credentials(): void
     {
         $user = User::factory()->create([
             'email' => 'test@example.com',
             'password' => bcrypt($password = 'password'),
         ]);
+        $tenant = $this->createPersonalTenant($user);
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -30,7 +34,7 @@ class AuthTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect('/t/' . $tenant->id . '/dashboard');
     }
 
     public function test_users_cannot_authenticate_with_invalid_password(): void

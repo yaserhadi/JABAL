@@ -16,10 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Register context middleware
+        // Phase 2: TenantResolverMiddleware REMOVED — use Stancl InitializeTenancyBy* instead
         $middleware->web([
             \App\Http\Middleware\RequestContextMiddleware::class,
             \App\Http\Middleware\ExecutionContextMiddleware::class,
-            \App\Http\Middleware\TenantResolverMiddleware::class,
         ]);
 
         // Inertia middleware (PR-2): only register when inertiajs/inertia-laravel is installed
@@ -32,7 +32,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api([
             \App\Http\Middleware\RequestContextMiddleware::class,
             \App\Http\Middleware\ExecutionContextMiddleware::class,
-            \App\Http\Middleware\TenantResolverMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

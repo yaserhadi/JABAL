@@ -3,13 +3,21 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Stancl\Tenancy\Middleware\InitializeTenancyByPath;
+use App\Http\Middleware\EnsureUserBelongsToTenant;
 
 /*
 |--------------------------------------------------------------------------
 | Identity Module Web Routes (auth, dashboard) — Inertia + Vuetify
 |--------------------------------------------------------------------------
+|
+| PHASE 2: 
+| - Central routes (login, register, logout) remain unchanged
+| - Dashboard moved to /t/{tenant}/dashboard with tenant context
+|
 */
 
+// Central routes (guest)
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('login', [AuthController::class, 'login']);
@@ -17,14 +25,29 @@ Route::middleware('guest')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
 });
 
+// Central routes (auth, no tenant context)
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
-    Route::get('dashboard', function () {
-        return Inertia::render('Dashboard', [
-            'tenant' => optional(\App\Support\Context\TenantContext::getInstance()->get()) ? [
-                'id' => \App\Support\Context\TenantContext::getInstance()->get()->id,
-                'name' => \App\Support\Context\TenantContext::getInstance()->get()->name,
-            ] : null,
-        ]);
-    })->name('dashboard');
 });
+
+// Tenant-scoped routes under /t/{tenant}/...
+Route::prefix('t/{tenant}')
+    ->middleware([
+        'web',
+        'auth',
+        InitializeTenancyByPath::class,
+        EnsureUserBelongsToTenant::class,
+    ])
+    ->group(function () {
+        Route::get('/dashboard', function () {
+            $tenant = tenancy()->tenant;
+            return Inertia::render('Dashboard', [
+                'tenant' => $tenant ? [
+                    'id' => $tenant->id,
+                    'name' => $tenant->name,
+                    'slug' => $tenant->slug,
+                    'type' => $tenant->type,
+                ] : null,
+            ]);
+        })->name('dashboard');
+    });

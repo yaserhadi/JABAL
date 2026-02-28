@@ -37,19 +37,31 @@ class ApiTest extends TestCase
         $response->assertStatus(401);
     }
 
+    /**
+     * PHASE 2: /api/v1/me requires X-Tenant-Id header and token with tenant ability.
+     */
     public function test_authenticated_user_can_access_user_endpoint(): void
     {
         $user = User::factory()->create();
-        $this->createPersonalTenant($user);
+        $tenant = $this->createPersonalTenant($user);
 
-        $response = $this->actingAs($user, 'sanctum')
-            ->getJson('/api/v1/me');
+        // Create token with tenant ability
+        $token = $user->createToken('test-token', ['tenant:' . $tenant->id])->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'X-Tenant-Id' => $tenant->id,
+        ])->getJson('/api/v1/me');
 
         $response->assertStatus(200)
             ->assertJson([
                 'data' => [
                     'id' => $user->id,
                     'email' => $user->email,
+                    'current_tenant' => [
+                        'id' => $tenant->id,
+                        'name' => $tenant->name,
+                    ],
                 ],
             ])
             ->assertJsonStructure([

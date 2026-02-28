@@ -11,20 +11,23 @@ class UserAuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard
+     */
     public function test_login_redirects_to_dashboard(): void
     {
         $user = User::factory()->create([
             'email' => 'test@example.com',
             'password' => Hash::make('password'),
         ]);
-        $this->createPersonalTenant($user);
+        $tenant = $this->createPersonalTenant($user);
 
         $response = $this->post('/login', [
             'email' => 'test@example.com',
             'password' => 'password',
         ]);
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect('/t/' . $tenant->id . '/dashboard');
         $this->assertAuthenticated();
     }
 

@@ -124,6 +124,8 @@ class UserService
     /**
      * Create a personal tenant for a user.
      *
+     * PHASE 2: Sets status = 'active' and created_by = user ID.
+     *
      * @param User $user
      * @return Tenant
      */
@@ -134,6 +136,8 @@ class UserService
             'slug' => 'personal-' . $user->id,
             'type' => 'personal',
             'isolation_level' => 'shared',
+            'status' => 'active',
+            'created_by' => $user->id,
         ]);
 
         TenantUser::create([

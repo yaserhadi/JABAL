@@ -10,6 +10,7 @@ class AuditLog extends Model
 {
     use HasUuids;
 
+    protected $connection = 'central';
     const UPDATED_AT = null;
 
     protected $table = 'audit_logs';
