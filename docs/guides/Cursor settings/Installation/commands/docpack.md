@@ -40,7 +40,7 @@ AI Track Updates (.cursor/memory/):
 - [ ] VERSIONS.md - [if breaking change]
 
 Architecture:
-- [ ] docs/architecture/DECISIONS.md - [if architecture decision]
+- [ ] docs/architecture/ADR/ - [if architecture decision]
 
 User Track Updates (docs/):
 - [ ] docs/reference/[name].md - [if user impact detected]
@@ -61,7 +61,7 @@ Only after confirmation:
 | HANDOFF | Required |
 | STATE | When meaningful |
 | LESSONS | Encouraged |
-| DECISIONS | Major architecture decisions |
+| ADR | Major architecture decisions |
 | User docs | When features change |
 
 ## Safe Defaults (auto-apply without confirmation)
@@ -72,7 +72,7 @@ Only after confirmation:
 ## Require Confirmation
 
 - LESSONS.md changes
-- Updates to docs/architecture/DECISIONS.md
+- Updates to docs/architecture/ADR/
 - User documentation updates (docs/)
 - VERSIONS.md changes
 

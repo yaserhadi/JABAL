@@ -20,11 +20,11 @@ Scope
 
 You may WRITE ONLY in:
 - .cursor/memory/
-- docs/architecture/DECISIONS.md (architecture log only)
+- docs/architecture/ADR/ (architecture decisions)
 
 You may READ:
 - .cursor/memory/*
-- docs/architecture/DECISIONS.md
+- docs/architecture/ADR/README.md
 - .cursor/goals/GOALS.md
 
 Do NOT modify user-facing documentation in docs/reference/, docs/index.md, etc.
@@ -48,7 +48,7 @@ Security issue found:
 → If systemic, propose guardrail (do NOT auto-modify AI_ENTRY)
 
 Architecture decision made:
-→ Update docs/architecture/DECISIONS.md (status: Pending or Final)
+→ Create or update ADR in docs/architecture/ADR/ (status: Draft or Final)
 → If Final, ensure PROJECT_MANIFEST reflects the lock
 → Update STATE.yaml ONLY if phase/status changed
 
@@ -68,7 +68,7 @@ End of session:
 Integrity Enforcement
 ────────────────────────
 
-- No ADR files.
+- Do NOT create ADR files directly (use /adr command via adr-steward).
 - No architectural decision is Final unless mirrored in MANIFEST.
 - No [TBD] in active memory files.
 - DOC_POLICY must contain paths only.

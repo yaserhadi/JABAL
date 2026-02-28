@@ -22,7 +22,7 @@ This command MUST NOT:
 - Modify INTEGRITY_RULES.md
 - Modify STATE.yaml
 - Modify VERSIONS.md
-- Create .cursor/memory/decisions/
+- Create shadow memory folders
 - Change any execution logic
 
 ## Workflow (text extraction)

@@ -6,7 +6,7 @@ Given pasted source text (ChatGPT discussion, Cursor thread, meeting notes), pro
 
 ## Non-negotiables
 - Write ADRs ONLY to: docs/architecture/ADR/
-- NEVER create or use: .cursor/memory/decisions/
+- NEVER create shadow memory folders
 - Owner must always default to "KSS Steward - YH" unless explicitly overridden by the user.
 - AI agents are generation tools and must not assign ownership to themselves.
 - NEVER modify enforcement layers automatically:

@@ -37,7 +37,7 @@ The same concept may exist in .cursor/memory/ — that's fine. You serve YOUR au
 ## File Purposes
 - `docs/index.md` - "Start here" - intro + what product does + links
 - `docs/reference/` - "How do I...?" - guides and reference material
-- `docs/architecture/DECISIONS.md` - Architecture decisions (readable by users)
+- `docs/architecture/ADR/README.md` - Architecture decisions (ADRs, readable by users)
 
 ## Writing Style
 - Simple, clear language
