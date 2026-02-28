@@ -48,6 +48,14 @@
 
 **Evidence Referenced**:
 - [files/commands/tests that support the conclusions]
+
+**ADR Status**:
+- ADR Needed? [Yes / No]
+- Decision Indicators: [list what triggered / N/A]
+- ADR Coverage: [ADR-XXXX / None / N/A]
+
+> If ADR Needed = Yes and Coverage = None:
+> Recommend running `/adr` before completing handoff (advisory).
 ```
 
 ---

@@ -70,6 +70,13 @@ Only open when the current task requires it:
 - Blockers: ...
 - Next tasks: ...
 
+### ADR Reminder (Advisory)
+If architectural decisions arise during this session:
+- Capture via `/adr` command
+- Canonical location: `docs/architecture/ADR/`
+- Decision indicators: DB schema, API contracts, module boundaries, security model
+- This is advisory; boot does not block on missing ADRs.
+
 ### Ready
 Reply with your task, or:
 - `/gw-triage [task]` if it touches DB/Cache/Queue/Session/Tenancy/Security/Hosting

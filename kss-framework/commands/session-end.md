@@ -71,6 +71,15 @@ Display:
 - [Decision 1]
 - [Decision 2]
 
+### ADR Closing Check (Advisory)
+- [ ] Decisions made this session: [list / none]
+- [ ] ADR captured: [ADR-XXXX / None needed / Not yet]
+- [ ] If decisions exist and ADR not captured:
+  - Recommend: Run `/adr` to record the decision
+  - Or document: "ADR Not Needed: <reason>"
+
+> This check is advisory only. It does NOT block session-end.
+
 ### Open Issues
 - [Issue or blocker, if any]
 
