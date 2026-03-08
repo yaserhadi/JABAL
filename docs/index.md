@@ -6,19 +6,40 @@ Welcome to Jabal! This documentation will help you understand and use the system
 
 Jabal is a Laravel-based modular monolith application featuring:
 - Multi-tenancy support
-- RBAC planned for Phase 2
+- RBAC (Phase 3)
 - Comprehensive audit logging
 - Modular architecture
 
+## Governance
+
+This project uses **KSS (Knowledge Stewardship System)** for AI-assisted development governance.
+- KSS Framework: `kss-framework/` (handbook, commands, agents, rules, skills)
+- AI memory: `.cursor/memory/`
+- Human ADRs: `docs/architecture/ADR/`
+- Engineering conventions: `.cursor/memory/conventions/`
+
 ## Quick Links
 
-- [KSS User Handbook](KSS_USER_HANDBOOK.md) - Knowledge Stewardship System for colleagues
 - [Architecture Decisions (ADRs)](architecture/ADR/README.md) - Architecture decision records
-- [API Conventions](api-conventions.md) - API design and usage
-- [Database Conventions](database-conventions.md) - Database structure and rules
-- [Reference](reference/) - How-to guides and path reference
 - [Roadmap](roadmap/ROADMAP.md) - Product roadmap
+
+## KSS Framework
+
+For KSS documentation, installation, and tools, see:
+- **Handbook:** `kss-framework/docs/handbook.md`
+- **Reference:** `kss-framework/docs/reference/`
+- **Commands:** `kss-framework/commands/`
+- **Agents:** `kss-framework/agents/`
+- **Rules:** `kss-framework/rules/`
+- **Skills:** `kss-framework/skills/`
+- **Templates:** `kss-framework/templates/`
 
 ## Documentation Structure
 
-Technical documentation. For questions, contact your system administrator.
+| Location | Folder | Purpose |
+|----------|--------|---------|
+| `docs/` | `architecture/ADR/` | Architecture Decision Records (Jabal-specific) |
+| `docs/` | `roadmap/` | Strategic product direction (Jabal-specific) |
+| **Repo root** | `kss-framework/` | Portable KSS framework (handbook, commands, agents, rules) |
+
+AI governance runtime state is stored in `.cursor/memory/`.

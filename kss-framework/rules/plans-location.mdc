@@ -1,0 +1,38 @@
+---
+description: Ensures Cursor plans are saved to project-level .cursor/plans/ directory
+alwaysApply: true
+---
+
+# Plans Must Stay at Project Level
+
+## Rule
+All Cursor plans MUST be saved to the project-level `.cursor/plans/` directory, NOT the user-global directory.
+
+## Mandatory Path
+- When creating or saving a plan file, the path MUST be the **current workspace** `.cursor/plans/` directory.
+- Use the **workspace root** (the open project folder), not the user home. Path form: `<workspace>/.cursor/plans/<name>.plan.md`.
+- Plans must live in the workspace `.cursor/plans/` directory. Do not store plans in user-global directories (e.g., `<user-home>\.cursor\plans\`).
+
+## Why
+- **Version control**: Project plans should be tracked with the project
+- **Context**: Plans provide valuable project history and decision context
+- **Team collaboration**: Other team members need access to project plans
+- **Organization**: Each project's plans stay with that project
+
+## When Creating Plans
+- If the plan-creation tool or API accepts a path or base directory, pass the **workspace** `.cursor/plans/` path (e.g. `.cursor/plans/` relative to workspace root).
+- If a plan is created in the global directory, move it immediately to the open workspace's `.cursor/plans/` folder.
+
+## Quick Reference
+```
+# Move a plan from global to project (replace <user-home> with your home directory)
+
+# Windows (PowerShell)
+Move-Item -Path "<user-home>\.cursor\plans\[filename].plan.md" -Destination ".cursor\plans\[filename].plan.md"
+
+# Mac/Linux (bash)
+mv <user-home>/.cursor/plans/[filename].plan.md .cursor/plans/[filename].plan.md
+```
+
+## Enforcement
+This is a non-negotiable organizational standard. All agents must follow this rule.

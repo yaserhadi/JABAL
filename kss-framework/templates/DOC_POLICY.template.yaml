@@ -1,0 +1,12 @@
+# DOC_POLICY.template.yaml
+# Paths only. No constraints, no authority model, no governance logic here.
+# Copy to: .cursor/DOC_POLICY.yaml
+
+paths:
+  memory: .cursor/memory
+  rules: .cursor/rules
+  reports: .cursor/reports
+  conventions: .cursor/memory/conventions
+  user_docs: docs
+  architecture: docs/architecture
+  adr: docs/architecture/ADR
