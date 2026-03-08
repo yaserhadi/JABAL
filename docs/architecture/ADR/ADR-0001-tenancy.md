@@ -114,7 +114,7 @@ When syncing with PROJECT_MANIFEST / INTEGRITY_RULES:
 - `.cursor/reports/PHASE1_5_TENANCY_TRANSITION_ROADMAP.md` — Phase 1.5 bridge plan, evidence, ADR closure spec, Phase 2 Identification Decision
 - docs/architecture/ADR/README.md
 - .cursor/memory/PROJECT_MANIFEST.md
-- docs/api-conventions.md — tenant:{uuid} ability
+- .cursor/memory/conventions/api-conventions.md — tenant:{uuid} ability
 
 ---
 

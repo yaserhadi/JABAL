@@ -67,11 +67,13 @@ if not exists .cursor/reports/README.md
 
 **Not considered "reports"** (different storage rules):
 - Technical documentation → `docs/`
-- Architecture decisions → `docs/adr/`
+- Architecture decisions → project ADR path (per DOC_POLICY, e.g., `docs/architecture/ADR/`)
 - API documentation → `docs/api/`
 - README files → Project root
 - CHANGELOG → Project root
 - Contributing guidelines → `CONTRIBUTING.md`
+
+**Note:** Do not hardcode ADR paths in global rules; use the project ADR path defined in DOC_POLICY.
 
 ## Project-Specific Overrides
 

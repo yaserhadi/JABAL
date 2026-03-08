@@ -6,12 +6,12 @@ alwaysApply: true
 # Plans Must Stay at Project Level
 
 ## Rule
-All Cursor plans MUST be saved to the project-level `.cursor/plans/` directory, NOT the global `~/.cursor/plans/` directory.
+All Cursor plans MUST be saved to the project-level `.cursor/plans/` directory, NOT the user-global directory.
 
 ## Mandatory Path
 - When creating or saving a plan file, the path MUST be the **current workspace** `.cursor/plans/` directory.
 - Use the **workspace root** (the open project folder), not the user home. Path form: `<workspace>/.cursor/plans/<name>.plan.md`.
-- Do NOT use `~/.cursor/plans/` or the user global plans directory.
+- Plans must live in the workspace `.cursor/plans/` directory. Do not store plans in user-global directories (e.g., `<user-home>\.cursor\plans\`).
 
 ## Why
 - **Version control**: Project plans should be tracked with the project
@@ -24,12 +24,14 @@ All Cursor plans MUST be saved to the project-level `.cursor/plans/` directory, 
 - If a plan is created in the global directory, move it immediately to the open workspace's `.cursor/plans/` folder.
 
 ## Quick Reference
-```powershell
-# Move a plan from global to project (Windows)
-Move-Item -Path "$env:USERPROFILE\.cursor\plans\[filename].plan.md" -Destination ".cursor\plans\[filename].plan.md"
+```
+# Move a plan from global to project (replace <user-home> with your home directory)
 
-# Move a plan from global to project (Mac/Linux)
-mv ~/.cursor/plans/[filename].plan.md .cursor/plans/[filename].plan.md
+# Windows (PowerShell)
+Move-Item -Path "<user-home>\.cursor\plans\[filename].plan.md" -Destination ".cursor\plans\[filename].plan.md"
+
+# Mac/Linux (bash)
+mv <user-home>/.cursor/plans/[filename].plan.md .cursor/plans/[filename].plan.md
 ```
 
 ## Enforcement
