@@ -34,7 +34,11 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
-            return redirect()->intended(route('dashboard', absolute: false));
+            $tenant = $request->user()?->personalTenant();
+            $dashboardUrl = $tenant
+                ? route('dashboard', ['tenant' => $tenant->id], false)
+                : '/';
+            return redirect()->intended($dashboardUrl);
         }
 
         throw ValidationException::withMessages([

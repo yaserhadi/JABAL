@@ -57,7 +57,7 @@
           </div>
 
           <div v-else class="d-flex justify-center">
-            <Link :href="route('dashboard')">
+            <Link v-if="personalTenant" :href="route('dashboard', { tenant: personalTenant.id })">
               <v-btn
                 color="primary"
                 size="large"
@@ -84,6 +84,7 @@ import GuestLayout from '@/Layouts/GuestLayout.vue'
 const page = usePage()
 
 const auth = computed(() => page.props.auth)
+const personalTenant = computed(() => page.props.personalTenant)
 const appName = computed(() => page.props.appName || 'JABAL')
 </script>
 

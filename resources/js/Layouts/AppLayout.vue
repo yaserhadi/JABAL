@@ -29,9 +29,10 @@
         <v-navigation-drawer v-model="drawer" app>
             <v-list nav>
                 <v-list-item
+                    v-if="tenant"
                     prepend-icon="mdi-view-dashboard"
                     title="Dashboard"
-                    :to="route('dashboard')"
+                    :to="route('dashboard', { tenant: tenant.id })"
                 />
                 <v-divider class="my-2" />
                 <v-list-item
@@ -56,10 +57,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
+const page = usePage();
+const tenant = computed(() => page.props.tenant);
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
 const drawer = ref(true);
 

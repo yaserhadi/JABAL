@@ -68,6 +68,6 @@ class RegisterController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect(route('dashboard', ['tenant' => $tenant->id], false));
     }
 }

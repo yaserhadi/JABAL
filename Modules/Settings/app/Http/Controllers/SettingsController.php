@@ -34,4 +34,26 @@ class SettingsController extends Controller
 
         return redirect()->route('settings.index')->with('message', 'Setting updated.');
     }
+
+    /**
+     * Bulk update multiple settings (for Inertia Vue form).
+     */
+    public function bulkUpdate(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'app_name' => 'nullable|string|max:255',
+            'default_isolation' => 'nullable|string|in:shared,schema,database',
+            'maintenance_mode' => 'nullable|boolean',
+            'registration_enabled' => 'nullable|boolean',
+            'maintenance_message' => 'nullable|string',
+        ]);
+
+        foreach ($validated as $key => $value) {
+            if ($value !== null) {
+                $this->settings->set($key, $value);
+            }
+        }
+
+        return redirect()->back()->with('success', 'Settings updated.');
+    }
 }

@@ -101,7 +101,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post(route('settings.update'), {
+    form.put(route('settings.bulkUpdate'), {
         preserveScroll: true,
         onSuccess: () => {
             // Settings updated
