@@ -6,20 +6,16 @@
       app
     >
       <v-list>
-        <v-list-item
-          prepend-icon="mdi-view-dashboard"
-          title="Dashboard"
-          :to="{ name: 'dashboard' }"
-        />
-        <v-list-item
-          prepend-icon="mdi-account"
-          title="Profile"
-          :to="{ name: 'profile' }"
-        />
+        <Link v-if="tenant" :href="route('dashboard', { tenant: tenant.id })">
+          <v-list-item
+            prepend-icon="mdi-view-dashboard"
+            title="Dashboard"
+          />
+        </Link>
         <v-list-item
           prepend-icon="mdi-cog"
           title="Settings"
-          :to="{ name: 'settings' }"
+          disabled
         />
       </v-list>
 
@@ -89,6 +85,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { usePage, router } from '@inertiajs/vue3'
+import { route } from 'ziggy-js'
 
 const page = usePage()
 
@@ -99,6 +96,6 @@ const tenant = computed(() => page.props.tenant)
 const appName = computed(() => page.props.appName || 'JABAL')
 
 const handleLogout = () => {
-  router.post('/logout')
+  router.post(route('logout'))
 }
 </script>

@@ -9,21 +9,16 @@
 
       <v-spacer />
 
-      <v-btn
-        v-if="!auth?.user"
-        variant="text"
-        :to="{ name: 'login' }"
-      >
-        Login
-      </v-btn>
-      <v-btn
-        v-if="!auth?.user"
-        variant="text"
-        :to="{ name: 'register' }"
-        class="ml-2"
-      >
-        Register
-      </v-btn>
+      <Link v-if="!auth?.user" :href="route('login')">
+        <v-btn variant="text">
+          Login
+        </v-btn>
+      </Link>
+      <Link v-if="!auth?.user" :href="route('register')" class="ml-2">
+        <v-btn variant="text">
+          Register
+        </v-btn>
+      </Link>
     </v-app-bar>
 
     <v-main>
@@ -36,7 +31,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { usePage } from '@inertiajs/vue3'
+import { Link, usePage } from '@inertiajs/vue3'
 
 const page = usePage()
 
