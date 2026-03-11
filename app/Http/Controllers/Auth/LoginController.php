@@ -38,6 +38,7 @@ class LoginController extends Controller
             $dashboardUrl = $tenant
                 ? route('dashboard', ['tenant' => $tenant->id], false)
                 : '/';
+
             return redirect()->intended($dashboardUrl);
         }
 
