@@ -84,7 +84,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { usePage, router } from '@inertiajs/vue3'
+import { usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 
 const page = usePage()
@@ -96,6 +96,16 @@ const tenant = computed(() => page.props.tenant)
 const appName = computed(() => page.props.appName || 'JABAL')
 
 const handleLogout = () => {
-  router.post(route('logout'))
+  // Use form submit for full page navigation so login page displays immediately.
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = route('logout')
+  const csrf = document.createElement('input')
+  csrf.type = 'hidden'
+  csrf.name = '_token'
+  csrf.value = document.querySelector('meta[name="csrf-token"]')?.content || ''
+  form.appendChild(csrf)
+  document.body.appendChild(form)
+  form.submit()
 }
 </script>

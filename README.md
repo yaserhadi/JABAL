@@ -112,6 +112,8 @@ npm run dev
 For production:
 
 ```bash
+# Ensure composer install has run first (ziggy:generate requires Laravel)
+composer install
 npm run build
 ```
 

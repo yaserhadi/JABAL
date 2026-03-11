@@ -33,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\RequestContextMiddleware::class,
             \App\Http\Middleware\ExecutionContextMiddleware::class,
         ]);
+
+        $middleware->alias([
+            'platform.admin' => \App\Http\Middleware\EnsurePlatformAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Custom exception handling for DomainException
