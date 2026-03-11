@@ -58,7 +58,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 const page = usePage();
@@ -67,6 +67,17 @@ const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
 const drawer = ref(true);
 
 const logout = () => {
-    router.post(route('logout'));
+    // Use form submit for full page navigation so login page displays immediately.
+    // Inertia's router.post + redirect can leave stale content until manual refresh.
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = route('logout');
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = '_token';
+    csrf.value = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    form.appendChild(csrf);
+    document.body.appendChild(form);
+    form.submit();
 };
 </script>
