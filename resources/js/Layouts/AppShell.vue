@@ -103,7 +103,7 @@ const handleLogout = () => {
   const csrf = document.createElement('input')
   csrf.type = 'hidden'
   csrf.name = '_token'
-  csrf.value = document.querySelector('meta[name="csrf-token"]')?.content || ''
+  csrf.value = page.props.csrf_token || document.querySelector('meta[name="csrf-token"]')?.content || ''
   form.appendChild(csrf)
   document.body.appendChild(form)
   form.submit()

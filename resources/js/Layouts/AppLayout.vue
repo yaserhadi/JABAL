@@ -68,14 +68,14 @@ const drawer = ref(true);
 
 const logout = () => {
     // Use form submit for full page navigation so login page displays immediately.
-    // Inertia's router.post + redirect can leave stale content until manual refresh.
+    // CSRF from page props (current) — meta tag can be stale after Inertia navigation.
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('logout');
     const csrf = document.createElement('input');
     csrf.type = 'hidden';
     csrf.name = '_token';
-    csrf.value = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    csrf.value = page.props.csrf_token || document.querySelector('meta[name="csrf-token"]')?.content || '';
     form.appendChild(csrf);
     document.body.appendChild(form);
     form.submit();
