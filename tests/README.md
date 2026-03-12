@@ -11,6 +11,10 @@ The Jabal platform uses **PHPUnit** with **Laravel** for testing. Tests are orga
 
 Tests are organized by module to maintain clear boundaries and enable module-specific testing strategies.
 
+### Known Issues
+
+- **RefreshDatabase / duplicate tenants migration (as of Phase 3B):** Tests using `RefreshDatabase` may fail with `relation "tenants" already exists`. This appears to be a pre-existing test environment / duplicate migration / bootstrap issue. Open a follow-up task to resolve before merging to main. Do not assume the test suite is green when this issue exists.
+
 ### Test Structure
 
 ```

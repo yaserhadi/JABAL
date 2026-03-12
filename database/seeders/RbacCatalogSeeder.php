@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 use Modules\Tenancy\Models\Tenant;
 use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Models\Permission;
@@ -70,12 +69,15 @@ class RbacCatalogSeeder extends Seeder
         $this->assignAdminRole();
     }
 
+    /**
+     * Assign tenant-admin role to admin user in their personal tenant.
+     * Uses personalTenant() relation (type=personal, membership_type=owner) —
+     * not slug derivation — for reliable lookup.
+     */
     protected function assignAdminRole(): void
     {
         $user = User::where('email', config('app.admin_email', 'admin@example.com'))->first();
-        $tenant = $user
-            ? Tenant::where('slug', Str::slug($user->name).'-personal')->first()
-            : null;
+        $tenant = $user?->personalTenant();
 
         if (! $user || ! $tenant) {
             return;
