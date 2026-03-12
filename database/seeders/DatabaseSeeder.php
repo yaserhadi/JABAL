@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             PersonalTenantSeeder::class,
             MembershipSeeder::class,
+            RbacCatalogSeeder::class,
             SystemSettingsSeeder::class,
         ]);
     }

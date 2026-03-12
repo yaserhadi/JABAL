@@ -31,12 +31,14 @@ Route::middleware('auth')->group(function () {
 });
 
 // Tenant-scoped routes under /t/{tenant}/...
+// Enforcement order: tenancy → membership → RBAC (PHASE3B-RBAC)
 Route::prefix('t/{tenant}')
     ->middleware([
         'web',
         'auth',
         InitializeTenancyByPath::class,
         EnsureUserBelongsToTenant::class,
+        'permission:dashboard.view',
     ])
     ->group(function () {
         Route::get('/dashboard', function () {

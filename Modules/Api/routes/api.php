@@ -38,13 +38,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::delete('/auth/token', [TokenController::class, 'destroy'])->name('auth.token.destroy');
     });
 
-    // Tenant-scoped protected routes (require auth + tenant context)
+    // Tenant-scoped protected routes (require auth + tenant context + RBAC)
+    // Enforcement order: tenancy → membership (ValidateTenantToken) → RBAC (PHASE3B-RBAC)
     Route::middleware([
         'auth:sanctum',
         InitializeTenancyByRequestData::class,
         ValidateTenantToken::class,
     ])->group(function () {
-        // Current user endpoint with tenant context (GET /api/v1/me)
+        // Current user endpoint (requires dashboard.view)
         Route::get('/me', function () {
             $user = auth()->user();
             $tenant = tenancy()->tenant;
@@ -61,7 +62,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 'email' => $user->email,
                 'current_tenant' => $currentTenant,
             ]);
-        })->name('me');
+        })->middleware('permission:dashboard.view')->name('me');
 
         // Tenant routes (placeholder)
         Route::prefix('tenants')->name('tenants.')->group(function () {

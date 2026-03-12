@@ -12,6 +12,7 @@
         "laravel/tinker": "^2.9",
         "nwidart/laravel-modules": "^12.0",
         "ramsey/uuid": "^4.9",
+        "spatie/laravel-permission": "^6.24",
         "stancl/tenancy": "^3.9",
         "tightenco/ziggy": "^2.6"
     },

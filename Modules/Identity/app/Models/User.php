@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Identity module User model (domain implementation).
@@ -23,6 +24,7 @@ class User extends Authenticatable
     use Auditable;
     use HasApiTokens;
     use HasFactory;
+    use HasRoles;
     use HasUuids;
     use Notifiable;
     use SoftDeletes;

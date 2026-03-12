@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Listeners\SetSpatiePermissionsTeamId;
 use App\Support\Context\ActorContext;
 use App\Support\Context\ExecutionContext;
 use App\Support\Context\RequestContext;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
@@ -46,5 +48,8 @@ class AppServiceProvider extends ServiceProvider
                 'error' => 'X-Tenant-Id header required',
             ], 401);
         };
+
+        // Phase 3B: Set Spatie permissions team context during tenancy initialization
+        Event::subscribe(SetSpatiePermissionsTeamId::class);
     }
 }
