@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/workspaces",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Workspaces\\": "app/",
+            "Modules\\Workspaces\\Database\\Factories\\": "database/factories/",
+            "Modules\\Workspaces\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Workspaces\\Tests\\": "tests/"
+        }
+    }
+}

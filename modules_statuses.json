@@ -3,5 +3,6 @@
     "Identity": true,
     "Settings": true,
     "Audit": true,
-    "Api": true
+    "Api": true,
+    "Workspaces": true
 }
