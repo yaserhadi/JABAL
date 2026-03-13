@@ -78,7 +78,6 @@ return [
         'role_pivot_key' => null, // default 'role_id',
         'permission_pivot_key' => null, // default 'permission_id',
 
-
         /*
          * Phase 3B: tenant_id is the team key for tenant-scoped RBAC.
          * Spatie teams = tenant-scoped RBAC only (not business teams).

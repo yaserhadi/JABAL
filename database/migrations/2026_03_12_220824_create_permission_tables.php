@@ -38,7 +38,7 @@ return new class extends Migration
             $table->unique(['name', 'guard_name']);
         });
 
-        $schema->create($tableNames['roles'], static function (Blueprint $table) use ($teams, $columnNames, $teamKey) {
+        $schema->create($tableNames['roles'], static function (Blueprint $table) use ($teams, $teamKey) {
             $table->bigIncrements('id'); // role id
             if ($teams || config('permission.testing')) {
                 $table->uuid($teamKey)->nullable(); // Phase 3B: tenant_id (UUID)
@@ -69,13 +69,16 @@ return new class extends Migration
                 $table->uuid($teamKey); // Phase 3B: tenant_id (UUID)
                 $table->index($teamKey, 'model_has_permissions_team_foreign_key_index');
 
-                $table->primary([$teamKey, $pivotPermission, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_permissions_permission_model_type_primary');
+                $table->primary(
+                    [$teamKey, $pivotPermission, $columnNames['model_morph_key'], 'model_type'],
+                    'model_has_permissions_permission_model_type_primary'
+                );
             } else {
-                $table->primary([$pivotPermission, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_permissions_permission_model_type_primary');
+                $table->primary(
+                    [$pivotPermission, $columnNames['model_morph_key'], 'model_type'],
+                    'model_has_permissions_permission_model_type_primary'
+                );
             }
-
         });
 
         $schema->create($tableNames['model_has_roles'], static function (Blueprint $table) use ($tableNames, $columnNames, $pivotRole, $teams, $teamKey) {
@@ -93,11 +96,15 @@ return new class extends Migration
                 $table->uuid($teamKey); // Phase 3B: tenant_id (UUID)
                 $table->index($teamKey, 'model_has_roles_team_foreign_key_index');
 
-                $table->primary([$teamKey, $pivotRole, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_roles_role_model_type_primary');
+                $table->primary(
+                    [$teamKey, $pivotRole, $columnNames['model_morph_key'], 'model_type'],
+                    'model_has_roles_role_model_type_primary'
+                );
             } else {
-                $table->primary([$pivotRole, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_roles_role_model_type_primary');
+                $table->primary(
+                    [$pivotRole, $columnNames['model_morph_key'], 'model_type'],
+                    'model_has_roles_role_model_type_primary'
+                );
             }
         });
 
