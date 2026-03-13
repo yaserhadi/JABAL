@@ -15,6 +15,7 @@
 ### 2. Generate Handoff Summary
 Collect from the current session:
 - **Session Summary**: 1-2 sentence overview of what was accomplished
+- **Test Status**: If tests or migrations were run, record result (PASS/FAIL/Pending) with count; otherwise mark Pending
 - **Files Changed**: List by action (Add/Edit/Remove)
 - **Key Decisions Made**: Any architectural or design choices
 - **Open Issues**: Unresolved items or blockers
@@ -59,6 +60,12 @@ Display:
 
 ### Session Summary
 [1-2 sentence overview of what was accomplished]
+
+### Test Status
+| Verification | Status | Result |
+|--------------|--------|--------|
+| php artisan test | ✅ PASS / ⏳ Pending / ❌ FAIL | [e.g. 70 tests, 153 assertions] |
+| php artisan migrate:fresh | ✅ PASS / ⏳ Pending / ❌ FAIL | [if migrations changed] |
 
 ### Files Changed
 | Action | File | Description |

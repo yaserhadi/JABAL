@@ -25,6 +25,7 @@ class ApiResponseTest extends TestCase
     {
         $user = User::factory()->create();
         $tenant = $this->createPersonalTenant($user);
+        $this->assignDashboardViewToUser($user, $tenant);
         $token = $user->createToken('test', ['tenant:'.$tenant->id])->plainTextToken;
 
         $response = $this->withHeaders([

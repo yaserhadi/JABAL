@@ -27,6 +27,15 @@ Extract signals from the session:
 - Was there user impact?
 - Were there lessons learned?
 
+**Documentation gap check** (when relevant change types detected):
+
+| Change type | Check for stale or missing docs |
+|-------------|---------------------------------|
+| DB schema, migrations, migration layout | `.cursor/memory/conventions/database-conventions.md` |
+| API, routes, auth flow | `.cursor/memory/conventions/api-conventions.md` |
+| RBAC, permissions, roles | `.cursor/memory/conventions/rbac-conventions.md` |
+| Test helpers, test patterns | `tests/README.md` |
+
 ### 2.5 ADR Completeness Check (Advisory)
 
 Scan session context for decision indicators:
@@ -70,6 +79,14 @@ AI Track Updates (.cursor/memory/):
 - [ ] LESSONS.md - [if applicable]
 - [ ] VERSIONS.md - [if breaking change]
 
+Conventions (.cursor/memory/conventions/):
+- [ ] database-conventions.md - [if schema, migrations, or migration layout changed]
+- [ ] api-conventions.md - [if API contract or auth flow changed]
+- [ ] rbac-conventions.md - [if RBAC, permissions, or roles changed]
+
+Project Docs:
+- [ ] tests/README.md - [if test helpers or test patterns changed]
+
 Architecture:
 - [ ] docs/architecture/ADR/ - [if architecture decision, run /adr]
 
@@ -92,6 +109,8 @@ Only after confirmation:
 | HANDOFF | Required |
 | STATE | When meaningful |
 | LESSONS | Encouraged |
+| Conventions | Schema, API, or RBAC changes |
+| Project docs (tests/README) | Test helpers or patterns changed |
 | ADR | Major architecture decisions |
 | User docs | When features change |
 
@@ -103,6 +122,8 @@ Only after confirmation:
 ## Require Confirmation
 
 - LESSONS.md changes
+- Conventions updates (.cursor/memory/conventions/)
+- Project docs updates (tests/README.md)
 - Updates to docs/architecture/ADR/
 - User documentation updates (docs/)
 - VERSIONS.md changes

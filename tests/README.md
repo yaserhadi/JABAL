@@ -11,10 +11,6 @@ The Jabal platform uses **PHPUnit** with **Laravel** for testing. Tests are orga
 
 Tests are organized by module to maintain clear boundaries and enable module-specific testing strategies.
 
-### Known Issues
-
-- **RefreshDatabase / duplicate tenants migration (as of Phase 3B):** Tests using `RefreshDatabase` may fail with `relation "tenants" already exists`. This appears to be a pre-existing test environment / duplicate migration / bootstrap issue. Open a follow-up task to resolve before merging to main. Do not assume the test suite is green when this issue exists.
-
 ### Test Structure
 
 ```
@@ -179,6 +175,28 @@ public function test_personal_tenant_creation()
 ```
 
 **Returns**: `\Modules\Tenancy\Models\Tenant` instance
+
+### `assignDashboardViewToUser($user, $tenant)` (Phase 3B+)
+
+Assign `dashboard.view` permission to a user in a tenant. Required for tests that hit `/api/v1/me` or `/t/{tenant}/dashboard`, which enforce `permission:dashboard.view`.
+
+**Usage**:
+```php
+public function test_authenticated_user_can_access_me()
+{
+    $user = User::factory()->create();
+    $tenant = $this->createPersonalTenant($user);
+    $this->assignDashboardViewToUser($user, $tenant);
+
+    $token = $user->createToken('test', ['tenant:'.$tenant->id])->plainTextToken;
+    $this->withHeaders([
+        'Authorization' => 'Bearer '.$token,
+        'X-Tenant-Id' => $tenant->id,
+    ])->getJson('/api/v1/me')->assertStatus(200);
+}
+```
+
+**Returns**: `void`
 
 ### `assertTenantScoped($model, $tenant)`
 

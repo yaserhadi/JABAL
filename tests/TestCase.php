@@ -2,13 +2,18 @@
 
 namespace Tests;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Str;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * PHASE 2: TestCase uses Stancl tenancy() for tenant context.
+ * PHASE 3B: RBAC helpers for tests that hit permission-protected routes.
  */
 abstract class TestCase extends BaseTestCase
 {
@@ -55,6 +60,28 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         return $tenant;
+    }
+
+    /**
+     * Assign dashboard.view to user in tenant (for /me and dashboard routes).
+     * PHASE 3B: /api/v1/me and /t/{tenant}/dashboard require permission:dashboard.view.
+     */
+    protected function assignDashboardViewToUser(User $user, Tenant $tenant): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $guard = config('auth.defaults.guard');
+        Permission::firstOrCreate(['name' => 'dashboard.view', 'guard_name' => $guard], ['name' => 'dashboard.view', 'guard_name' => $guard]);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+        $role = Role::firstOrCreate(
+            ['name' => 'member', 'guard_name' => $guard, 'tenant_id' => $tenant->id],
+            ['name' => 'member', 'guard_name' => $guard, 'tenant_id' => $tenant->id]
+        );
+        $role->givePermissionTo('dashboard.view');
+        if (! $user->hasRole($role)) {
+            $user->assignRole($role);
+        }
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 
     /**

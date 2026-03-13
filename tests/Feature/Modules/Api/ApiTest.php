@@ -44,6 +44,7 @@ class ApiTest extends TestCase
     {
         $user = User::factory()->create();
         $tenant = $this->createPersonalTenant($user);
+        $this->assignDashboardViewToUser($user, $tenant);
 
         // Create token with tenant ability
         $token = $user->createToken('test-token', ['tenant:'.$tenant->id])->plainTextToken;

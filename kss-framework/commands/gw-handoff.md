@@ -10,7 +10,7 @@
 1. Collect all changes made in the current session
 2. List files by action (added, edited, removed)
 3. Summarize what changed and why
-4. List verification steps and tests
+4. **Run or report test status** — if tests were run in session, show result; otherwise mark as pending
 5. Define next steps for human reviewer
 
 **Output Format**:
@@ -19,6 +19,15 @@
 
 **Session Summary**:
 [1-2 sentence overview of what was accomplished]
+
+**Test Status** (MUST be explicit):
+
+| Verification | Status | Result |
+|--------------|--------|--------|
+| php artisan test | ✅ PASS / ⏳ Pending / ❌ FAIL | [e.g. 70 tests, 153 assertions] |
+| php artisan migrate:fresh | ✅ PASS / ⏳ Pending / ❌ FAIL | [if migrations changed] |
+
+If status is Pending: run before merge. If FAIL: do not merge.
 
 **Files Changed**:
 
@@ -33,10 +42,10 @@
 - [Change 2]: [reason]
 - [Change 3]: [reason]
 
-**Tests to Run**:
-- [ ] [Test command or step 1]
-- [ ] [Test command or step 2]
-- [ ] [Manual verification step]
+**Tests to Run** (if Test Status above shows Pending):
+- [ ] php artisan test
+- [ ] php artisan migrate:fresh --force [if migrations changed]
+- [ ] [Other manual verification step]
 
 **Next Steps for Reviewer**:
 1. [Action item 1]

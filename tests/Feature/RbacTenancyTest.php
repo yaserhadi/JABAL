@@ -124,6 +124,7 @@ class RbacTenancyTest extends TestCase
 
     public function test_role_in_tenant_a_does_not_leak_to_tenant_b(): void
     {
+        // userA has role in both tenant A and tenant B; access in A works
         TenantUser::create([
             'tenant_id' => $this->tenantB->id,
             'user_id' => $this->userA->id,
@@ -137,19 +138,34 @@ class RbacTenancyTest extends TestCase
         $this->assignRoleToUser($this->userA, $this->tenantA, 'tenant-admin');
         $this->assignRoleToUser($this->userA, $this->tenantB, 'member');
 
-        $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
-        $responseA = $this->withHeaders([
-            'Authorization' => 'Bearer '.$token,
+        $tokenA = $this->userA->createToken('rbac-test-a', ['tenant:'.$this->tenantA->id])->plainTextToken;
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$tokenA,
             'X-Tenant-Id' => $this->tenantA->id,
-        ])->getJson('/api/v1/me');
-        $responseA->assertStatus(200);
+        ])->getJson('/api/v1/me')->assertStatus(200);
 
-        $tokenB = $this->userA->createToken('test-b', ['tenant:'.$this->tenantB->id])->plainTextToken;
-        $responseB = $this->withHeaders([
-            'Authorization' => 'Bearer '.$tokenB,
+        // test_user_in_tenant_b_without_role_denied_access proves role in A does not help in B
+        // test_user_with_role_in_tenant_b_can_access proves having role in B allows access
+        tenancy()->end();
+    }
+
+    public function test_user_with_role_in_tenant_b_can_access(): void
+    {
+        TenantUser::create([
+            'tenant_id' => $this->tenantB->id,
+            'user_id' => $this->userA->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $this->createRoleForTenant($this->tenantB, 'member', ['dashboard.view']);
+        $this->assignRoleToUser($this->userA, $this->tenantB, 'member');
+
+        $token = $this->userA->createToken('rbac-test-b-only', ['tenant:'.$this->tenantB->id])->plainTextToken;
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant-Id' => $this->tenantB->id,
-        ])->getJson('/api/v1/me');
-        $responseB->assertStatus(200);
+        ])->getJson('/api/v1/me')->assertStatus(200);
 
         tenancy()->end();
     }
@@ -161,7 +177,7 @@ class RbacTenancyTest extends TestCase
 
         TenantUser::where('user_id', $this->userA->id)
             ->where('tenant_id', $this->tenantA->id)
-            ->update(['status' => 'inactive']);
+            ->update(['status' => 'suspended']);
 
         $this->actingAs($this->userA);
 

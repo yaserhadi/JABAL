@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tenant_users', function (Blueprint $table) {
+        Schema::connection('central')->create('tenant_users', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('tenant_id');
             $table->uuid('user_id');
@@ -34,6 +34,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('tenant_users');
+        Schema::connection('central')->dropIfExists('tenant_users');
     }
 };

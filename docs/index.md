@@ -22,6 +22,7 @@ This project uses **KSS (Knowledge Stewardship System)** for AI-assisted develop
 
 - [Architecture Decisions (ADRs)](architecture/ADR/README.md) - Architecture decision records
 - [Roadmap](roadmap/ROADMAP.md) - Product roadmap
+- [Reference](reference/README.md) - Feature and contributor reference guides
 
 ## KSS Framework
 
@@ -40,6 +41,7 @@ For KSS documentation, installation, and tools, see:
 |----------|--------|---------|
 | `docs/` | `architecture/ADR/` | Architecture Decision Records (Jabal-specific) |
 | `docs/` | `roadmap/` | Strategic product direction (Jabal-specific) |
+| `docs/` | `reference/` | Feature and contributor reference guides |
 | **Repo root** | `kss-framework/` | Portable KSS framework (handbook, commands, agents, rules) |
 
 AI governance runtime state is stored in `.cursor/memory/`.

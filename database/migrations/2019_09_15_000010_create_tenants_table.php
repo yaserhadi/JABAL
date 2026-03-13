@@ -8,18 +8,19 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * Custom tenants schema (matches Modules\Tenancy\Models\Tenant).
+     * Stancl's default migration was replaced; we use uuid, name, slug, type, isolation_level.
      */
     public function up(): void
     {
-        Schema::create('tenants', function (Blueprint $table) {
+        Schema::connection('central')->create('tenants', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('name');
             $table->string('slug')->unique();
             $table->enum('type', ['personal', 'organization']);
             $table->enum('isolation_level', ['shared', 'schema', 'database'])
                 ->default('shared');
-            // NOTE: NO $table->json('settings') here!
-            // Tenant settings belong in Settings module (Phase 2+)
             $table->timestamps();
             $table->softDeletes();
 
@@ -33,6 +34,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('tenants');
+        Schema::connection('central')->dropIfExists('tenants');
     }
 };

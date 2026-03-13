@@ -49,7 +49,7 @@ class ValidateTenantToken
             return response()->json(['success' => false, 'error' => 'Token missing tenant ability'], 403);
         }
 
-        if ($headerTenantId !== $tokenTenantId) {
+        if ((string) $headerTenantId !== (string) $tokenTenantId) {
             return response()->json(['success' => false, 'error' => 'Header does not match token ability'], 403);
         }
 
