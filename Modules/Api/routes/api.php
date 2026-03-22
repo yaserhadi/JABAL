@@ -4,6 +4,8 @@ use App\Http\Middleware\ValidateTenantToken;
 use Illuminate\Support\Facades\Route;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Http\Controllers\Api\TokenController;
+use Modules\Tenancy\Http\Controllers\TenantMemberController;
+use Modules\Workspaces\Http\Controllers\WorkspacesController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
 /*
@@ -46,6 +48,23 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ValidateTenantToken::class,
     ])->group(function () {
         // Current user endpoint (requires dashboard.view)
+        Route::apiResource('workspaces', WorkspacesController::class)->names('workspaces');
+
+        Route::prefix('tenants/current')->name('tenants.current.')->group(function () {
+            Route::get('members', [TenantMemberController::class, 'index'])
+                ->middleware('permission:member.view')
+                ->name('members.index');
+            Route::patch('members/{user}', [TenantMemberController::class, 'updateRole'])
+                ->middleware('permission:member.assign-role')
+                ->name('members.update');
+            Route::post('members/{user}/suspend', [TenantMemberController::class, 'suspend'])
+                ->middleware('permission:member.suspend')
+                ->name('members.suspend');
+            Route::post('members/{user}/activate', [TenantMemberController::class, 'activate'])
+                ->middleware('permission:member.suspend')
+                ->name('members.activate');
+        });
+
         Route::get('/me', function () {
             $user = auth()->user();
             $tenant = tenancy()->tenant;

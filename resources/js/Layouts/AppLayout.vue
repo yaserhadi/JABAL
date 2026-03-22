@@ -34,6 +34,18 @@
                     title="Dashboard"
                     :to="route('dashboard', { tenant: tenant.id })"
                 />
+                <v-list-item
+                    v-if="tenant"
+                    prepend-icon="mdi-folder-multiple"
+                    title="Workspaces"
+                    :to="route('workspaces.index', { tenant: tenant.id })"
+                />
+                <v-list-item
+                    v-if="tenant"
+                    prepend-icon="mdi-account-group"
+                    title="Members"
+                    :to="route('members.index', { tenant: tenant.id })"
+                />
                 <v-divider class="my-2" />
                 <v-list-item
                     prepend-icon="mdi-cog"

@@ -38,7 +38,6 @@ Route::prefix('t/{tenant}')
         'auth',
         InitializeTenancyByPath::class,
         EnsureUserBelongsToTenant::class,
-        'permission:dashboard.view',
     ])
     ->group(function () {
         Route::get('/dashboard', function () {
@@ -52,5 +51,19 @@ Route::prefix('t/{tenant}')
                     'type' => $tenant->type,
                 ] : null,
             ]);
-        })->name('dashboard');
+        })->middleware('permission:dashboard.view')->name('dashboard');
+
+        // Phase 3C: Member management (tenant admin surface)
+        Route::get('/members', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'index'])
+            ->middleware('permission:member.view')
+            ->name('members.index');
+        Route::patch('/members/{user}', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'updateRole'])
+            ->middleware('permission:member.assign-role')
+            ->name('members.update-role');
+        Route::post('/members/{user}/suspend', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'suspend'])
+            ->middleware('permission:member.suspend')
+            ->name('members.suspend');
+        Route::post('/members/{user}/activate', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'activate'])
+            ->middleware('permission:member.suspend')
+            ->name('members.activate');
     });
