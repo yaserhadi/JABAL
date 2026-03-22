@@ -16,12 +16,14 @@ Tests are organized by module to maintain clear boundaries and enable module-spe
 ```
 tests/
 ├── Feature/
-│   └── Modules/
-│       ├── Tenancy/
-│       ├── Identity/
-│       ├── Settings/
-│       ├── Audit/
-│       └── Api/
+│   ├── Modules/
+│   │   ├── Tenancy/
+│   │   ├── Identity/
+│   │   ├── Settings/
+│   │   ├── Audit/
+│   │   └── Api/
+│   ├── WorkspaceCrudTest.php        # Phase 3C: workspace CRUD, binding isolation, RBAC
+│   └── TenantMemberManagementTest.php  # Phase 3C: member list, suspend, last-owner
 ├── Unit/
 │   └── Modules/
 │       ├── Tenancy/
@@ -197,6 +199,20 @@ public function test_authenticated_user_can_access_me()
 ```
 
 **Returns**: `void`
+
+### `assignWorkspaceRole($user, $tenant, $roleName)` (Phase 3C+)
+
+Assign workspace and dashboard permissions to a user in a tenant. Used by `WorkspaceCrudTest` and similar tests that hit `/t/{tenant}/workspaces` or workspace API endpoints. Default role is `tenant-admin` (includes workspace.view, workspace.create, workspace.update, workspace.delete, dashboard.view).
+
+**Usage**:
+```php
+$this->assignWorkspaceRole($this->userA, $this->tenantA);
+$this->assignWorkspaceRole($this->userB, $this->tenantB, 'member');
+```
+
+**Returns**: `void`
+
+**See also**: `TenantMemberManagementTest` uses `member.view`, `member.assign-role`, `member.suspend`; seed via `RbacCatalogSeeder` or create roles with those permissions.
 
 ### `assertTenantScoped($model, $tenant)`
 
