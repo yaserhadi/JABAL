@@ -12,7 +12,7 @@
 
 - Tests pass (e.g. `php artisan test`).
 - Lint passes (e.g. `./vendor/bin/pint --test`).
-- **`/session-end`:** Run **before** steps 2–4 (while still on `<branch>`, before merging to `main`) whenever this session meaningfully changes the codebase you are about to integrate, so `.cursor/memory/HANDOFF.md` describes **finished** work that matches what will land on `main`. Do **not** treat handoff as “session complete” if you stop before merge and rely on a PR elsewhere — this command does not cover PR flows; if you use PRs only, run `/session-end` after `main` includes your changes (outside this command).
+- **`/session-end`:** Run **before** steps 2–4 (still on `<branch>`) whenever this session meaningfully changes the code you are about to merge into `main`, so `.cursor/memory/HANDOFF.md` matches the work that will land on `main`.
 - **`/docpack`:** Same timing — before merge, when conventions or project docs need updates for this work. Skip only if nothing documentation-related changed.
 
 ### 2. Commit on `<branch>`
