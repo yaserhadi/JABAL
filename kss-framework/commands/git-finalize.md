@@ -1,75 +1,83 @@
 # Git Finalize
 
-**Purpose:** Close the current execution branch by merging to `main`, pushing `main` to the remote, and deleting the feature branch.
+**Purpose:** Solo / direct workflow — commit all local work on the feature branch, merge into `main` locally, push `main` to `origin`, delete the feature branch locally. If **`git push origin main` fails**, still delete the local feature branch and report so you can fix the network or remote and push later.
 
 **Related commands:** `/git-prepare`, `/git-save`, `/session-end`, `/docpack`, `/gw-handoff`
 
-## Default workflow (remote exists)
+## Workflow (ordered)
 
-Merge locally, push **`main` only** (do not push the feature branch), delete the feature branch locally, then delete it on the remote if possible.
+Use `<branch>` = current feature branch name. Refuse if you are on `main`.
+
+### 1. Quality checks (before merge)
+
+- Tests pass (e.g. `php artisan test`).
+- Lint passes (e.g. `./vendor/bin/pint --test`).
+- `/session-end` done when applicable (`HANDOFF.md`).
+- `/docpack` when docs or conventions changed.
+
+### 2. Commit everything on the feature branch
+
+Still on `<branch>`:
+
+- Stage and commit **all** changes you intend to keep (tracked + untracked), e.g. `git add -A` then `git commit -m "…"`.
+- **Never** commit secrets: `.env`, keys, tokens. Respect `.gitignore`.
+- If there is nothing to commit, skip this step.
+
+### 3. Merge into `main` (local only)
 
 ```
 git fetch origin
 git checkout main
 git merge <branch> --no-ff -m "Merge <branch> into main"
+```
+
+Resolve conflicts if any; do not push yet until merge is clean.
+
+### 4. Push `main` to `origin`
+
+```
 git push -u origin main
-git branch -d <branch>
-git push origin --delete <branch>   # if branch exists on remote; see caveat below
 ```
 
-**Why not push the feature branch first?** Avoids a redundant remote branch that would be merged and removed immediately.
+- **If this succeeds:** note success.
+- **If this fails (network, auth, remote):** record the error, **continue to step 5 anyway.** You can run `git push origin main` from `main` after fixing the issue; your merge is already local.
 
-## When no remote (Path C)
+### 5. Delete the local feature branch (always)
 
 ```
-git checkout main
-git merge <branch> --no-ff -m "Merge <branch> into main"
 git branch -d <branch>
 ```
 
-Report: merged locally; run `git push -u origin main` when remote is ready.
+Use `-D` only if Git says the branch is not fully merged (should not happen after a clean merge).
 
-## Optional: PR-only merges (Path B)
+### 6. Optional: remove remote copy of the feature branch
 
-Use **only** when project policy requires a pull/merge request and merging must happen on the host:
+If that branch exists on `origin` and is not the host default branch:
 
 ```
-git push -u origin <branch>
+git push origin --delete <branch>
 ```
 
-Then stop: open PR, merge via host, update local `main`, delete local feature branch. Do **not** use Path B when the goal is to merge and push `main` directly.
+If the host refuses (e.g. default branch still set to that branch), change default to `main` on GitHub/GitLab, then retry.
 
-## Preconditions
+---
 
-1. On a feature branch (refuse if on `main`).
-2. Tracked files: no uncommitted modifications or staged changes. **Untracked files are allowed.**
+## When there is no `origin`
 
-## Quality checks
+After step 3, stop before push. Still run step 5 (delete local `<branch>`). Report: push when remote exists.
 
-- Tests pass (e.g. `php artisan test`).
-- Lint passes (e.g. `./vendor/bin/pint --test`).
-- Locks intact if applicable (see `.cursor/memory/INTEGRITY_RULES.md`).
-
-## Documentation
-
-- `/session-end` was run (`HANDOFF.md` updated).
-- `/docpack` when documentation changed (conventions, test helpers, APIs, etc.).
-
-## Remote delete caveat
-
-If `git push origin --delete <branch>` fails with **refusing to delete the current branch**, the host’s **default branch** is still that feature branch. On GitHub/GitLab: **Settings → Default branch → `main`** → then delete the remote feature branch (or retry the push delete).
-
-## Merge style
-
-Prefer `git merge <branch> --no-ff` to keep feature history explicit. Use fast-forward only if the team prefers it.
+---
 
 ## Guards
 
-- Refuse if tests or lint fail.
-- Refuse if `/session-end` was not run.
-- Refuse if on `main`.
-- After success: local feature branch removed; remote `main` updated.
+- Refuse if on `main` (nothing to finalize).
+- Refuse if tests or lint fail (fix first, then finalize).
+- Prefer refusing if `/session-end` was skipped for a session that changed project state (solo exception: user may override).
+
+## Merge style
+
+Prefer `--no-ff` so the feature branch stays visible in history.
 
 ## Output
 
-Report merge commit hash, confirm `main` pushed, branch deleted (local and remote, or note if remote delete blocked by default-branch setting).
+Report: commits made (if any), merge commit hash, push result (ok / failed — branch still deleted locally), confirmation local `<branch>` removed.
