@@ -14,6 +14,13 @@ Load project context for a new agent safely:
 - STATE = execution reality (phase/stage/status)
 - HANDOFF = last session continuity (next actions, blockers)
 
+### `.cursor/` read authority (KSS)
+
+The `.cursor/` tree (and nested folders) is **agent workspace**: you may **read any file** under it when the task requires it, using the **Read** tool with an explicit repo-relative path (e.g. `.cursor/memory/STATE.yaml`).
+
+- **Do not** use glob or directory listing to decide whether a KSS file exists before reading; those tools may omit gitignored paths. **Always** attempt **Read** on the canonical paths in this command.
+- Repository `.gitignore` must **not** blanket-ignore `.cursor/`, so search indexing and teammates’ clones stay aligned with KSS. (See project `.gitignore`.)
+
 ---
 
 ## Workflow
@@ -29,15 +36,17 @@ Load project context for a new agent safely:
 *Note: `goals` and `plans` are boot-specific; DOC_POLICY does not define them.*
 
 ### 2) Load core files (must)
-Read in this strict order:
+Read in this strict order using the **Read** tool and **explicit paths** (no glob, no “if present” skip):
+
 1. `.cursor/memory/AI_ENTRY.md` (entry gate + guardrails)
 2. `.cursor/memory/PROJECT_MANIFEST.md` (vision + constraints + locks)
 3. `.cursor/memory/STATE.yaml` (phase/stage/status/next_action)
 4. `.cursor/memory/HANDOFF.md` (what changed + what's next)
-5. `.cursor/goals/GOALS.md` (if present)
+5. `.cursor/goals/GOALS.md` (strategic goals — **mandatory**)
 
-**Guardrail**:
+**Guardrails**:
 - If `HANDOFF.md` is missing/empty/too short → STOP and ask user to run `/session-end` or provide last actions.
+- If `GOALS.md` **cannot be read** (missing, permission error, or tool read failure) → **STOP**. Report a **boot failure**; do not continue session startup as if goals were optional. User must restore `.cursor/goals/GOALS.md` or fix the path/workspace.
 
 ### 3) Optional: load active plan pointer (no plan scanning)
 - If `.cursor/plans/ACTIVE.plan.md` exists: read it and show "Active Plan: …"
