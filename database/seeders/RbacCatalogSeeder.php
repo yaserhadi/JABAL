@@ -20,11 +20,25 @@ class RbacCatalogSeeder extends Seeder
     protected array $permissions = [
         'workspace.view',
         'workspace.create',
+        'workspace.update',
+        'workspace.delete',
         'dashboard.view',
+        'member.view',
+        'member.assign-role',
+        'member.suspend',
     ];
 
     protected array $rolePermissions = [
-        'tenant-admin' => ['workspace.view', 'workspace.create', 'dashboard.view'],
+        'tenant-admin' => [
+            'workspace.view',
+            'workspace.create',
+            'workspace.update',
+            'workspace.delete',
+            'dashboard.view',
+            'member.view',
+            'member.assign-role',
+            'member.suspend',
+        ],
         'member' => ['workspace.view', 'dashboard.view'],
     ];
 

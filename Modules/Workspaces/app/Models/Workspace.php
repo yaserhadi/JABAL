@@ -2,6 +2,7 @@
 
 namespace Modules\Workspaces\Models;
 
+use App\Support\Audit\Auditable;
 use App\Support\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Workspace extends Model
 {
+    use Auditable;
     use BelongsToTenant;
     use HasUuids;
 
