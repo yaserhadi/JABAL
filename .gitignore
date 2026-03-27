@@ -20,11 +20,12 @@ yarn-error.log
 env.workspace
 branch_audit_*.json
 
-# .cursor/ is KSS + agent workspace (memory, goals, rules, commands copy targets).
-# Do NOT blanket-ignore it: that hides GOALS/memory from search tools and breaks /boot.
-
+# Cursor IDE (kept local; do not track in git)
 # GitHub workflows (if local only)
 .github/
 
 # Specstory
 .specstory/
+
+# Keep all Cursor workspace memory local
+.cursor/

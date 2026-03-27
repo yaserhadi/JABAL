@@ -19,7 +19,7 @@ Load project context for a new agent safely:
 The `.cursor/` tree (and nested folders) is **agent workspace**: you may **read any file** under it when the task requires it, using the **Read** tool with an explicit repo-relative path (e.g. `.cursor/memory/STATE.yaml`).
 
 - **Do not** use glob or directory listing to decide whether a KSS file exists before reading; those tools may omit gitignored paths. **Always** attempt **Read** on the canonical paths in this command.
-- Repository `.gitignore` must **not** blanket-ignore `.cursor/`, so search indexing and teammates’ clones stay aligned with KSS. (See project `.gitignore`.)
+- `.cursor/` may be gitignored by design (local agent workspace). This does not block direct reads; use explicit file paths with **Read**.
 
 ---
 

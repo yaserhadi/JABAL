@@ -20,7 +20,7 @@ Apply these in your Cursor command files (copy to `~/.cursor/commands/`):
 
 ## Files to update
 
-- **boot** (e.g. `boot.md`): Check policy at `.cursor/DOC_POLICY.yaml`; read `.cursor/memory/AI_ENTRY.md` (mandatory order: DOC_POLICY, then PROJECT_MANIFEST, STATE, HANDOFF, GOALS), then `.cursor/memory/PROJECT_MANIFEST.md`, `.cursor/memory/STATE.yaml`, `.cursor/memory/HANDOFF.md`, and **`.cursor/goals/GOALS.md` (mandatory — Read with explicit path; if read fails, STOP boot)**. The agent must read PROJECT_MANIFEST to receive the project brain. Do not use glob to skip GOALS. On-demand sources include `docs/architecture/ADR/README.md` for architecture decisions. The `.cursor/` tree must not be blanket-gitignored so tools can index KSS paths.
+- **boot** (e.g. `boot.md`): Check policy at `.cursor/DOC_POLICY.yaml`; read `.cursor/memory/AI_ENTRY.md` (mandatory order: DOC_POLICY, then PROJECT_MANIFEST, STATE, HANDOFF, GOALS), then `.cursor/memory/PROJECT_MANIFEST.md`, `.cursor/memory/STATE.yaml`, `.cursor/memory/HANDOFF.md`, and **`.cursor/goals/GOALS.md` (mandatory — Read with explicit path; if read fails, STOP boot)**. The agent must read PROJECT_MANIFEST to receive the project brain. Do not use glob to skip GOALS. On-demand sources include `docs/architecture/ADR/README.md` for architecture decisions. `.cursor/` can remain gitignored; direct path reads are authoritative for KSS files.
 - **docpack** (e.g. `docpack.md`): Use `.cursor/DOC_POLICY.yaml` and write/read from `.cursor/memory/` as needed.
 - **session-end** (e.g. `session-end.md`): Write handoff to `.cursor/memory/HANDOFF.md` only.
 
