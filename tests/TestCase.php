@@ -38,7 +38,6 @@ abstract class TestCase extends BaseTestCase
      * PHASE 2: Sets status = 'active'.
      *
      * @param  mixed  $user
-     * @return \Modules\Tenancy\Models\Tenant
      */
     protected function createPersonalTenant($user): Tenant
     {
