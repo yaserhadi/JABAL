@@ -2,6 +2,13 @@
 
 Human deliberation records for architectural decisions. One file per decision.
 
+## Index (Jabal)
+
+| ADR | Title |
+|-----|--------|
+| [ADR-0001](ADR-0001-tenancy.md) | Multi-tenancy approach (stancl) |
+| [ADR-0002](ADR-0002-tenant-rbac-provisioning.md) | Tenant RBAC provisioning (catalog + runtime + shell nav) |
+
 ## Naming
 
 ADR-NNNN-slug.md (e.g. ADR-0001-tenancy.md). Sequential numbering.

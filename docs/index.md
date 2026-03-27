@@ -40,7 +40,7 @@ For KSS documentation, installation, and tools, see:
 | Location | Folder | Purpose |
 |----------|--------|---------|
 | `docs/` | `architecture/ADR/` | Architecture Decision Records (Jabal-specific) |
-| `docs/` | `roadmap/` | Strategic product direction (Jabal-specific) |
+| `docs/` | `roadmap/` | Phase overview, backlog & deferrals (Jabal-specific; strategy stays in `.cursor/goals/GOALS.md`) |
 | `docs/` | `reference/` | Feature and contributor reference guides |
 | **Repo root** | `kss-framework/` | Portable KSS framework (handbook, commands, agents, rules) |
 
