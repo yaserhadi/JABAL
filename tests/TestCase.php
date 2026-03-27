@@ -4,9 +4,8 @@ namespace Tests;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Illuminate\Support\Str;
+use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -41,25 +40,9 @@ abstract class TestCase extends BaseTestCase
      * @param  mixed  $user
      * @return \Modules\Tenancy\Models\Tenant
      */
-    protected function createPersonalTenant($user)
+    protected function createPersonalTenant($user): Tenant
     {
-        $tenant = Tenant::create([
-            'name' => $user->name.'\'s Workspace',
-            'slug' => Str::slug($user->name).'-'.Str::random(6),
-            'type' => 'personal',
-            'isolation_level' => 'shared',
-            'status' => 'active',
-        ]);
-
-        TenantUser::create([
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-            'membership_type' => 'owner',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
-
-        return $tenant;
+        return app(UserService::class)->createPersonalTenant($user);
     }
 
     /**

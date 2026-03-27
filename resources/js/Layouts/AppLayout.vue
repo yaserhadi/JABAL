@@ -37,26 +37,26 @@
                     v-if="tenant"
                     prepend-icon="mdi-view-dashboard"
                     title="Dashboard"
-                    :to="route('dashboard', { tenant: tenant.id })"
+                    @click="visitTenantRoute('dashboard')"
                 />
                 <v-list-item
                     v-if="tenant"
                     prepend-icon="mdi-folder-multiple"
                     title="Workspaces"
-                    :to="route('workspaces.index', { tenant: tenant.id })"
+                    @click="visitTenantRoute('workspaces.index')"
                 />
                 <v-list-item
                     v-if="tenant"
                     prepend-icon="mdi-account-group"
                     title="Members"
-                    :to="route('members.index', { tenant: tenant.id })"
+                    @click="visitTenantRoute('members.index')"
                 />
                 <v-divider class="my-2" />
                 <v-list-item
                     v-if="tenant_ui_permissions?.canViewTenantSettings && tenant"
                     prepend-icon="mdi-cog"
                     title="Tenant settings"
-                    :to="route('tenant.settings.index', { tenant: tenant.id })"
+                    @click="visitTenantRoute('tenant.settings.index')"
                 />
                 <v-list-item
                     prepend-icon="mdi-clipboard-text"
@@ -76,7 +76,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 const page = usePage();
@@ -85,6 +85,15 @@ const tenantBranding = computed(() => page.props.tenantBranding);
 const tenant_ui_permissions = computed(() => page.props.tenant_ui_permissions);
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
 const drawer = ref(true);
+
+/** Inertia has no vue-router; v-list-item :to does nothing. Use client visits instead. */
+const visitTenantRoute = (name) => {
+    const t = tenant.value;
+    if (!t?.id) {
+        return;
+    }
+    router.visit(route(name, { tenant: t.id }));
+};
 
 const logout = () => {
     // Use form submit for full page navigation so login page displays immediately.

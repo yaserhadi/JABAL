@@ -61,4 +61,22 @@ class AuthTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect(route('login'));
     }
+
+    public function test_register_redirects_to_dashboard_with_tenant_admin_permissions(): void
+    {
+        $response = $this->post('/register', [
+            'name' => 'New Signup',
+            'email' => 'new-signup-'.uniqid().'@example.com',
+            'password' => 'password-Str0ng!',
+            'password_confirmation' => 'password-Str0ng!',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect();
+        $target = $response->headers->get('Location');
+        $this->assertMatchesRegularExpression('#/t/[a-f0-9-]{36}/dashboard#', (string) $target);
+
+        $dash = $this->get((string) $target);
+        $dash->assertStatus(200);
+    }
 }

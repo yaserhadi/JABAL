@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
+use Modules\Tenancy\Services\TenantRbacProvisioner;
 
 /**
  * UserService handles all user-related business logic.
@@ -124,6 +125,11 @@ class UserService
             'status' => 'active',
             'joined_at' => now(),
         ]);
+
+        $rbac = app(TenantRbacProvisioner::class);
+        $rbac->ensureGlobalPermissions();
+        $rbac->ensureRolesForTenant($tenant);
+        $rbac->assignTenantAdminRole($user, $tenant);
 
         return $tenant;
     }

@@ -121,13 +121,15 @@ class WorkspaceCrudTest extends TestCase
             'status' => 'active',
             'joined_at' => now(),
         ]);
+        // Catalog `member` includes workspace.view; use a dedicated role for "no workspace" coverage.
         app(PermissionRegistrar::class)->setPermissionsTeamId($this->tenantA->getTenantKey());
+        $guard = config('auth.defaults.guard');
         $role = Role::firstOrCreate(
-            ['name' => 'member', 'guard_name' => config('auth.defaults.guard'), 'tenant_id' => $this->tenantA->id],
-            ['name' => 'member', 'guard_name' => config('auth.defaults.guard'), 'tenant_id' => $this->tenantA->id]
+            ['name' => 'dashboard-only', 'guard_name' => $guard, 'tenant_id' => $this->tenantA->id],
+            ['name' => 'dashboard-only', 'guard_name' => $guard, 'tenant_id' => $this->tenantA->id]
         );
-        $role->givePermissionTo(Permission::findByName('dashboard.view', config('auth.defaults.guard')));
-        $this->userB->assignRole($role);
+        $role->syncPermissions([Permission::findByName('dashboard.view', $guard)]);
+        $this->userB->syncRoles([$role]);
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
         $this->actingAs($this->userB);
