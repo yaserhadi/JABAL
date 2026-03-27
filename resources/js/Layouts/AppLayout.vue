@@ -2,7 +2,12 @@
     <v-app>
         <v-app-bar color="primary" dark app>
             <v-app-bar-nav-icon @click="drawer = !drawer" />
-            <v-toolbar-title>{{ appName }}</v-toolbar-title>
+            <v-toolbar-title>
+                <span>{{ tenantBranding?.display_name || appName }}</span>
+                <span v-if="tenantBranding?.display_name" class="text-caption d-block font-weight-regular opacity-80">
+                    {{ appName }}
+                </span>
+            </v-toolbar-title>
             <v-spacer />
             <v-menu>
                 <template #activator="{ props }">
@@ -48,9 +53,10 @@
                 />
                 <v-divider class="my-2" />
                 <v-list-item
+                    v-if="tenant_ui_permissions?.canViewTenantSettings && tenant"
                     prepend-icon="mdi-cog"
-                    title="Settings"
-                    disabled
+                    title="Tenant settings"
+                    :to="route('tenant.settings.index', { tenant: tenant.id })"
                 />
                 <v-list-item
                     prepend-icon="mdi-clipboard-text"
@@ -75,6 +81,8 @@ import { route } from 'ziggy-js';
 
 const page = usePage();
 const tenant = computed(() => page.props.tenant);
+const tenantBranding = computed(() => page.props.tenantBranding);
+const tenant_ui_permissions = computed(() => page.props.tenant_ui_permissions);
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
 const drawer = ref(true);
 

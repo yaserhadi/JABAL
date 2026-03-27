@@ -15,24 +15,38 @@
                             <v-col cols="12" md="4">
                                 <v-card color="primary" dark>
                                     <v-card-text>
-                                        <div class="text-h6">Current Tenant</div>
-                                        <div class="text-h4 mt-2">Personal</div>
+                                        <div class="text-h6">Current tenant</div>
+                                        <div class="text-h4 mt-2">{{ tenantDisplayName }}</div>
+                                        <div v-if="tenant?.slug" class="text-body-2 mt-1 opacity-80">{{ tenant.slug }}</div>
                                     </v-card-text>
                                 </v-card>
                             </v-col>
                             <v-col cols="12" md="4">
                                 <v-card color="secondary" dark>
                                     <v-card-text>
-                                        <div class="text-h6">Settings</div>
-                                        <div class="text-body-2 mt-2">Coming soon in Phase 1</div>
+                                        <div class="text-h6">Tenant settings</div>
+                                        <div class="text-body-2 mt-2">
+                                            <template v-if="tenant_ui_permissions?.canViewTenantSettings && tenant">
+                                                <v-btn
+                                                    variant="text"
+                                                    class="text-white pa-0 text-decoration-underline"
+                                                    :to="route('tenant.settings.index', { tenant: tenant.id })"
+                                                >
+                                                    Open settings
+                                                </v-btn>
+                                            </template>
+                                            <template v-else>
+                                                Tenant admins configure branding and locale here.
+                                            </template>
+                                        </div>
                                     </v-card-text>
                                 </v-card>
                             </v-col>
                             <v-col cols="12" md="4">
                                 <v-card color="accent">
                                     <v-card-text>
-                                        <div class="text-h6">Audit Logs</div>
-                                        <div class="text-body-2 mt-2">Coming soon in Phase 1</div>
+                                        <div class="text-h6">Audit logs</div>
+                                        <div class="text-body-2 mt-2">Coming in a later phase</div>
                                     </v-card-text>
                                 </v-card>
                             </v-col>
@@ -46,6 +60,21 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
+
+const page = usePage();
 
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
+const tenant = computed(() => page.props.tenant);
+const tenantBranding = computed(() => page.props.tenantBranding);
+const tenant_ui_permissions = computed(() => page.props.tenant_ui_permissions);
+
+const tenantDisplayName = computed(() => {
+    if (tenantBranding.value?.display_name) {
+        return tenantBranding.value.display_name;
+    }
+    return tenant.value?.name || '—';
+});
 </script>

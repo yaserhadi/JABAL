@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Http\Controllers\Api\TokenController;
 use Modules\Tenancy\Http\Controllers\TenantMemberController;
+use Modules\Tenancy\Http\Controllers\TenantSettingsController;
 use Modules\Workspaces\Http\Controllers\WorkspacesController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
@@ -63,6 +64,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('members/{user}/activate', [TenantMemberController::class, 'activate'])
                 ->middleware('permission:member.suspend')
                 ->name('members.activate');
+
+            Route::get('settings', [TenantSettingsController::class, 'show'])
+                ->middleware('permission:tenant.settings.view')
+                ->name('settings.show');
+            Route::patch('settings', [TenantSettingsController::class, 'update'])
+                ->middleware('permission:tenant.settings.update')
+                ->name('settings.update');
         });
 
         Route::get('/me', function () {

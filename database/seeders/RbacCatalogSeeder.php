@@ -26,6 +26,8 @@ class RbacCatalogSeeder extends Seeder
         'member.view',
         'member.assign-role',
         'member.suspend',
+        'tenant.settings.view',
+        'tenant.settings.update',
     ];
 
     protected array $rolePermissions = [
@@ -38,6 +40,8 @@ class RbacCatalogSeeder extends Seeder
             'member.view',
             'member.assign-role',
             'member.suspend',
+            'tenant.settings.view',
+            'tenant.settings.update',
         ],
         'member' => ['workspace.view', 'dashboard.view'],
     ];
