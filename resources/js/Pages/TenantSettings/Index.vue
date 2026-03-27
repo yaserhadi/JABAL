@@ -64,6 +64,8 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { route } from 'ziggy-js';
 
 const page = usePage();
 
@@ -73,8 +75,8 @@ const props = defineProps({
     supportedLocales: { type: Array, default: () => ['en'] },
 });
 
-const tenant_ui_permissions = page.props.tenant_ui_permissions;
-const flash = page.props.flash;
+const tenant_ui_permissions = computed(() => page.props.tenant_ui_permissions);
+const flash = computed(() => page.props.flash);
 
 const form = useForm({
     display_name: props.settings.display_name ?? '',
@@ -84,7 +86,7 @@ const form = useForm({
 });
 
 function submit() {
-    if (!tenant_ui_permissions?.canUpdateTenantSettings) {
+    if (!tenant_ui_permissions.value?.canUpdateTenantSettings) {
         return;
     }
     form.patch(route('tenant.settings.update', { tenant: props.tenant.id }), {
