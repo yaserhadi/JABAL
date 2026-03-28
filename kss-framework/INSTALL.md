@@ -20,9 +20,12 @@ Copy rule files to your global Cursor rules folder:
 ```
 ~/.cursor/rules/
 ├── plans-location.mdc
+├── module-creation-gate.mdc
 ├── reports-location-global.md
 └── agent-response-language-global.md
 ```
+
+Also copy `kss-framework/rules/module-creation-gate.mdc` into the **project** `.cursor/rules/` when adopting workspace rules (MODULE-CREATION-GATE; pairs with `/gw-triage` and ADR-0003).
 
 ### 3. Commands
 

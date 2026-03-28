@@ -17,7 +17,11 @@
    - Ask 1-2 critical clarifying questions only
    - Do not ask obvious or unnecessary questions
    - Focus on: scope, environment, constraints, expected outcome
-5. **Architectural Decision Check**:
+5. **Module Creation Gate (`MODULE-CREATION-GATE`) — mandatory**:
+   - For any feature or structural change (not pure docs/read-only), decide: **existing module** vs **`app/` kernel** vs **new module**.
+   - Ask: Does this add a **tenant-facing surface** (routes, controllers, API, UI), **independent domain behavior**, or a **named capability**? If yes to a distinct capability, a **new module** may be required; if it extends an existing capability, **extend that module**; if it is cross-cutting only, keep it in **`app/`**.
+   - Follow `kss-framework/rules/module-creation-gate.mdc` (copy to `.cursor/rules/` per `kss-framework/INSTALL.md` if using workspace rules) and ADR-0003. **Triaged first, confirmed at plan start** — if scope grows into a full feature surface, re-run this check.
+6. **Architectural Decision Check**:
    - Does this change involve a choice between alternatives?
    - Does it establish a new pattern, API contract, or module boundary?
    - Does it have long-term architectural implications?
@@ -43,6 +47,10 @@
 **Evidence Referenced**:
 - [files/commands/tests that support the conclusions]
 
+**Module boundary check (`MODULE-CREATION-GATE`)**:
+- **Destination**: Existing module (name) / `app/` kernel / New module
+- **Rationale**: [one or two sentences — why this destination fits]
+
 **Architectural Decision Check**:
 - [ ] Involves architectural choice: Yes / No
 - [ ] Decision type: [DB/API/Security/Module/Integration/None]
@@ -66,6 +74,7 @@
 ## Notes
 
 - This command complements the `safe-coding-practices` skill
+- **`MODULE-CREATION-GATE`** is mandatory for feature work; full criteria: `kss-framework/rules/module-creation-gate.mdc`; architecture context: ADR-0003
 - When in doubt, prefer safety over speed
 - Always cite evidence for findings
 - Stop and ask if context is missing
