@@ -1,0 +1,53 @@
+---
+description: MODULE-CREATION-GATE — decide existing module vs app kernel vs new module before planning or implementation
+alwaysApply: true
+---
+
+# MODULE-CREATION-GATE (Module Creation Gate)
+
+**Related:** ADR-0003 (`docs/architecture/ADR/ADR-0003-modular-monolith-module-boundaries.md`), `MODULE-BOUNDARY` (enforcement sync, when active).
+
+**Distribution:** Copy this file to the project `.cursor/rules/` folder if you use workspace rules (see `kss-framework/INSTALL.md`).
+
+## Rule
+
+Before **planning** or **implementing** a feature, decide whether the work belongs to:
+
+1. **An existing module** (`Modules/<Name>/`) — extend when the work is a direct continuation of that module’s capability.
+2. **The shared kernel** (`app/`) — only for cross-cutting infrastructure: middleware, shared contracts, base classes, framework glue, bootstrap.
+3. **A new module** — only when the change introduces a **distinct** tenant-facing capability or bounded feature surface that warrants its own delivery block.
+
+**Triaged first, confirmed at plan start:** Re-check when a plan is opened or when scope grows from a “small tweak” into routes + controllers + requests + services + pages + RBAC.
+
+## When a new module is appropriate
+
+Favor **extending an existing module** unless **one or more** of the following apply:
+
+- The feature adds a **new tenant-facing surface** (routes, controllers, API, pages/UI), not merely a helper or shared service.
+- The feature has **independent domain behavior** (new model/aggregate, CRUD, lifecycle, validation, audit hooks, RBAC permissions tied to the feature).
+- The feature can be named as a **standalone capability** (e.g. Workspaces, Tenant Settings, Billing) rather than a tiny sub-fork of an existing one.
+- The work spans **multiple cohesive layers** (routes, requests, services, controllers, UI, tests) as a single delivery block.
+
+## When a new module is not appropriate
+
+- Edits **inside** a module that already owns the capability.
+- A **sub-page** or narrow extension of the same capability in the same module.
+- **Shared helpers**, contracts, middleware, providers, or kernel integration → stay in **`app/`** (or shared support), not a new module.
+- **Small extensions** of an existing aggregate within the **same** module.
+
+**Examples (no new module):** New permission for Workspaces → Workspaces or shared RBAC provisioner; new FormRequest in Tenant Settings → Settings module; change to `ValidateTenantToken` → `app/` middleware, not a module.
+
+## Before `module:make` or scattered files
+
+Do **not** run Laravel/nWidart module generators or spread feature code across `app/` and `Modules/` without passing this gate and (if needed) `/gw-triage`.
+
+## Plan preflight (confirm at plan start)
+
+For plans that add or change **product behavior** (not docs-only), confirm **before executing todos**:
+
+| Question | Action |
+|----------|--------|
+| Where does this work land? | **Existing module** (which?) / **`app/` kernel** / **New module** |
+| Did scope grow since first triage? | If a “small change” became routes + controllers + services + UI + RBAC, **re-run `/gw-triage`** and **MODULE-CREATION-GATE** |
+
+**Triaged first, confirmed at plan start.** See also ADR-0003.

@@ -114,6 +114,7 @@ This ADR does **not** automatically change enforcement files. If **Status** beco
 - `Modules/Workspaces/` — validated reference slice for tenant-facing module pattern
 - ADR-0001 — tenancy approach (stancl)
 - ADR-0002 — tenant RBAC provisioning (related platform discipline)
+- `kss-framework/rules/module-creation-gate.mdc` — **MODULE-CREATION-GATE** (operational; existing module vs `app/` kernel vs new module); enforced in `/gw-triage` workflow
 
 ### Diagram (reference)
 

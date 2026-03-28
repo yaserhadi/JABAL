@@ -86,8 +86,11 @@ If architectural decisions arise during this session:
 - Decision indicators: DB schema, API contracts, module boundaries, security model
 - This is advisory; boot does not block on missing ADRs.
 
+### Module boundary pointer (lightweight)
+If the task may introduce a **new tenant-facing capability** (routes, UI, API, or new domain lifecycle), use **`/gw-triage`** and apply **`MODULE-CREATION-GATE`** (`kss-framework/rules/module-creation-gate.mdc`, ADR-0003) **before** deep planning or implementation. Boot does not replace per-task triage.
+
 ### Ready
 Reply with your task, or:
-- `/gw-triage [task]` if it touches DB/Cache/Queue/Session/Tenancy/Security/Hosting
+- `/gw-triage [task]` if it touches DB/Cache/Queue/Session/Tenancy/Security/Hosting, **or** may need a **new module vs existing module vs `app/` kernel**
 - "Continue from handoff"
 - "Show me the active plan"
