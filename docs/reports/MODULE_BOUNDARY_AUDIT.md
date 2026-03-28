@@ -13,13 +13,15 @@
 
 Tenant-facing **HTTP routes** are overwhelmingly **module-owned** (`Modules/*/routes/*.php`) with **`routes/web.php` bootstrap-only** (root redirect). The **API** entry file is **`Modules/Api/routes/api.php`**, registered from `bootstrap/app.php`, and handlers are **module controllers**. No active **feature routes** were found outside those locations.
 
-The main gaps are **hygiene**: **unreferenced** Laravel-style controllers under `app/Http/Controllers` (superseded by `Modules\Identity\Http\Controllers\AuthController`), **orphan** `Welcome.vue`, **duplicate/unused** controllers inside `Modules/Identity`, and **`AuditLogController`** in Audit module with **no route binding**. **Navigation** in `AppLayout.vue` uses **named Ziggy routes** for tenant surfaces; **Audit Logs** is **disabled** (placeholder, not a broken link). **Layer D** found **no** `app/Services`, `app/Http/Requests`, `app/Policies`, `app/Actions`, or `app/UseCases` trees—`app/Support` and providers fit **kernel-acceptable** usage.
+Phase A identified **hygiene-only** gaps (legacy controllers, orphan `Welcome.vue`, duplicate Identity controllers, unused `AuditLogController`, disabled Audit nav). **Phase B** addressed them in four small batches (§6): removed dead files, deleted orphan page, and **documented** the Audit drawer item as an intentional tenant-vs-platform placeholder—not wired to `/admin/audit` without product/gating work.
 
-**Phase B** was **not executed** in this pass; backlog is listed in §5 for human approval.
+**Layer D** remains: **no** `app/Services`, `app/Http/Requests`, `app/Policies`, `app/Actions`, or `app/UseCases` trees—`app/Support` and providers fit **kernel-acceptable** usage.
 
 ---
 
 ## 2. Findings table
+
+*Rows below reflect the **Phase A** snapshot. Paths marked **Legacy unused** in rows 36–40, 43–44 were **removed** in Phase B batches 1–3 (§6).*
 
 | Path / artifact | Layer | Classification | Evidence |
 |-----------------|-------|----------------|----------|
@@ -63,20 +65,20 @@ The main gaps are **hygiene**: **unreferenced** Laravel-style controllers under 
 
 ## 4. Flags / watch items (not necessarily violations)
 
-- **Duplicate auth controller patterns** in Identity module (`LoginController` / `RegisterController` vs `AuthController`) — confusing for contributors; cleanup is **hygiene**.
-- **Audit UI in drawer** disabled while Audit module exists under `/admin/audit` — product choice; enabling would need `visit` to admin routes or role-gated nav (out of scope for this audit).
+- ~~Duplicate Identity auth controllers~~ — **resolved** (Phase B batch 2); `AuthController` remains the single auth entry.
+- **Audit UI in drawer** — **documented** in `AppLayout.vue` (Phase B batch 4); optional future work: wire with `platform.admin` gating to `/admin/audit` (item 5 below).
 
 ---
 
 ## 5. Phase B backlog (execute only after human approval)
 
-Ordered per plan: **dead code first**, then structural moves (none identified in `app/` for this audit).
+**Status:** Items **1–4 completed** 2026-03-29 on `feature/module-boundary-audit` (four commits). **`php artisan test`:** 89 passed.
 
-1. **Delete** (after second-pass grep + test run): `app/Http/Controllers/DashboardController.php`, `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Controllers/Auth/RegisterController.php` — if still unreferenced.
-2. **Delete or document** `resources/js/Pages/Welcome.vue` — orphan page.
-3. **Remove or consolidate** unused Identity controllers: `LoginController`, `RegisterController`, `LogoutController` under `Modules/Identity` — single auth entry (`AuthController`) preferred.
-4. **Remove or route** `Modules/Audit/Http/Controllers/AuditLogController.php` — either register routes or delete if superseded by `AuditController`.
-5. **Optional UX:** Enable drawer Audit entry with correct **platform-admin** route and permission check (separate small change).
+1. ~~**Delete** dead `app/Http/Controllers` auth + dashboard~~ — done (batch 1).
+2. ~~**Delete** orphan `Welcome.vue`~~ — done (batch 3).
+3. ~~**Remove** unused Identity `Login`/`Register`/`Logout` controllers~~ — done (batch 2).
+4. ~~**Remove** unused `AuditLogController`~~ — done (batch 2); routes continue to use `AuditController`.
+5. **Optional UX:** Enable drawer Audit entry with **platform-admin** route and permission check — **deferred** (not required for boundary hygiene).
 
 **Rules reminder:** One concern per commit; any move `app/` → `Modules/<Name>/` must match **MODULE-CREATION-GATE** destination and ADR-0003.
 
@@ -84,13 +86,24 @@ Ordered per plan: **dead code first**, then structural moves (none identified in
 
 ## 6. Phase B execution status
 
-**Not run** in this audit session — per plan, Phase B follows human sign-off on classifications above.
+Executed in **four small batches** on branch `feature/module-boundary-audit` (see git history). No large `app/` → `Modules/` moves; only **legacy unused** removals and documented UI intent.
+
+| Batch | Scope |
+| ----- | ----- |
+| 1 | Removed dead `app/Http/Controllers` auth + dashboard controllers |
+| 2 | Removed unused Identity (`Login`/`Register`/`Logout`) and Audit `AuditLogController` |
+| 3 | Removed orphan `Welcome.vue` (no `Inertia::render('Welcome')`) |
+| 4 | Documented **Audit Logs** drawer item as **intentional placeholder** (tenant shell vs `/admin/audit` product boundary) |
 
 ---
 
-## 7. Sign-off
+## 7. Sign-off (Phase A adopted)
 
-- [ ] Human reviewer confirms **Legacy unused** and **Phase B** item order  
-- [ ] After cleanup, re-run Layer A/B grep smoke check  
+**Phase A is formally adopted.** Human judgment:
 
-**Auditor notes:** Automated agent pass; no runtime or schema changes performed.
+> The audit confirms that current practice is broadly aligned with ADR-0003 and MODULE-CREATION-GATE, with cleanup limited to legacy unused files and minor hygiene items.
+
+- [x] Phase A classifications accepted; **Legacy unused** / **Phase B** order confirmed  
+- [x] Post–Phase B: route/controller grep smoke check re-run (no stale references to removed controllers)
+
+**Auditor notes:** Initial Phase A was automated read-only; Phase B hygiene applied per approved batch sequence—no mixing with Phase 3D/4 scope.
