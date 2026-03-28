@@ -8,6 +8,7 @@ Human deliberation records for architectural decisions. One file per decision.
 |-----|--------|
 | [ADR-0001](ADR-0001-tenancy.md) | Multi-tenancy approach (stancl) |
 | [ADR-0002](ADR-0002-tenant-rbac-provisioning.md) | Tenant RBAC provisioning (catalog + runtime + shell nav) |
+| [ADR-0003](ADR-0003-modular-monolith-module-boundaries.md) | Modular monolith — module boundaries (documented hybrid) |
 
 ## Naming
 
