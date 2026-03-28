@@ -1,8 +1,10 @@
 # ADR-0003: Modular monolith — module boundaries (documented hybrid)
 
-Status: **Draft**  
-Date: 2026-03-28  
+Status: **Final**  
+Date: 2026-03-29  
 Owner: KSS Steward - YH
+
+**Promotion rationale:** ADR-0003 is **Final** because the **documented hybrid** boundary model (kernel in `app/`, construction blocks in `Modules/`) is **no longer provisional**. Codebase practice was reviewed in the **Module Boundary Audit** with **Phase B** cleanup completed ([`docs/reports/MODULE_BOUNDARY_AUDIT.md`](../../reports/MODULE_BOUNDARY_AUDIT.md)). **MODULE-CREATION-GATE** is **operationally adopted** (`kss-framework/rules/module-creation-gate.mdc`, `/gw-triage`, `/boot` pointer). Automated tests, manual smoke, and frontend build were verified on `main` before promotion.
 
 ---
 
@@ -103,6 +105,8 @@ This ADR does **not** automatically change enforcement files. If **Status** beco
 - Exceptions require **explicit human approval** and documentation.
 
 **Verification:** Cross-check with `routes/web.php` header comment; module route files under `Modules/*/routes/`.
+
+**Note (Status = Final):** This section remains a **proposal** for human-driven sync. **Final** records the architectural decision and operational adoption; mirroring **`MODULE-BOUNDARY`** into `PROJECT_MANIFEST.md` / `INTEGRITY_RULES.md` is **recommended** per [ADR README](README.md) checklist but **not** automatic and requires explicit owner approval.
 
 ---
 
