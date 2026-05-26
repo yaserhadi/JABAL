@@ -2,12 +2,12 @@
 
 namespace Modules\Tenancy\Services;
 
-use App\Models\User;
 use InvalidArgumentException;
+use Modules\Identity\Models\TenantUser as TenantApplicationUser;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use Modules\Tenancy\Models\TenantUser as TenantMembership;
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -114,7 +114,7 @@ class TenantRbacProvisioner
      *
      * @throws InvalidArgumentException If the user is not an active owner of the tenant.
      */
-    public function assignTenantAdminRole(User $user, Tenant $tenant): void
+    public function assignTenantAdminRole(TenantApplicationUser $user, Tenant $tenant): void
     {
         if (! $this->userIsActiveOwner($user, $tenant)) {
             throw new InvalidArgumentException(
@@ -134,9 +134,9 @@ class TenantRbacProvisioner
         }
     }
 
-    protected function userIsActiveOwner(User $user, Tenant $tenant): bool
+    protected function userIsActiveOwner(TenantApplicationUser $user, Tenant $tenant): bool
     {
-        return TenantUser::query()
+        return TenantMembership::query()
             ->where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('membership_type', 'owner')

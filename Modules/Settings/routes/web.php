@@ -3,8 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Settings\Http\Controllers\SettingsController;
 
-Route::middleware(['auth', 'platform.admin'])->prefix('admin')->name('settings.')->group(function () {
-    Route::get('settings', [SettingsController::class, 'index'])->name('index');
-    Route::put('settings', [SettingsController::class, 'bulkUpdate'])->name('bulkUpdate');
-    Route::put('settings/{key}', [SettingsController::class, 'update'])->name('update');
-});
+// Legacy /admin paths redirect to Platform Management app (ADR-0007).
+Route::redirect('/admin/settings', '/platform/settings');
+Route::redirect('/admin/audit', '/platform/audit');

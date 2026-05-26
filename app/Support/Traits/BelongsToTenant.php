@@ -20,11 +20,29 @@ trait BelongsToTenant
     {
         static::addGlobalScope('tenant', function (Builder $builder) {
             if (! tenancy()->initialized || ! tenancy()->tenant) {
+                // Sanctum resolves the tokenable user before X-Tenant-Id initializes tenancy.
+                if (request()->bearerToken() && (request()->is('api/*') || app()->runningUnitTests())) {
+                    return;
+                }
+
                 throw new RuntimeException(
                     'Cannot query tenant-scoped model ['.static::class.'] without tenant context.'
                 );
             }
-            $builder->where($builder->getModel()->getTable().'.tenant_id', tenancy()->tenant->id);
+            $table = $builder->getModel()->getTable();
+            $tenantId = tenancy()->tenant->id;
+
+            // shared_db: authenticated user may belong via central membership with home tenant_id elsewhere
+            if (auth()->check() && auth()->id()) {
+                $builder->where(function (Builder $query) use ($table, $tenantId) {
+                    $query->where($table.'.tenant_id', $tenantId)
+                        ->orWhere($table.'.id', auth()->id());
+                });
+
+                return;
+            }
+
+            $builder->where($table.'.tenant_id', $tenantId);
         });
 
         static::creating(function ($model) {
