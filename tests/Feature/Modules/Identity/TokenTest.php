@@ -13,18 +13,16 @@ class TokenTest extends TestCase
 
     public function test_user_can_generate_api_token_with_credentials(): void
     {
-        $userService = app(UserService::class);
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
-
-        $tenant = $userService->createPersonalTenant($user);
+        $email = 'token-'.uniqid().'@example.com';
+        $user = $this->registerTenantUser('Token User', $email);
+        $password = 'password';
 
         $response = $this->postJson('/api/v1/auth/token', [
-            'email' => 'test@example.com',
-            'password' => 'password123',
+            'email' => $email,
+            'password' => $password,
         ]);
+
+        $tenant = $user->personalTenant();
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -47,7 +45,7 @@ class TokenTest extends TestCase
                 'data' => [
                     'token_type' => 'Bearer',
                     'user' => [
-                        'email' => 'test@example.com',
+                        'email' => $email,
                     ],
                     'tenant_id' => $tenant->id,
                 ],
@@ -59,21 +57,24 @@ class TokenTest extends TestCase
     public function test_user_can_specify_tenant_when_generating_token(): void
     {
         $userService = app(UserService::class);
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
-
-        $personalTenant = $userService->createPersonalTenant($user);
+        $email = 'multi-'.uniqid().'@example.com';
+        $user = $this->registerTenantUser('Multi Tenant', $email);
 
         $orgTenant = \Modules\Tenancy\Models\Tenant::factory()->create([
             'type' => 'organization',
+            'status' => 'active',
         ]);
         $userService->addUserToTenant($user, $orgTenant, 'member');
 
+        $this->assertDatabaseHas('tenant_users', [
+            'user_id' => $user->id,
+            'tenant_id' => $orgTenant->id,
+            'status' => 'active',
+        ], 'central');
+
         $response = $this->postJson('/api/v1/auth/token', [
-            'email' => 'test@example.com',
-            'password' => 'password123',
+            'email' => $email,
+            'password' => 'password',
             'tenant_id' => $orgTenant->id,
         ]);
 
@@ -87,13 +88,10 @@ class TokenTest extends TestCase
 
     public function test_token_generation_fails_with_invalid_credentials(): void
     {
-        User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
+        $this->registerTenantUser('Bad Creds', 'bad@example.com');
 
         $response = $this->postJson('/api/v1/auth/token', [
-            'email' => 'test@example.com',
+            'email' => 'bad@example.com',
             'password' => 'wrong-password',
         ]);
 
@@ -114,19 +112,13 @@ class TokenTest extends TestCase
 
     public function test_user_cannot_generate_token_for_tenant_they_dont_belong_to(): void
     {
-        $userService = app(UserService::class);
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
-
-        $userService->createPersonalTenant($user);
+        $this->registerTenantUser('Isolated', 'iso@example.com');
 
         $otherTenant = \Modules\Tenancy\Models\Tenant::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/token', [
-            'email' => 'test@example.com',
-            'password' => 'password123',
+            'email' => 'iso@example.com',
+            'password' => 'password',
             'tenant_id' => $otherTenant->id,
         ]);
 
@@ -140,22 +132,21 @@ class TokenTest extends TestCase
 
     public function test_user_can_revoke_their_token(): void
     {
-        $userService = app(UserService::class);
-        $user = User::factory()->create();
-        $userService->createPersonalTenant($user);
+        $user = $this->registerTenantUser('Revoke User', 'revoke-'.uniqid().'@example.com');
 
-        $accessToken = $user->createToken('test-token');
+        $accessToken = $user->createToken('test-token', ['tenant:'.$user->tenant_id]);
         $token = $accessToken->plainTextToken;
         $tokenId = $accessToken->accessToken->id;
 
-        $this->assertDatabaseHas('personal_access_tokens', ['id' => $tokenId]);
+        $this->assertDatabaseHas('personal_access_tokens', ['id' => $tokenId], 'tenant');
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->withHeader('X-Tenant-Id', $user->tenant_id)
             ->deleteJson('/api/v1/auth/token');
 
         $response->assertStatus(200);
 
         // Token row should be deleted from database
-        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $tokenId]);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $tokenId], 'tenant');
     }
 }
