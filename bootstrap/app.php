@@ -3,6 +3,7 @@
 use App\Exceptions\DomainException;
 use App\Support\Context\RequestContext;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
@@ -13,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            Route::middleware('web')
+                ->group(base_path('routes/platform.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Register context middleware
@@ -36,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'platform.admin' => \App\Http\Middleware\EnsurePlatformAdmin::class,
+            'platform.no_tenancy' => \App\Http\Middleware\EnsureNoTenancy::class,
             // Phase 3B: Spatie RBAC (runs after tenancy + membership)
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
