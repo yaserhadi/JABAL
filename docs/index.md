@@ -6,9 +6,11 @@ Welcome to Jabal! This documentation will help you understand and use the system
 
 Jabal is a Laravel-based modular monolith application featuring:
 - Multi-tenancy support
-- RBAC (Phase 3)
+- Tenant-aware RBAC (legacy Phase 3 on `main`; tenant-layer RBAC under Core Realignment Stage 2+)
 - Comprehensive audit logging
 - Modular architecture
+
+**Current initiative:** [JABAL Core Realignment](reports/JABAL_CORE_REALIGNMENT.md) (platform/tenant separation, Stages 0–6).
 
 ## Governance
 
@@ -20,6 +22,7 @@ This project uses **KSS (Knowledge Stewardship System)** for AI-assisted develop
 
 ## Quick Links
 
+- [JABAL Core Realignment](reports/JABAL_CORE_REALIGNMENT.md) - Current initiative (Stages 0–6)
 - [Architecture Decisions (ADRs)](architecture/ADR/README.md) - Architecture decision records
 - [Roadmap](roadmap/ROADMAP.md) - Product roadmap
 - [Reference](reference/README.md) - Feature and contributor reference guides

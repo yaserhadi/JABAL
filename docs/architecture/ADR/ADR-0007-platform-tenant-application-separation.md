@@ -5,7 +5,8 @@ Date: 2026-05-24
 Owner: KSS Steward - YH
 
 **Initiative:** **JABAL Core Realignment** (not a continuation of legacy roadmap Phase 4)  
-**Execution plan:** `.cursor/plans/platform_tenant_identity_separation_75f9f41b.plan.md`  
+**Execution plan (completed):** `.cursor/plans/stage_2_separation_and_tests_8b1fe315.plan.md` (Stage 2, 2026-05-26)  
+**Historical plan:** `.cursor/plans/platform_tenant_identity_separation_75f9f41b.plan.md` (pre–stage-map Phase 0–7 vocabulary)  
 **Stage map:** [JABAL_CORE_REALIGNMENT.md](../../reports/JABAL_CORE_REALIGNMENT.md)  
 **Governance lock (Active):** `PLATFORM-TENANT-SEPARATION` in `.cursor/memory/PROJECT_MANIFEST.md` (activated 2026-05-26 after test stabilization gate closed)
 

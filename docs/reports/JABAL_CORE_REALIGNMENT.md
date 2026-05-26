@@ -1,6 +1,6 @@
 # JABAL Core Realignment
 
-**Status:** In progress  
+**Status:** Stage 2 complete — initiative in progress (Stages 4–6 not started)  
 **Branch:** `feature/platform-tenant-separation`  
 **ADR:** [ADR-0007](../architecture/ADR/ADR-0007-platform-tenant-application-separation.md)  
 **Lock:** `PLATFORM-TENANT-SEPARATION` (Active)

@@ -114,4 +114,4 @@ php artisan test
 
 **Initiative:** [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md) — this gate closes **Stage 1** (stabilization).
 
-**Next:** Stages 2–3 in progress on branch; Stage 5+ implementation requires explicit scope — do not start until owner approves.
+**Next:** Stage 2 **Done** (2026-05-26); Stage 3 design/docs **Done**; Stage 4+ requires owner scope — do not start until approved. See [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md).

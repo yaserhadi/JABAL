@@ -1,6 +1,6 @@
 # Module boundaries — Platform Management vs Tenant Application
 
-Status: **Active (planning)**  
+Status: **Active (Stage 2 delivered; incremental module moves continue)**  
 ADR: [ADR-0007](ADR/ADR-0007-platform-tenant-application-separation.md)
 
 ## Bounded contexts

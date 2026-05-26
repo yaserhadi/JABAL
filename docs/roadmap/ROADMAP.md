@@ -1,18 +1,32 @@
 # Product Roadmap
 
-High-level direction for Jabal (SaaS core platform). **Current execution phase, branch status, and session next steps** live in `.cursor/memory/STATE.yaml` and `.cursor/memory/HANDOFF.md`. Closure evidence lives under `.cursor/reports/`.
+High-level direction for Jabal (SaaS core platform). **Current execution** for active work: [JABAL Core Realignment](../reports/JABAL_CORE_REALIGNMENT.md), `.cursor/memory/STATE.yaml`, and `.cursor/memory/HANDOFF.md`. Closure evidence lives under `.cursor/reports/` and `docs/reports/`.
+
+## Current initiative (2026-05-26)
+
+**[JABAL Core Realignment](../reports/JABAL_CORE_REALIGNMENT.md)** — rebuild platform/tenant core before re-introducing SaaS features.
+
+| Item | Value |
+|------|--------|
+| Branch | `feature/platform-tenant-separation` |
+| Lock | `PLATFORM-TENANT-SEPARATION` (Active) |
+| Done | Stages 0–2; Stage 3 design/docs |
+| Next | PR Stage 2 → `main`; Stage 4 or 5 (owner scope) |
+| Legacy Phase 4 branches | Superseded — Stage 6+ re-home only |
+
+The **Phase overview** below is the **historical roadmap** (Phase 1–5 on `main` and in MANIFEST). Do **not** label Core Realignment stages as “Phase 3” or “Phase 5” in new docs.
 
 ## Execution status (source of truth)
 
 | Question | Where to read |
 |----------|----------------|
-| What are we doing *now*? | `STATE.yaml`, `HANDOFF.md` |
+| What are we doing *now*? | [JABAL_CORE_REALIGNMENT.md](../reports/JABAL_CORE_REALIGNMENT.md), `STATE.yaml`, `HANDOFF.md` |
 | Why does the project exist (strategy)? | `.cursor/goals/GOALS.md` |
 | Locks, ADRs, governance | `PROJECT_MANIFEST.md`, `docs/architecture/ADR/` |
 
 ---
 
-## Phase overview
+## Phase overview (legacy roadmap — historical)
 
 - **Phase 1:** Technical foundation, modular boundaries, API surface, UI (Inertia/Vue/Vuetify).
 - **Phase 2:** Stancl tenancy, dual-database architecture, identification and security locks.
@@ -22,7 +36,7 @@ High-level direction for Jabal (SaaS core platform). **Current execution phase, 
   - **3C — Workspaces & membership** — Workspace CRUD, tenant member management, tenant-scoped web/API (delivered).
   - **3D — Tenant settings** — Central `tenant_settings`, branding/timezone/locale, web + API, RBAC + audit (delivered).
   - **3E — Next domain** — Next aggregate under `jabal_tenant_shared` + RBAC + isolation tests (planned; see `HANDOFF.md`).
-- **Phase 4:** Enterprise & scale readiness:
+- **Phase 4:** Enterprise & scale readiness (**legacy — superseded for merge** by Core Realignment; concepts → Stage 6+):
   - **4A** — Subscription/billing + plans.
   - **4B** — Enterprise access (SSO, MFA, rate limits, session controls).
   - **4C** — Observability, DR/BCP, performance.
