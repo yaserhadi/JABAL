@@ -3,12 +3,10 @@
 namespace Tests\Feature\Modules\Identity;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
-    use RefreshDatabase;
 
     public function test_users_can_view_login_page(): void
     {
@@ -22,30 +20,26 @@ class AuthTest extends TestCase
      */
     public function test_users_can_authenticate_with_valid_credentials(): void
     {
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt($password = 'password'),
-        ]);
-        $tenant = $this->createPersonalTenant($user);
+        $email = 'auth-valid-'.uniqid().'@example.com';
+        $user = $this->registerTenantUser('Test User', $email);
+        $password = 'password';
+        $tenant = $user->personalTenant();
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'email' => $email,
             'password' => $password,
         ]);
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticated('web');
         $response->assertRedirect('/t/'.$tenant->id.'/dashboard');
     }
 
     public function test_users_cannot_authenticate_with_invalid_password(): void
     {
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password'),
-        ]);
+        $this->registerTenantUser('Test User', 'test-wrong@example.com');
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'email' => 'test-wrong@example.com',
             'password' => 'wrong-password',
         ]);
 
@@ -54,9 +48,10 @@ class AuthTest extends TestCase
 
     public function test_users_can_logout(): void
     {
-        $user = User::factory()->create();
+        $user = $this->registerTenantUser('Logout User', 'logout-'.uniqid().'@example.com');
+        $tenant = $user->personalTenant();
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->actingAsTenantUser($user, $tenant, 'web')->post('/logout');
 
         $this->assertGuest();
         $response->assertRedirect(route('login'));

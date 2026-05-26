@@ -3,11 +3,13 @@
 namespace Tests;
 
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -16,6 +18,17 @@ use Spatie\Permission\PermissionRegistrar;
  */
 abstract class TestCase extends BaseTestCase
 {
+    use RefreshDatabase;
+
+    protected function afterRefreshingDatabase()
+    {
+        $this->artisan('migrate', [
+            '--path' => 'database/migrations/tenant',
+            '--database' => 'tenant',
+            '--force' => true,
+        ]);
+    }
+
     /**
      * Set the currently authenticated user to act as a specific tenant.
      * Uses Stancl tenancy() for context management.
@@ -33,6 +46,16 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Web/session tests: initialize tenancy before actingAs to avoid scoped User/RBAC query errors.
+     */
+    protected function actingAsTenantUser(User $user, Tenant $tenant, string $guard = 'web'): static
+    {
+        $this->actingAsTenant($tenant);
+
+        return $this->actingAs($user, $guard);
+    }
+
+    /**
      * Create a personal tenant for the given user.
      *
      * PHASE 2: Sets status = 'active'.
@@ -41,7 +64,29 @@ abstract class TestCase extends BaseTestCase
      */
     protected function createPersonalTenant($user): Tenant
     {
-        return app(UserService::class)->createPersonalTenant($user);
+        $tenant = $user->personalTenant();
+
+        if (! $tenant) {
+            $tenant = Tenant::query()->where('created_by', $user->id)->first();
+        }
+
+        if ($tenant) {
+            app(\Modules\Tenancy\Services\TenantRbacProvisioner::class)->ensureRolesForTenant($tenant);
+            app(\Modules\Tenancy\Services\TenantRbacProvisioner::class)->assignTenantAdminRole($user, $tenant);
+        }
+
+        return $tenant;
+    }
+
+    protected function registerTenantUser(string $name = 'Test User', ?string $email = null): User
+    {
+        $email ??= 'tenant-'.uniqid().'@example.com';
+
+        return app(TenantRegistrationService::class)->registerTenantUser(
+            $name,
+            $email,
+            'password'
+        );
     }
 
     /**

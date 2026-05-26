@@ -4,10 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -27,8 +28,15 @@ class TenantMemberManagementTest extends TestCase
         parent::setUp();
         $this->seedMemberRbac();
         $this->owner = User::factory()->create();
-        $this->memberUser = User::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
+
+        $this->memberUser = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Member User',
+            'email' => 'member-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
 
         TenantUser::create([
             'tenant_id' => $this->tenant->id,
@@ -70,40 +78,36 @@ class TenantMemberManagementTest extends TestCase
     public function test_member_list_requires_member_view(): void
     {
         $this->assignMemberRole($this->owner, $this->tenant, 'tenant-admin', ['member.view', 'dashboard.view']);
-        $this->actingAs($this->owner);
-        tenancy()->initialize($this->tenant);
 
-        $response = $this->get('/t/'.$this->tenant->id.'/members');
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->get('/t/'.$this->tenant->id.'/members');
         $response->assertStatus(200);
     }
 
     public function test_member_list_without_permission_returns_403(): void
     {
         $this->assignMemberRole($this->memberUser, $this->tenant, 'member', ['dashboard.view']);
-        $this->actingAs($this->memberUser);
-        tenancy()->initialize($this->tenant);
 
-        $response = $this->get('/t/'.$this->tenant->id.'/members');
+        $response = $this->actingAsTenantUser($this->memberUser, $this->tenant)
+            ->get('/t/'.$this->tenant->id.'/members');
         $response->assertStatus(403);
     }
 
     public function test_cannot_suspend_last_owner(): void
     {
         $this->assignMemberRole($this->owner, $this->tenant, 'tenant-admin', ['member.suspend', 'member.assign-role', 'member.view', 'dashboard.view']);
-        $this->actingAs($this->owner);
-        tenancy()->initialize($this->tenant);
 
-        $response = $this->post('/t/'.$this->tenant->id.'/members/'.$this->owner->id.'/suspend');
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/'.$this->owner->id.'/suspend');
         $response->assertSessionHasErrors('status');
     }
 
     public function test_owner_can_suspend_member(): void
     {
         $this->assignMemberRole($this->owner, $this->tenant, 'tenant-admin', ['member.suspend', 'member.view', 'dashboard.view']);
-        $this->actingAs($this->owner);
-        tenancy()->initialize($this->tenant);
 
-        $response = $this->post('/t/'.$this->tenant->id.'/members/'.$this->memberUser->id.'/suspend');
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/'.$this->memberUser->id.'/suspend');
         $response->assertSessionHasNoErrors();
 
         $tu = TenantUser::where('tenant_id', $this->tenant->id)->where('user_id', $this->memberUser->id)->first();

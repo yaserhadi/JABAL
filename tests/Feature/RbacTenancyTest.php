@@ -6,8 +6,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantUser;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -89,8 +89,7 @@ class RbacTenancyTest extends TestCase
         $this->createRoleForTenant($this->tenantA, 'member', ['dashboard.view']);
         $this->assignRoleToUser($this->userA, $this->tenantA, 'member');
 
-        $this->actingAs($this->userA);
-        tenancy()->initialize($this->tenantA);
+        $this->actingAsTenantUser($this->userA, $this->tenantA);
 
         $response = $this->get('/t/'.$this->tenantA->id.'/dashboard');
 
@@ -179,9 +178,8 @@ class RbacTenancyTest extends TestCase
             ->where('tenant_id', $this->tenantA->id)
             ->update(['status' => 'suspended']);
 
-        $this->actingAs($this->userA);
-
-        $response = $this->get('/t/'.$this->tenantA->id.'/dashboard');
+        $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
+            ->get('/t/'.$this->tenantA->id.'/dashboard');
 
         $response->assertStatus(403);
     }

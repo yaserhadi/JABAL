@@ -39,10 +39,8 @@ class TenancySecurityTest extends TestCase
 
     public function test_web_route_param_mismatch_returns_403(): void
     {
-        $this->actingAs($this->userA);
-
-        // UserA tries to access tenantB's dashboard
-        $response = $this->get('/t/'.$this->tenantB->id.'/dashboard');
+        $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
+            ->get('/t/'.$this->tenantB->id.'/dashboard');
 
         $response->assertStatus(403);
     }
@@ -52,9 +50,8 @@ class TenancySecurityTest extends TestCase
         // Deactivate tenant
         $this->tenantA->update(['status' => 'suspended']);
 
-        $this->actingAs($this->userA);
-
-        $response = $this->get('/t/'.$this->tenantA->id.'/dashboard');
+        $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
+            ->get('/t/'.$this->tenantA->id.'/dashboard');
 
         $response->assertStatus(403);
     }
@@ -66,9 +63,8 @@ class TenancySecurityTest extends TestCase
             ->where('tenant_id', $this->tenantA->id)
             ->delete();
 
-        $this->actingAs($this->userA);
-
-        $response = $this->get('/t/'.$this->tenantA->id.'/dashboard');
+        $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
+            ->get('/t/'.$this->tenantA->id.'/dashboard');
 
         $response->assertStatus(403);
     }
