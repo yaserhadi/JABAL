@@ -16,8 +16,9 @@ use Modules\Tenancy\Models\Tenant;
  * **Consumers:** tenant-scoped Eloquent models, migrations targeting the tenant store, persistence layer,
  * and tests. Do not inject raw `tenant_id` filtering into business services.
  *
- * **Phase boundary:** Phase 3 = contract + config + resolver binding (`DefaultTenantStorageResolver`).
- * Phase 5+ = runtime provisioning for `database_per_tenant` / `schema_per_tenant` (Stancl bootstrappers).
+ * **Stage boundary (JABAL Core Realignment):** Stage 3 = contract + config + resolver binding
+ * (`DefaultTenantStorageResolver`). Stage 5 = runtime provisioning for `database_per_tenant` /
+ * `schema_per_tenant` (Stancl bootstrappers). See docs/reports/JABAL_CORE_REALIGNMENT.md.
  */
 interface TenantStorageResolver
 {

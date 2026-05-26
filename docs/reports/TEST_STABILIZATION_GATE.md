@@ -112,4 +112,6 @@ php artisan test
 
 **Lock:** `PLATFORM-TENANT-SEPARATION` is **Active** in `.cursor/memory/PROJECT_MANIFEST.md` (activated 2026-05-26 after this gate closed).
 
-**Next:** Phase 3 design/config complete; Phase 5+ implementation requires explicit scope — do not start until owner approves.
+**Initiative:** [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md) — this gate closes **Stage 1** (stabilization).
+
+**Next:** Stages 2–3 in progress on branch; Stage 5+ implementation requires explicit scope — do not start until owner approves.

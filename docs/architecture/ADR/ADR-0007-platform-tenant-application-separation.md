@@ -4,8 +4,20 @@ Status: **Draft**
 Date: 2026-05-24  
 Owner: KSS Steward - YH
 
+**Initiative:** **JABAL Core Realignment** (not a continuation of legacy roadmap Phase 4)  
 **Execution plan:** `.cursor/plans/platform_tenant_identity_separation_75f9f41b.plan.md`  
+**Stage map:** [JABAL_CORE_REALIGNMENT.md](../../reports/JABAL_CORE_REALIGNMENT.md)  
 **Governance lock (Active):** `PLATFORM-TENANT-SEPARATION` in `.cursor/memory/PROJECT_MANIFEST.md` (activated 2026-05-26 after test stabilization gate closed)
+
+---
+
+## Supersession notice
+
+**Legacy roadmap Phase 3** (domain + RBAC on `main`) remains valid operationally; it is **not** the label for this initiative.
+
+**Unmerged legacy Phase 4 branches** (`feature/phase-4a-*`, `feature/phase-4b-*`, `feature/mfa-*`, etc.) are **experimental architecture iterations**. They are **superseded** by **JABAL Core Realignment**. Concepts (billing, entitlements, MFA, OIDC) may be reused selectively after re-home on the corrected platform/tenant model (Stage 6+); **architectural assumptions** from those branches (central `users` as tenant login, mixed platform/tenant auth, old RBAC placement, pre-separation billing coupling) are **not authoritative**.
+
+Agents must not treat current work as “Phase 4 with tweaks.”
 
 ---
 
@@ -16,7 +28,7 @@ JABAL is a reusable multi-tenant SaaS core. The codebase must behave as **two se
 1. **Platform Management** — operators, tenant registry, commercial control, provisioning, platform audit.
 2. **Tenant Application** — tenant end users, workspaces, tenant security, and business modules.
 
-Today (pre-ADR), a single central `users` table and `tenant_users` membership on `jabal_central` blur platform operators with tenant customers. Unmerged Phase 4 branches (4A billing, 4B SSO/MFA) built on that model. **Phase 4 branches must not merge to `main` until this boundary is implemented.**
+Today (pre-ADR), a single central `users` table and `tenant_users` membership on `jabal_central` blur platform operators with tenant customers. Unmerged **legacy Phase 4** branches (4A billing, 4B SSO/MFA) built on that model. **Those branches must not merge to `main` until Core Realignment stages complete and capabilities are re-introduced on the new architecture (Stage 6+).**
 
 Evalty and similar products are **reference models only**. JABAL must **not** copy Evalty literally. Use explicit **`PlatformUser`** and **`TenantUser`** models (separate classes and guards) to reduce accidental context leakage. A single `User` class used everywhere with only connection switching is discouraged for this codebase.
 
@@ -138,9 +150,9 @@ Do not authenticate platform routes against `TenantUser` or tenant routes agains
 
 Incremental module moves from current `Modules/*` layout; no big-bang rename required in Draft ADR.
 
-### 3.7 Phase 4 branches (reference only)
+### 3.7 Legacy Phase 4 branches (reference only — superseded)
 
-Do **not** merge `feature/phase-4b-enterprise-access`, `feature/mfa-hardening`, or related branches until Platform/Tenant separation Phases 5–7 re-home or replace:
+Do **not** merge `feature/phase-4b-enterprise-access`, `feature/mfa-hardening`, or related branches until **JABAL Core Realignment** completes and SaaS capabilities are re-introduced (Stage 6+) on the corrected model:
 
 | Reusable (concepts) | Redesign required |
 |---------------------|-------------------|
@@ -164,7 +176,7 @@ See [PHASE4B_CLOSURE_REPORT](../../reports/PHASE4B_CLOSURE_REPORT.md) — status
 
 - Clear operator vs customer separation; aligns with product vision (platform ≠ tenant app).
 - `shared_db` first reduces operational cost; path to stronger isolation without domain rewrite.
-- Phase 4 salvage becomes structured instead of blocking `main` with wrong identity model.
+- Legacy Phase 4 concepts can be re-introduced structurally (Stage 6+) instead of blocking `main` with wrong identity model.
 
 ### Tradeoffs
 
@@ -174,7 +186,7 @@ See [PHASE4B_CLOSURE_REPORT](../../reports/PHASE4B_CLOSURE_REPORT.md) — status
 
 ### Out of scope (Draft ADR)
 
-- Migrations and feature implementation (Phases 5+).
+- Migrations and feature implementation (Core Realignment Stage 5+).
 - Hostname/subdomain identification (optional later).
 - Full `schema_per_tenant` implementation.
 
@@ -186,7 +198,7 @@ See [PHASE4B_CLOSURE_REPORT](../../reports/PHASE4B_CLOSURE_REPORT.md) — status
 |------|---------|
 | Accidental platform user in tenant DB | Separate models, guards, seed rules |
 | Cross-tenant leak in shared_db | `BelongsToTenant`, isolation tests, no raw `tenant_id` in services |
-| Phase 4 merge before boundary | Branch policy; closure report blocked |
+| Legacy Phase 4 merge before boundary | Branch policy; closure report blocked |
 | Evalty copy-paste | Explicit PlatformUser/TenantUser; ADR forbids literal copy |
 | Lock/amendment drift | Enforcement sync when Status → Final |
 
@@ -200,11 +212,11 @@ When **Status = Final**, mirror into:
 - `INTEGRITY_RULES.md` → Verification section `PLATFORM-TENANT-SEPARATION`
 - Amend `TENANCY-DUAL-DB` / `PHASE3B-RBAC` bullets per §3.8
 
-**Lock Active (2026-05-26):** `PLATFORM-TENANT-SEPARATION` in MANIFEST after [TEST_STABILIZATION_GATE](../../reports/TEST_STABILIZATION_GATE.md) closed (93 tests). Phase 3 design/config delivered below. Phase 5+ runtime for non-`shared_db` requires explicit scope.
+**Lock Active (2026-05-26):** `PLATFORM-TENANT-SEPARATION` in MANIFEST after [TEST_STABILIZATION_GATE](../../reports/TEST_STABILIZATION_GATE.md) closed (93 tests). **Core Realignment Stage 3** (tenancy abstraction design/config) delivered in Appendix A. **Stage 5+** runtime for non-`shared_db` requires explicit scope.
 
 ---
 
-## Appendix A — `TenantStorageResolver` contract (Phase 3)
+## Appendix A — `TenantStorageResolver` contract (Core Realignment — Stage 3)
 
 Implementation: [`app/Support/Contracts/Tenancy/TenantStorageResolver.php`](../../app/Support/Contracts/Tenancy/TenantStorageResolver.php)  
 Default binding: [`app/Support/Tenancy/DefaultTenantStorageResolver.php`](../../app/Support/Tenancy/DefaultTenantStorageResolver.php)  
@@ -223,7 +235,7 @@ Configuration: [`config/tenancy_storage.php`](../../config/tenancy_storage.php) 
 |----------------------|------------------|------------------------------|
 | `shared_db` | All tenants use `jabal_tenant_shared`; rows include `tenant_id`; scope via context + `BelongsToTenant` | Honored only when mode allows stronger isolation (see resolver) |
 | `database_per_tenant` | Deployment allows dedicated DBs | `database` → `connectionFor()` uses `tenants.tenancy_db_name` when configured |
-| `schema_per_tenant` | Deployment allows PG schemas | `schema` → shared connection with schema bootstrapper (Phase 5+) |
+| `schema_per_tenant` | Deployment allows PG schemas | `schema` → shared connection with schema bootstrapper (Stage 5+) |
 
 **Resolution rules** (`DefaultTenantStorageResolver::effectiveIsolationLevel`):
 
@@ -243,12 +255,15 @@ Domain services **must not** hardcode `Model::where('tenant_id', $id)`; use tena
 
 Enforced by [`ValidateTenantToken`](../../app/Http/Middleware/ValidateTenantToken.php). Evidence: [TEST_STABILIZATION_GATE](../../reports/TEST_STABILIZATION_GATE.md).
 
-### Phase boundary
+### Stage boundary (JABAL Core Realignment)
 
-| Phase | Scope |
+| Stage | Scope |
 |-------|--------|
-| **Phase 3** (this appendix) | `.env.example`, `tenancy_storage` config, resolver contract + default implementation, module boundary doc |
-| **Phase 5+** | `TenantDatabaseProvisioner`, Stancl `DatabaseTenancyBootstrapper` for per-tenant DB/schema, migration mobility |
+| **Stage 3** (this appendix) | `.env.example`, `tenancy_storage` config, resolver contract + default implementation, module boundary doc |
+| **Stage 5** | `TenantDatabaseProvisioner`, Stancl `DatabaseTenancyBootstrapper` for per-tenant DB/schema, migration mobility |
+| **Stage 6+** | Re-introduce legacy Phase 4A/4B **concepts** (billing, SSO, MFA) on corrected platform/tenant architecture — not branch merge as-is |
+
+See [JABAL_CORE_REALIGNMENT.md](../../reports/JABAL_CORE_REALIGNMENT.md) for the full stage map vs legacy roadmap phases.
 
 Module boundary map: [MODULE-BOUNDARY-PLATFORM-TENANT.md](MODULE-BOUNDARY-PLATFORM-TENANT.md).
 
@@ -261,4 +276,5 @@ Module boundary map: [MODULE-BOUNDARY-PLATFORM-TENANT.md](MODULE-BOUNDARY-PLATFO
 - [ADR-0004](ADR-0004-billing-plans-entitlements.md) — central billing
 - [ADR-0005](ADR-0005-enterprise-access-oidc-mfa.md), [ADR-0006](ADR-0006-mfa-architecture-security-model.md) — re-home after separation
 - [Tenancy for Laravel](https://tenancyforlaravel.com/) — database/schema modes, impersonation, resource syncing
+- [JABAL_CORE_REALIGNMENT.md](../../reports/JABAL_CORE_REALIGNMENT.md) — stage map and supersession
 - Plan: `.cursor/plans/platform_tenant_identity_separation_75f9f41b.plan.md`

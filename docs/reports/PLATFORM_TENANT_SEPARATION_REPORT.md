@@ -4,7 +4,8 @@
 **Branch:** `feature/platform-tenant-separation`  
 **ADR:** [ADR-0007](../architecture/ADR/ADR-0007-platform-tenant-application-separation.md) (Draft)  
 **Lock:** `PLATFORM-TENANT-SEPARATION` (**Active** — 2026-05-26)  
-**Test gate:** [TEST_STABILIZATION_GATE.md](TEST_STABILIZATION_GATE.md) — **CLOSED** (93 passed, 0 failed)
+**Initiative:** [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md)  
+**Test gate:** [TEST_STABILIZATION_GATE.md](TEST_STABILIZATION_GATE.md) — **CLOSED** (Core Realignment Stage 1; 93 passed, 0 failed)
 
 ## Summary
 
@@ -16,7 +17,7 @@ Implemented the foundational split between **Platform Management** and **Tenant 
 - Platform routes under `/platform/*` with `EnsureNoTenancy`
 - Tenant register/login flows use `TenantRegistrationService`
 - API token/header contract: mismatch → **403**, unauthenticated → **401** (`ValidateTenantToken`)
-- Phase 4 branches remain unmerged; MFA/SSO re-port deferred (Phase 7)
+- Legacy Phase 4 branches remain unmerged; MFA/SSO re-port deferred (Stage 6+)
 
 ## Delivered
 
@@ -25,7 +26,7 @@ Implemented the foundational split between **Platform Management** and **Tenant 
 | ADR-0007 | Draft (lock Active) |
 | Manifest + INTEGRITY lock | **Active** (2026-05-26) |
 | Test stabilization gate | **CLOSED** |
-| Phase 3 — `TENANCY_MODE` strategy + resolver contract + ADR appendix A | Done (design/docs) |
+| Stage 3 — `TENANCY_MODE` strategy + resolver contract + ADR appendix A | Done (design/docs) |
 | `.env.example` tenancy vars | Done |
 | `TenantStorageResolver` | Done |
 | Module boundary doc | Done |
@@ -37,17 +38,17 @@ Implemented the foundational split between **Platform Management** and **Tenant 
 
 ## Deferred
 
-| Item | Phase |
+| Item | Stage |
 |------|-------|
 | Impersonation token redesign (full audit/TTL) | Follow-up |
-| `database_per_tenant` / `schema_per_tenant` runtime wiring | Phase 5+ (`TenantDatabaseProvisioner` stub) |
-| Phase 4B MFA/SSO on tenant users | Phase 7 |
+| `database_per_tenant` / `schema_per_tenant` runtime wiring | Stage 5 (`TenantDatabaseProvisioner` stub) |
+| Legacy Phase 4B MFA/SSO concepts on tenant users | Stage 6+ |
 | ADR-0007 **Final** | Owner approval |
-| Phase 5A–5C productization / advanced isolation | Explicit scope only — **not started** |
+| Legacy roadmap Phase 5A–5C productization | Explicit scope only — **not started** (distinct from Core Realignment stages) |
 
-## Phase 4 branches
+## Legacy Phase 4 branches
 
-Do **not** merge `feature/phase-4b-*` or `feature/mfa-*` until separation work is on `main` and Phase 7 re-home is complete.
+Do **not** merge `feature/phase-4b-*` or `feature/mfa-*` until Core Realignment is on `main` and Stage 6+ re-home is complete. See [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md).
 
 ## Verification
 

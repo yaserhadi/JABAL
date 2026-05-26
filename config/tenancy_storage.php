@@ -14,7 +14,7 @@ return [
     | schema_per_tenant   — PostgreSQL schema per tenant when isolation_level=schema
     |
     | Domain code must use TenantStorageResolver + tenant context, not hardcoded connections
-    | or service-level where('tenant_id'). Phase 5+ enables non-shared runtime provisioning.
+    | or service-level where('tenant_id'). Core Realignment Stage 5+ enables non-shared runtime provisioning.
     |
     */
 
