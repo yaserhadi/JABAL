@@ -5,7 +5,8 @@
 **ADR:** [ADR-0007](../architecture/ADR/ADR-0007-platform-tenant-application-separation.md) (Draft)  
 **Lock:** `PLATFORM-TENANT-SEPARATION` (**Active** — 2026-05-26)  
 **Initiative:** [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md)  
-**Test gate:** [TEST_STABILIZATION_GATE.md](TEST_STABILIZATION_GATE.md) — **CLOSED** (Core Realignment Stage 1; 93 passed, 0 failed)
+**Test gate:** [TEST_STABILIZATION_GATE.md](TEST_STABILIZATION_GATE.md) — **CLOSED** (Core Realignment Stage 1; 93 passed, 0 failed)  
+**Stage 2 exit:** **Done** (2026-05-26) — full suite **93 passed, 0 failed** (~1286s); log: `storage/logs/stage-2-test.log`
 
 ## Summary
 
@@ -50,10 +51,33 @@ Implemented the foundational split between **Platform Management** and **Tenant 
 
 Do **not** merge `feature/phase-4b-*` or `feature/mfa-*` until Core Realignment is on `main` and Stage 6+ re-home is complete. See [JABAL_CORE_REALIGNMENT.md](JABAL_CORE_REALIGNMENT.md).
 
+## Stage 2 closure (2026-05-26)
+
+Implementation commits on `feature/platform-tenant-separation`:
+
+| Commit | Summary |
+|--------|---------|
+| `382fcbb` | Platform users, guard, `/platform` routes |
+| `8209bf4` | Tenant application users, tenant DB schema, Sanctum tokens |
+| `4c9d677` | Tenant RBAC on tenant connection, web membership middleware |
+| `1fba242` | Feature test alignment + `PlatformTenantIsolationTest` |
+
+**Exit criteria met:**
+
+- Platform and tenant guards/routes isolated (`EnsureNoTenancy`, `PlatformTenantIsolationTest`)
+- Tenant registration creates `TenantUser` on tenant data layer (`AuthTest::test_register_redirects_to_dashboard_with_tenant_admin_permissions`)
+- API contract preserved: token/header mismatch → **403**; missing/invalid auth → **401** (`TenancySecurityTest`)
+- Full suite: **93 passed** (204 assertions)
+
+MFA/SSO artifacts (`AccountController`, `Mfa*`, ADR-0006) remain **uncommitted** — Stage 6 scope.
+
 ## Verification
 
 ```bash
 php artisan test --filter=PlatformTenantIsolationTest
 php artisan test --filter=TenancySecurityTest
+php artisan test --filter=TokenTest
+php artisan test --filter=RbacTenancyTest
+php artisan test --filter="AuthTest|UserAuthTest"
 php artisan test
 ```

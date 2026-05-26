@@ -38,7 +38,7 @@ Historical phase numbers in `PROJECT_MANIFEST.md` are **not renumbered**.
 |-------|------|--------|---------------------|
 | **0** | Governance + ADR | ADR-0007, lock, module boundary, branch policy | Done (lock Active) |
 | **1** | Stabilization | Test gate, API 401/403 contract, suite green | **CLOSED** — [TEST_STABILIZATION_GATE.md](TEST_STABILIZATION_GATE.md) |
-| **2** | Platform / tenant separation | `PlatformUser`, `TenantUser`, routes, guards, shared_db users | In progress on branch |
+| **2** | Platform / tenant separation | `PlatformUser`, `TenantUser`, routes, guards, shared_db users | **Done** (2026-05-26 — `382fcbb`…`1fba242`) |
 | **3** | Tenancy abstraction | `TENANCY_MODE`, `TenantStorageResolver`, `.env.example`, Appendix A | Design/docs done |
 | **4** | Identity split (deep) | Full cutover, deprecations, membership model clarity | Not started |
 | **5** | Provisioning model | `TenantDatabaseProvisioner`, per-tenant DB/schema runtime | Not started |
