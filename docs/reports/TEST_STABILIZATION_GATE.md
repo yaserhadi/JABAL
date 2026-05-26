@@ -110,4 +110,6 @@ php artisan test
 
 **Gate: CLOSED.**
 
-Next step — activating `PLATFORM-TENANT-SEPARATION` lock and Phase 5 — requires explicit owner approval per project governance. Do not proceed to Phase 5 until owner confirms.
+**Lock:** `PLATFORM-TENANT-SEPARATION` is **Active** in `.cursor/memory/PROJECT_MANIFEST.md` (activated 2026-05-26 after this gate closed).
+
+**Next:** Phase 3 design/config complete; Phase 5+ implementation requires explicit scope — do not start until owner approves.
