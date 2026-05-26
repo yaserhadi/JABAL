@@ -3,8 +3,7 @@
 namespace App\Models;
 
 /**
- * Thin bridge for Laravel auth/Sanctum/config compatibility.
- * All domain logic (tenancy, personalTenant) lives in Modules\Identity\Models\User.
- * Lock 2: This file MUST NOT contain tenancy relations, business methods, or Modules imports.
+ * Thin bridge for Laravel auth/Sanctum (tenant application users).
+ * @see TenantUser
  */
-class User extends \Modules\Identity\Models\User {}
+class User extends \Modules\Identity\Models\TenantUser {}
