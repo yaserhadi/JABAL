@@ -2,7 +2,7 @@
 
 Status: **Draft**  
 Date: 2026-05-24  
-Owner: KSS Steward - YH
+Owner: YH
 
 **Initiative:** **JABAL Core Realignment** (not a continuation of legacy roadmap Phase 4)  
 **Execution plan (completed):** `.cursor/plans/stage_2_separation_and_tests_8b1fe315.plan.md` (Stage 2, 2026-05-26)  
@@ -290,7 +290,7 @@ See [PHASE4B_CLOSURE_REPORT](../../reports/PHASE4B_CLOSURE_REPORT.md) — status
 
 ---
 
-## 6. Enforcement Impact (For KSS Sync Only)
+## 6. Enforcement Impact (for governance sync only)
 
 When **Status = Final**, mirror into:
 

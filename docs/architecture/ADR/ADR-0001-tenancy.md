@@ -2,7 +2,7 @@
 
 Status: **Final**  
 Date: 2026-02-21  
-Owner: KSS Steward - YH  
+Owner: YH  
 **Decision:** Adopt stancl/tenancy in Phase 2
 
 ---
@@ -99,7 +99,7 @@ The tenancy engine for Phase 2 is stancl/tenancy. This decision is non-negotiabl
 
 ---
 
-## 6. Enforcement Impact (For KSS Sync Only)
+## 6. Enforcement Impact (for governance sync only)
 
 When syncing with PROJECT_MANIFEST / INTEGRITY_RULES:
 

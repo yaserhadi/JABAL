@@ -2,7 +2,7 @@
 
 Status: **Final**  
 Date: 2026-03-29  
-Owner: KSS Steward - YH
+Owner: YH
 
 ---
 
@@ -76,7 +76,7 @@ Additionally, **Vue/Vuetify** `v-list-item` `:to` is intended for **Vue Router**
 
 ---
 
-## 6. Enforcement Impact (for KSS sync only)
+## 6. Enforcement Impact (for governance sync only)
 
 - **`PROJECT_MANIFEST.md`** — **`PHASE3B-RBAC`** lock extended with a **provisioning** bullet referencing this ADR.
 - **`LESSONS.md`** — Short entries for Inertia navigation + provisioning pattern.

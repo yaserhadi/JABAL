@@ -2,7 +2,7 @@
 
 Status: **Reference** (superseded for merge/execution by JABAL Core Realignment)  
 Date: 2026-03-31  
-Owner: KSS Steward - YH
+Owner: YH
 
 **Supersession:** Legacy Phase 4B / `feature/mfa-hardening`. **Do not merge** MFA assumptions (central `users`, pre-separation identity) to `main`. Re-home MFA on `TenantUser` / ADR-0007 at **Core Realignment Stage 6+** only. Canonical track: [JABAL_CORE_REALIGNMENT.md](../../reports/JABAL_CORE_REALIGNMENT.md).
 
