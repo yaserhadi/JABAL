@@ -341,7 +341,7 @@ No UAT for `database_per_tenant` — **Stage 5**.
 | ------------------- | ----------------------------------------- |
 | **UAT date**        | 2026-05-28 (transcribed from UAT1.csv)    |
 | **Tester**          | Owner (UAT1.csv)                          |
-| **Branch / commit** | `feature/platform-tenant-separation` @ `5ad3919` (HEAD at doc sync; uncommitted fixes may follow) |
+| **Branch / commit** | `feature/platform-tenant-separation` @ `ed7decb` |
 | **Environment**     | local (`http://localhost:8000`)           |
 | **Automated suite** | **105 passed / 0 failed** (sign-off run); **106 passed / 0 failed** on later verification run |
 | **Manual A–F**      | **38 / 38** passed (C9 corroborated by automated test) |
