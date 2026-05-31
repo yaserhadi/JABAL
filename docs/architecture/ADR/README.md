@@ -26,7 +26,7 @@ Draft | Final
 
 ## Owner
 
-Owner: KSS Steward - YH
+Owner: YH
 
 ## Authority
 
@@ -35,7 +35,7 @@ ADR does not grant execution authority. Only PROJECT_MANIFEST, INTEGRITY_RULES, 
 ## Ownership & Accountability
 
 - Owner represents the human governance authority responsible for the decision.
-- Default Owner: **KSS Steward - YH**
+- Default Owner: **YH**
 - ADR may be generated using AI assistance (e.g., adr-steward), but AI tools do not own architectural decisions.
 - If ADR conflicts with enforcement layers, enforcement layers win.
 
@@ -63,7 +63,7 @@ See ADR-0001-tenancy.md for structure, or use:
 
 Status: Draft | Final  
 Date: YYYY-MM-DD  
-Owner: KSS Steward - YH
+Owner: YH
 
 ---
 
@@ -72,6 +72,6 @@ Owner: KSS Steward - YH
 ## 3. Decision
 ## 4. Consequences
 ## 5. Risks & Controls
-## 6. Enforcement Impact (For KSS Sync Only)
+## 6. Enforcement Impact (for governance sync only)
 ## 7. References
 ```

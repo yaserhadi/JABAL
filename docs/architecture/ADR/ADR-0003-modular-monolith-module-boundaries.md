@@ -2,7 +2,7 @@
 
 Status: **Final**  
 Date: 2026-03-29  
-Owner: KSS Steward - YH
+Owner: YH
 
 **Promotion rationale:** ADR-0003 is **Final** because the **documented hybrid** boundary model (kernel in `app/`, construction blocks in `Modules/`) is **no longer provisional**. Codebase practice was reviewed in the **Module Boundary Audit** with **Phase B** cleanup completed ([`docs/reports/MODULE_BOUNDARY_AUDIT.md`](../../reports/MODULE_BOUNDARY_AUDIT.md)). **MODULE-CREATION-GATE** is **operationally adopted** (`.cursor/rules/module-creation-gate.mdc`, `/gw-triage`, `/boot` pointer). Automated tests, manual smoke, and frontend build were verified on `main` before promotion.
 
@@ -91,7 +91,7 @@ This ADR records a **documented hybrid**: a **platform kernel** in `app/` and **
 
 ---
 
-## 6. Enforcement Impact (for KSS sync only)
+## 6. Enforcement Impact (for governance sync only)
 
 This ADR does **not** automatically change enforcement files. If **Status** becomes **Final** and humans approve sync, the following **proposal** applies.
 

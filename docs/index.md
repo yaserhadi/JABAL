@@ -14,12 +14,14 @@ Jabal is a Laravel-based modular monolith application featuring:
 
 ## Governance
 
-This project uses **KSS (Knowledge Stewardship System)** for AI-assisted development governance.
-- KSS Framework: `kss-framework/` (handbook, commands, agents, rules, skills)
-- Jabal workspace rules: `.cursor/rules/` (e.g. **MODULE-CREATION-GATE**, plan gates)
-- AI memory: `.cursor/memory/`
-- Human ADRs: `docs/architecture/ADR/`
-- Engineering conventions: `.cursor/memory/conventions/`
+AI-assisted development governance for this project:
+
+- **Workspace rules:** `.cursor/rules/` (module gate, plan gates, git branch workflow)
+- **AI memory:** `.cursor/memory/` (STATE, MANIFEST, HANDOFF, INTEGRITY_RULES)
+- **Human ADRs:** `docs/architecture/ADR/`
+- **Engineering conventions:** `.cursor/memory/conventions/`
+
+Portable commands and global rules are installed under `~/.cursor/` from an external governance toolkit (not vendored in this repo).
 
 ## Quick Links
 
@@ -29,17 +31,6 @@ This project uses **KSS (Knowledge Stewardship System)** for AI-assisted develop
 - [Reference](reference/README.md) - Feature and contributor reference guides
 - [Tenancy `.env` guide](reference/tenancy-environment.md) - `TENANCY_MODE` and related variables
 
-## KSS Framework
-
-For KSS documentation, installation, and tools, see:
-- **Handbook:** `kss-framework/docs/handbook.md`
-- **Reference:** `kss-framework/docs/reference/`
-- **Commands:** `kss-framework/commands/`
-- **Agents:** `kss-framework/agents/`
-- **Rules:** `kss-framework/rules/`
-- **Skills:** `kss-framework/skills/`
-- **Templates:** `kss-framework/templates/`
-
 ## Documentation Structure
 
 | Location | Folder | Purpose |
@@ -47,6 +38,6 @@ For KSS documentation, installation, and tools, see:
 | `docs/` | `architecture/ADR/` | Architecture Decision Records (Jabal-specific) |
 | `docs/` | `roadmap/` | Phase overview, backlog & deferrals (Jabal-specific; strategy stays in `.cursor/goals/GOALS.md`) |
 | `docs/` | `reference/` | Feature and contributor reference guides |
-| **Repo root** | `kss-framework/` | Portable KSS framework (handbook, commands, agents, rules) |
+| `docs/` | `reports/` | Initiative and closure reports |
 
 AI governance runtime state is stored in `.cursor/memory/`.
