@@ -1,0 +1,14 @@
+---
+description: No edits or staging on main/master; branch first (global)
+alwaysApply: true
+---
+
+# Git: main/master is merge-only (global)
+
+Do not modify the working tree or stage changes (`git add`, `git rm`, file edits, deletes, or generators that write into the repo) while checked out on **`main`** or **`master`**.
+
+Before substantive work: run `git branch --show-current`. If the branch is `main` or `master`, stop and run `git switch -c feature/<descriptive-name>` (or switch to an existing feature branch), then proceed.
+
+Read-only Git commands on `main` are fine (e.g. `git status`, `git log`, `git diff`).
+
+This extends "no commits on main" to **all local implementation work**, not only the commit step.

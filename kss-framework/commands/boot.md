@@ -87,7 +87,7 @@ If architectural decisions arise during this session:
 - This is advisory; boot does not block on missing ADRs.
 
 ### Module boundary pointer (lightweight)
-If the task may introduce a **new tenant-facing capability** (routes, UI, API, or new domain lifecycle), use **`/gw-triage`** and apply **`MODULE-CREATION-GATE`** (`kss-framework/rules/module-creation-gate.mdc`, ADR-0003) **before** deep planning or implementation. Boot does not replace per-task triage.
+If the task may introduce a **new tenant-facing capability** (routes, UI, API, or new domain lifecycle), use **`/gw-triage`** before deep planning or implementation. If the project defines a boundary/placement rule under **`.cursor/rules/`**, apply it during triage. Boot does not replace per-task triage.
 
 ### Ready
 Reply with your task, or:

@@ -11,10 +11,11 @@ Global rules apply to ALL your Cursor projects. Project-specific rules override 
 ├── rules/
 │   ├── reports-location-global.md     ← Global rule (all projects)
 │   ├── plans-location.mdc             ← Another global rule
-│   └── agent-response-language-global.md
+│   └── git-main-merge-only.mdc        ← Branch before edits on main
 │
 ├── commands/
-│   └── (your global commands)
+│   ├── en.md, ar.md, aren.md          ← Language overrides (not a rule file)
+│   └── (other global commands)
 │
 ├── agents/
 │   └── (your global agents)

@@ -17,10 +17,10 @@
    - Ask 1-2 critical clarifying questions only
    - Do not ask obvious or unnecessary questions
    - Focus on: scope, environment, constraints, expected outcome
-5. **Module Creation Gate (`MODULE-CREATION-GATE`) — mandatory**:
-   - For any feature or structural change (not pure docs/read-only), decide: **existing module** vs **`app/` kernel** vs **new module**.
-   - Ask: Does this add a **tenant-facing surface** (routes, controllers, API, UI), **independent domain behavior**, or a **named capability**? If yes to a distinct capability, a **new module** may be required; if it extends an existing capability, **extend that module**; if it is cross-cutting only, keep it in **`app/`**.
-   - Follow `kss-framework/rules/module-creation-gate.mdc` (copy to `.cursor/rules/` per `kss-framework/INSTALL.md` if using workspace rules) and ADR-0003. **Triaged first, confirmed at plan start** — if scope grows into a full feature surface, re-run this check.
+5. **Project boundary rule (if present)**:
+   - For any feature or structural change (not pure docs/read-only), check whether the project defines a placement/boundary rule under `.cursor/rules/` (e.g. module vs kernel vs new package).
+   - If such a rule exists, follow it and cite it in the triage output. If none exists, triage scope and destination at a high level only.
+   - **Triaged first, confirmed at plan start** — if scope grows into a full feature surface, re-run this check.
 6. **Architectural Decision Check**:
    - Does this change involve a choice between alternatives?
    - Does it establish a new pattern, API contract, or module boundary?
@@ -47,9 +47,10 @@
 **Evidence Referenced**:
 - [files/commands/tests that support the conclusions]
 
-**Module boundary check (`MODULE-CREATION-GATE`)**:
-- **Destination**: Existing module (name) / `app/` kernel / New module
-- **Rationale**: [one or two sentences — why this destination fits]
+**Project boundary rule (if applicable)**:
+- **Rule**: [path under .cursor/rules/ or N/A]
+- **Destination**: [per project rule — e.g. existing module / kernel / new module]
+- **Rationale**: [one or two sentences]
 
 **Architectural Decision Check**:
 - [ ] Involves architectural choice: Yes / No
@@ -74,7 +75,7 @@
 ## Notes
 
 - This command complements the `safe-coding-practices` skill
-- **`MODULE-CREATION-GATE`** is mandatory for feature work; full criteria: `kss-framework/rules/module-creation-gate.mdc`; architecture context: ADR-0003
+- Project-specific boundary rules live in the adopting repo's `.cursor/rules/`, not in the KSS package
 - When in doubt, prefer safety over speed
 - Always cite evidence for findings
 - Stop and ask if context is missing

@@ -99,7 +99,7 @@ Copy to `~/.cursor/rules/`.
 |------|---------|
 | plans-location.mdc | Plans in project `.cursor/plans/` |
 | reports-location-global.md | Reports in `.cursor/reports/` |
-| agent-response-language-global.md | Default English response |
+| git-main-merge-only.mdc | No edits on `main`/`master`; branch first |
 
 ### Subagents
 
@@ -146,7 +146,9 @@ Copy to `~/.cursor/rules/`:
 |------|---------|
 | plans-location.mdc | Plans stored in project `.cursor/plans/` only |
 | reports-location-global.md | Reports stored in `.cursor/reports/` |
-| agent-response-language-global.md | Default response language: English |
+| git-main-merge-only.mdc | No edits on `main`/`master`; branch first |
+
+**Response language:** `/en`, `/ar`, `/aren` commands — not a global rule file.
 
 ---
 
@@ -161,6 +163,8 @@ Copy to `~/.cursor/rules/`:
 | `/docpack` | End of session; updates docs via Detect → Propose → Apply |
 
 ### Workflow Commands
+
+Governance workflow (`/gw-*`): see **[Governance workflow commands](reference/gw-workflow-commands.md)** for typical order, when to use each command, and quick prompts.
 
 | Command | When to Use |
 |---------|-------------|

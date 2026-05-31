@@ -62,6 +62,7 @@ KSS provides structure for AI agent governance:
 ## Links
 
 - [KSS Handbook](docs/handbook.md) — Conceptual guide
+- [Governance workflow (`/gw-*`)](docs/reference/gw-workflow-commands.md) — When to use triage, riskcheck, review, handoff
 - [Installation Guide](INSTALL.md) — Step-by-step setup
 - [Philosophy](philosophy.md) — Framework vs Project doctrine
 - [Templates](templates/) — Memory file templates

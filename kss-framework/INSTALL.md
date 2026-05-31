@@ -20,12 +20,13 @@ Copy rule files to your global Cursor rules folder:
 ```
 ~/.cursor/rules/
 ├── plans-location.mdc
-├── module-creation-gate.mdc
 ├── reports-location-global.md
-└── agent-response-language-global.md
+└── git-main-merge-only.mdc
 ```
 
-Also copy `kss-framework/rules/module-creation-gate.mdc` into the **project** `.cursor/rules/` when adopting workspace rules (MODULE-CREATION-GATE; pairs with `/gw-triage` and ADR-0003).
+**Project-specific rules** (e.g. module boundaries, plan gates) belong in the **adopting project's** `.cursor/rules/`, not in the KSS package. See that project's architecture docs and ADRs.
+
+**Response language:** use `/en`, `/ar`, or `/aren` commands (see §3 below) — not a global rule file.
 
 ### 3. Commands
 
@@ -42,11 +43,16 @@ Copy command files to your global Cursor commands folder:
 ├── aren.md
 ├── gw-triage.md
 ├── gw-riskcheck.md
+├── gw-review.md
 ├── gw-handoff.md
 ├── git-prepare.md
 ├── git-save.md
 └── git-finalize.md
 ```
+
+See [Governance workflow commands](docs/reference/gw-workflow-commands.md) for when to use each `/gw` command.
+
+**Language overrides:** `/en` (English only), `/ar` (Arabic only), `/aren` (dual language). See [COMMANDS_EXPLANATION.md](commands/COMMANDS_EXPLANATION.md).
 
 ### 4. Agents
 
