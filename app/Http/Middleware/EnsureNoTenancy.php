@@ -14,7 +14,7 @@ class EnsureNoTenancy
     public function handle(Request $request, Closure $next): Response
     {
         if (function_exists('tenancy') && tenancy()->initialized) {
-            abort(404);
+            tenancy()->end();
         }
 
         return $next($request);

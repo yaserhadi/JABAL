@@ -20,6 +20,30 @@ abstract class TestCase extends BaseTestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Defense in depth: refuse to run tests against non-isolated databases.
+     * RefreshDatabase performs migrate:fresh which would wipe dev data otherwise.
+     * Test DBs must be explicitly named with a "_testing" suffix.
+     *
+     * Read directly from env so the guard fires BEFORE the framework boots and
+     * BEFORE RefreshDatabase's migrate:fresh can touch any connection.
+     */
+    protected function setUp(): void
+    {
+        $central = (string) env('DB_DATABASE_CENTRAL', '');
+        $tenant = (string) env('DB_DATABASE_TENANT', '');
+
+        if (! str_ends_with($central, '_testing') || ! str_ends_with($tenant, '_testing')) {
+            throw new \RuntimeException(
+                'Refusing to run tests against non-isolated databases. '.
+                'Expected DB names ending in "_testing", got central='.$central.', tenant='.$tenant.'. '.
+                'Set DB_DATABASE_CENTRAL and DB_DATABASE_TENANT in phpunit.xml.'
+            );
+        }
+
+        parent::setUp();
+    }
+
     protected function afterRefreshingDatabase()
     {
         $this->artisan('migrate', [

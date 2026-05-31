@@ -29,6 +29,10 @@ class EnsureUserBelongsToTenant
         $routeTenant = $request->route('tenant');
         $routeTenantId = is_object($routeTenant) ? ($routeTenant->id ?? null) : $routeTenant;
 
+        if (! $routeTenantId && $request->segment(1) === 't') {
+            $routeTenantId = $request->segment(2);
+        }
+
         if ($routeTenantId && $routeTenantId !== $tenant->id) {
             abort(403, 'Route tenant does not match tenancy context');
         }

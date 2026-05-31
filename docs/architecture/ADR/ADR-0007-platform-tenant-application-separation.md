@@ -78,17 +78,98 @@ ADR-0001 selected stancl/tenancy and preserved `tenants.isolation_level` (`share
 - Platform user **must not** access tenant application except via **documented, audited, time-limited impersonation** (stancl impersonation pattern + platform audit).
 - Tenant user **must not** access platform management routes or APIs.
 
+#### 3.1.1 Isolated runtime boundaries
+
+JABAL must behave as **two logical applications with isolated runtime boundaries** inside one Laravel codebase — not merely different routes and guards on a single default auth stack.
+
+- **Logical separation** (routes + guards) is necessary but **insufficient**.
+- Each application owns a **runtime profile** selected by middleware (`platform.web` / `tenant.web`) **before** `StartSession`.
+- **Forbidden:** one global `session.php` connection/cookie for both apps on HTTP web requests.
+- **Forbidden:** platform auth runtime artifacts on the tenant data layer; tenant auth runtime artifacts on central (except registry metadata: `tenants`, `tenant_users` membership bridge).
+
+#### 3.1.2 Auth runtime artifact ownership matrix
+
+| Concern | Platform Management | Tenant Application | Storage |
+|---------|---------------------|--------------------|---------|
+| Users | `platform_users` / `PlatformUser` | `users` / `TenantUser` | central / tenant layer |
+| Sessions | `platform_sessions` | `sessions` | central / tenant layer |
+| Session cookie | `PLATFORM_SESSION_COOKIE` | `TENANT_SESSION_COOKIE` | config (distinct names) |
+| Password reset tokens | `platform_password_reset_tokens` | `password_reset_tokens` | central / tenant layer |
+| Roles | `platform_roles` (Stage 4+) | `roles` (Spatie) | central / tenant layer |
+| Permissions | `platform_permissions` (Stage 4+) | `permissions` (Spatie) | central / tenant layer |
+| RBAC pivots | `platform_model_has_roles`, etc. (Stage 4+) | `model_has_roles`, `model_has_permissions`, `role_has_permissions` | central / tenant layer — **no shared Spatie tables** |
+| Guard | `platform` | `tenant` (`web` deprecated alias) | `config/auth.php` |
+| Login / logout | `/platform/login`, `/platform/logout` | `/login`, `/register`, `/logout`, tenant routes | `platform.web` / `tenant.web` |
+| MFA / SSO (Stage 6+) | Platform operator step-up / IdP | Tenant user MFA / org SSO | central only / tenant layer only |
+| Audit context | Platform audit (registry, provisioning, operators) | Tenant-scoped audit (members, workspaces) | central platform store / tenant store |
+
+#### 3.1.3 Runtime profile rules
+
+| Profile | Middleware group | Tenancy init | Session connection | Session table |
+|---------|------------------|--------------|--------------------|---------------|
+| `platform` | `platform.web` | **Must not** run | `central` | `platform_sessions` |
+| `tenant` | `tenant.web` | **Required** on tenant routes | tenant resolver | `sessions` |
+
+##### 3.1.3.1 Session connection authority
+
+- **`ConfigureApplicationRuntime`** is the **sole authority** for `session.connection`, `session.table`, and `session.cookie` on HTTP web requests.
+- Must run as the **first** middleware in `platform.web` / `tenant.web`, **before** `StartSession`.
+- `SESSION_CONNECTION` in `.env` / `config/session.php` default is **CLI / artisan / PHPUnit fallback only** — not platform web, not tenant web.
+- Platform web with `session.connection === 'tenant'` is an **architecture violation**.
+- Tenant web with `session.connection === 'central'` is an **architecture violation**.
+
+#### 3.1.4 Anti-patterns (explicit rejections)
+
+- Same entity name → same table (e.g. central `sessions` for platform operators).
+- `auth()->check()` without guard on mixed routes.
+- Tenant login identities on `jabal_central.users` (legacy; deprecated).
+- Platform operator rows in `jabal_tenant_shared.sessions`.
+- Relying on `SESSION_CONNECTION` for `/platform/*` web requests.
+- Web routes outside `platform.web` / `tenant.web` that start a session without a documented neutral profile.
+- Reusing tenant Spatie tables for platform RBAC or vice versa.
+- A platform role granting tenant permissions, or a tenant role granting platform permissions.
+- Checking tenant permissions with `platform` guard or platform permissions with `tenant` / `web` guard.
+
+#### 3.1.5 Platform RBAC ≠ Tenant RBAC
+
+**Rule:** `Platform RBAC ≠ Tenant RBAC` — separate authorization systems. They must **not** share roles, permissions, pivots, guards, or Spatie tables.
+
+**Platform RBAC** controls Platform Management: tenant provisioning, subscription/billing operations, plan management, platform settings, platform support.
+
+**Tenant RBAC** controls Tenant Application: tenant user management, tenant roles, tenant settings, workspaces, business modules.
+
+| Area | Platform | Tenant |
+|------|----------|--------|
+| Users | `platform_users` | tenant `users` |
+| Roles | `platform_roles` (Stage 4+) | `roles` |
+| Permissions | `platform_permissions` (Stage 4+) | `permissions` |
+| Pivots | `platform_model_has_roles`, etc. | Spatie tenant pivots |
+| Guard | `platform` | `tenant` |
+| DB | `jabal_central` | tenant data layer |
+| Scope | Manage SaaS platform | Manage tenant application |
+
+- Platform roles and permissions **must** be stored on central only.
+- Tenant roles and permissions **must** be stored on the tenant data layer only.
+- A platform role **must never** grant tenant permissions.
+- A tenant role **must never** grant platform permissions.
+
+**Stage 2.5:** Define placement in ADR + MANIFEST; verify tenant RBAC on tenant connection; keep `EnsurePlatformAdmin` until Stage 4 implements `platform_roles`.
+
+**RBAC stop conditions:** platform role/permission rows in tenant DB; tenant role/permission rows in central DB; tenant-admin accessing `/platform/*`; platform-admin accessing `/t/{tenant}/*` without audited impersonation; wrong guard for permission checks.
+
 ### 3.2 Central database (`jabal_central`) — platform scope
 
 **Owns (non-exhaustive):**
 
 - `platform_users`
+- `platform_sessions`, `platform_password_reset_tokens`
+- `platform_roles`, `platform_permissions`, platform RBAC pivots (Stage 4+)
 - `tenants`, `domains`
 - `plans`, `subscriptions`, invoices/billing artifacts (per ADR-0004)
 - `tenant_provisioning_status`, `tenant_database_config` (isolation metadata)
 - Platform audit / KPI configuration
 
-**Does not own:** tenant application login identities, tenant Spatie role assignments (moved to tenant data layer under this ADR).
+**Does not own:** tenant application login identities, tenant `users`, tenant `sessions`, tenant Spatie RBAC tables, tenant MFA/SSO secrets (tenant data layer only).
 
 **Deprecate (phased):** central `users` for new installs as tenant login; `tenant_users` pivot after migration.
 
@@ -112,6 +193,8 @@ TENANCY_DB_CREATION_MODE=manual
 | `schema_per_tenant` | `schema` | PostgreSQL schema per tenant; stancl schema bootstrapper when enabled |
 
 **Initial implementation scope:** `shared_db` only. Other modes are architectural targets; resolver interface must exist in design before mode-specific bootstrappers ship.
+
+**Tenant auth runtime (all modes):** `users`, `sessions`, `password_reset_tokens`, Spatie `roles` / `permissions` / pivots, tenant MFA/SSO tables (Stage 6+), tenant-scoped audit — **tenant data layer only**, via `TenantStorageResolver`.
 
 ### 3.4 Abstraction-first tenant access (mandatory)
 
@@ -148,6 +231,8 @@ Do not authenticate platform routes against `TenantUser` or tenant routes agains
 
 - No tenant business logic in platform modules.
 - No platform administration in tenant modules.
+- **Audit:** platform audit events on central; tenant-scoped audit on tenant data layer (split per [MODULE-BOUNDARY-PLATFORM-TENANT.md](MODULE-BOUNDARY-PLATFORM-TENANT.md)).
+- **Identity:** platform auth surfaces use `platform.web` + `platform` guard; tenant auth uses `tenant.web` + `tenant`/`web` guard.
 
 Incremental module moves from current `Modules/*` layout; no big-bang rename required in Draft ADR.
 
@@ -221,7 +306,7 @@ When **Status = Final**, mirror into:
 
 Implementation: [`app/Support/Contracts/Tenancy/TenantStorageResolver.php`](../../app/Support/Contracts/Tenancy/TenantStorageResolver.php)  
 Default binding: [`app/Support/Tenancy/DefaultTenantStorageResolver.php`](../../app/Support/Tenancy/DefaultTenantStorageResolver.php)  
-Configuration: [`config/tenancy_storage.php`](../../config/tenancy_storage.php) · env: [`.env.example`](../../../.env.example)
+Configuration: [`config/tenancy_storage.php`](../../config/tenancy_storage.php) · env: [`.env.example`](../../../.env.example) · operator guide: [Tenancy environment variables](../../reference/tenancy-environment.md)
 
 | Method | Purpose |
 |--------|---------|
@@ -260,6 +345,8 @@ Enforced by [`ValidateTenantToken`](../../app/Http/Middleware/ValidateTenantToke
 
 | Stage | Scope |
 |-------|--------|
+| **Stage 2** | Logical split (guards, routes, models) — **in UAT** until Suite C passes |
+| **Stage 2.5** | Runtime + storage isolation (`platform_sessions`, `ConfigureApplicationRuntime`, `platform.web` / `tenant.web`) — see [JABAL_CORE_REALIGNMENT.md](../../reports/JABAL_CORE_REALIGNMENT.md) |
 | **Stage 3** (this appendix) | `.env.example`, `tenancy_storage` config, resolver contract + default implementation, module boundary doc |
 | **Stage 5** | `TenantDatabaseProvisioner`, Stancl `DatabaseTenancyBootstrapper` for per-tenant DB/schema, migration mobility |
 | **Stage 6+** | Re-introduce legacy Phase 4A/4B **concepts** (billing, SSO, MFA) on corrected platform/tenant architecture — not branch merge as-is |

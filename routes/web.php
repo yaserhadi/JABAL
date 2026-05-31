@@ -12,16 +12,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    if (auth('platform')->check()) {
-        return redirect(auth('platform')->user()->homeRedirectPath());
-    }
-
     if (auth('web')->check()) {
         $user = auth('web')->user();
         $personalTenant = $user->personalTenant();
         if ($personalTenant) {
             return redirect('/t/'.$personalTenant->id.'/dashboard');
         }
+
+        return redirect()->route('login');
     }
 
     return redirect()->route('login');

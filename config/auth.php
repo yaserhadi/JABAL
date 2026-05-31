@@ -36,6 +36,10 @@ return [
     */
 
     'guards' => [
+        'tenant' => [
+            'driver' => 'session',
+            'provider' => 'tenant_users',
+        ],
         'web' => [
             'driver' => 'session',
             'provider' => 'tenant_users',
@@ -65,7 +69,7 @@ return [
 
     'providers' => [
         'tenant_users' => [
-            'driver' => 'eloquent',
+            'driver' => 'tenant_aware_eloquent',
             'model' => App\Models\User::class,
         ],
         'platform_users' => [
@@ -96,13 +100,15 @@ return [
     'passwords' => [
         'tenant_users' => [
             'provider' => 'tenant_users',
+            'connection' => 'tenant',
             'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],
         'platform_users' => [
             'provider' => 'platform_users',
-            'table' => 'password_reset_tokens',
+            'connection' => 'central',
+            'table' => 'platform_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

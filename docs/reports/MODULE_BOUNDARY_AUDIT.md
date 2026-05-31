@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-29  
 **Branch:** `feature/module-boundary-audit`  
-**Scope:** Phase A evidence-only (read-first). Aligned with [ADR-0003](../architecture/ADR/ADR-0003-modular-monolith-module-boundaries.md) and **MODULE-CREATION-GATE** (`kss-framework/rules/module-creation-gate.mdc`).  
+**Scope:** Phase A evidence-only (read-first). Aligned with [ADR-0003](../architecture/ADR/ADR-0003-modular-monolith-module-boundaries.md) and **MODULE-CREATION-GATE** (`.cursor/rules/module-creation-gate.mdc`).  
 **Layer E:** Executed (brief).
 
 > **Note:** A working copy may also exist under `.cursor/reports/` (often gitignored). This `docs/reports/` path is the **version-controlled** mirror.

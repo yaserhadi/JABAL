@@ -32,7 +32,11 @@ class SettingsController extends Controller
 
         $this->settings->set($key, $request->input('value'));
 
-        return redirect()->route('settings.index')->with('message', 'Setting updated.');
+        $indexRoute = $request->routeIs('platform.*')
+            ? 'platform.settings.index'
+            : 'settings.index';
+
+        return redirect()->route($indexRoute)->with('message', 'Setting updated.');
     }
 
     /**

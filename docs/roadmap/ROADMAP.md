@@ -10,8 +10,9 @@ High-level direction for Jabal (SaaS core platform). **Current execution** for a
 |------|--------|
 | Branch | `feature/platform-tenant-separation` |
 | Lock | `PLATFORM-TENANT-SEPARATION` (Active) |
-| Done | Stages 0–2; Stage 3 design/docs |
-| Next | PR Stage 2 → `main`; Stage 4 or 5 (owner scope) |
+| Done | Stages 0–1; Stage 2 logical split; Stage 3 design/docs |
+| In progress | **Stage 2.5** — runtime/session/RBAC boundary hardening (closes Suite C UAT) |
+| Next | Re-UAT 1+2+2.5; then PR; Stage 4 blocked until Stage 2 closed |
 | Legacy Phase 4 branches | Superseded — Stage 6+ re-home only |
 
 The **Phase overview** below is the **historical roadmap** (Phase 1–5 on `main` and in MANIFEST). Do **not** label Core Realignment stages as “Phase 3” or “Phase 5” in new docs.
@@ -71,7 +72,7 @@ Items below are **not** execution checklists; they are strategic deferrals inher
 - **Tenant-aware RBAC (ex Phase 3B)** — Delivered; catalog extended over time (e.g. workspace, member, tenant settings permissions).
 - **Tenant-level settings (ex Phase 3D)** — Delivered as central `tenant_settings` + Tenancy module; scope lock on columns per plan.
 - **Broader 3A domain foundation** — Workspaces are one domain; additional entities continue under Phase 3E+.
-- **Modular monolith module boundaries (Phase 1 alignment)** — **ADR-0003** (Final) plus Phase A/B record in **`docs/reports/MODULE_BOUNDARY_AUDIT.md`**; new modules follow **MODULE-CREATION-GATE** (`kss-framework/rules/module-creation-gate.mdc`). Syncing boundary language into `PROJECT_MANIFEST.md` remains **human-approved** (ADR-0003 §6).
+- **Modular monolith module boundaries (Phase 1 alignment)** — **ADR-0003** (Final) plus Phase A/B record in **`docs/reports/MODULE_BOUNDARY_AUDIT.md`**; new modules follow **MODULE-CREATION-GATE** (`.cursor/rules/module-creation-gate.mdc`). Syncing boundary language into `PROJECT_MANIFEST.md` remains **human-approved** (ADR-0003 §6).
 
 ---
 

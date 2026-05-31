@@ -93,7 +93,13 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect('/t/'.$tenant->id.'/dashboard');
+        $target = '/t/'.$tenant->id.'/dashboard';
+
+        if ($request->header('X-Inertia')) {
+            return Inertia::location($target);
+        }
+
+        return redirect($target);
     }
 
     public function logout(Request $request)

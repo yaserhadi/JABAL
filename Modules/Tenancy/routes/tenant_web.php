@@ -1,9 +1,10 @@
 <?php
 
 use App\Http\Middleware\EnsureUserBelongsToTenant;
+use App\Http\Middleware\InitializeTenancyByPathWhenApplicable;
+use App\Http\Middleware\InitializeTenancyFromSession;
 use Illuminate\Support\Facades\Route;
 use Modules\Tenancy\Http\Controllers\TenantSettingsController;
-use Stancl\Tenancy\Middleware\InitializeTenancyByPath;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,7 +19,8 @@ Route::prefix('t/{tenant}')
     ->middleware([
         'web',
         'auth',
-        InitializeTenancyByPath::class,
+        InitializeTenancyFromSession::class,
+        InitializeTenancyByPathWhenApplicable::class,
         EnsureUserBelongsToTenant::class,
     ])
     ->group(function () {

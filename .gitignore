@@ -19,6 +19,7 @@ yarn-error.log
 /.vscode
 env.workspace
 branch_audit_*.json
+token-body*.json
 
 # Cursor IDE (kept local; do not track in git)
 # GitHub workflows (if local only)

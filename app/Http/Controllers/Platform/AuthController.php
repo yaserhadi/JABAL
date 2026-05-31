@@ -34,7 +34,19 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(Auth::guard('platform')->user()->homeRedirectPath());
+        /** @var PlatformUser $user */
+        $user = Auth::guard('platform')->user();
+
+        $target = $user->homeRedirectPath();
+
+        $request->session()->save();
+
+        // Platform settings is Blade; force full navigation when login is Inertia (Vue).
+        if ($request->header('X-Inertia')) {
+            return Inertia::location($target);
+        }
+
+        return redirect()->to($target);
     }
 
     public function logout(Request $request)

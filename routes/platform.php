@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Platform\AuthController as PlatformAuthController;
 use App\Http\Middleware\EnsureNoTenancy;
+use App\Http\Middleware\RedirectIfPlatformAuthenticated;
 use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
 use Modules\Settings\Http\Controllers\SettingsController;
@@ -13,7 +14,7 @@ use Modules\Settings\Http\Controllers\SettingsController;
 */
 
 Route::middleware([EnsureNoTenancy::class])->prefix('platform')->name('platform.')->group(function () {
-    Route::middleware('guest:platform')->group(function () {
+    Route::middleware(RedirectIfPlatformAuthenticated::class)->group(function () {
         Route::get('login', [PlatformAuthController::class, 'showLogin'])->name('login');
         Route::post('login', [PlatformAuthController::class, 'login'])->name('login.attempt');
     });

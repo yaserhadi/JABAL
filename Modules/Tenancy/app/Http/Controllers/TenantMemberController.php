@@ -31,12 +31,12 @@ class TenantMemberController extends Controller
         }
 
         $tenantUsers = TenantUser::where('tenant_id', $tenant->id)
-            ->with('user')
+            ->with('applicationUser')
             ->get();
 
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $members = $tenantUsers->map(function (TenantUser $tu) {
-            $user = $tu->user;
+            $user = $tu->applicationUser;
             $roles = $user ? $user->getRoleNames()->toArray() : [];
 
             return [
@@ -67,12 +67,14 @@ class TenantMemberController extends Controller
         ]);
     }
 
-    public function updateRole(Request $request, User $user): JsonResponse|RedirectResponse
+    public function updateRole(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
     {
         $tenant = tenancy()->tenant;
         if (! $tenant) {
             abort(404);
         }
+
+        $user = $this->resolveApplicationUser($user);
 
         $tenantUser = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         if (! $tenantUser) {
@@ -118,22 +120,24 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Role updated successfully.');
     }
 
-    public function suspend(Request $request, User $user): JsonResponse|RedirectResponse
+    public function suspend(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
     {
         return $this->setStatus($request, $user, 'suspended', 'tenant_member.suspended');
     }
 
-    public function activate(Request $request, User $user): JsonResponse|RedirectResponse
+    public function activate(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
     {
         return $this->setStatus($request, $user, 'active', 'tenant_member.activated');
     }
 
-    protected function setStatus(Request $request, User $user, string $status, string $auditEvent): JsonResponse|RedirectResponse
+    protected function setStatus(Request $request, string $userId, string $status, string $auditEvent): JsonResponse|RedirectResponse
     {
         $tenant = tenancy()->tenant;
         if (! $tenant) {
             abort(404);
         }
+
+        $user = $this->resolveApplicationUser($userId);
 
         $tenantUser = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         if (! $tenantUser) {
@@ -187,5 +191,10 @@ class TenantMemberController extends Controller
                 ]);
             }
         }
+    }
+
+    protected function resolveApplicationUser(string $userId): User
+    {
+        return User::withoutGlobalScope('tenant')->findOrFail($userId);
     }
 }

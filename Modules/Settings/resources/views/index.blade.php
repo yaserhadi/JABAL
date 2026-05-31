@@ -13,7 +13,7 @@
                     <td>{{ $key }}</td>
                     <td>{{ is_scalar($value) ? $value : json_encode($value) }}</td>
                     <td>
-                        <form action="{{ route('settings.update', $key) }}" method="POST" style="display:inline">
+                        <form action="{{ route('platform.settings.update', $key) }}" method="POST" style="display:inline">
                             @csrf
                             @method('PUT')
                             <input type="text" name="value" value="{{ is_scalar($value) ? $value : '' }}" placeholder="New value">

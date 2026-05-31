@@ -12,9 +12,9 @@ Human deliberation records for architectural decisions. One file per decision.
 | ADR-0004 | Billing plans and entitlements (legacy Phase 4A) | Draft — on experimental branch only (not in repo) |
 | ADR-0005 | Enterprise access — OIDC and MFA (legacy Phase 4B) | Draft — on experimental branch only (not in repo) |
 | [ADR-0006](ADR-0006-mfa-architecture-security-model.md) | MFA architecture and security model (legacy Phase 4B addendum) | Reference |
-| [ADR-0007](ADR-0007-platform-tenant-application-separation.md) | Platform Management and Tenant Application separation | Draft |
+| [ADR-0007](ADR-0007-platform-tenant-application-separation.md) | Platform Management and Tenant Application separation (§3.1.1 runtime boundaries, §3.1.5 Platform RBAC ≠ Tenant RBAC) | Draft |
 
-**Current separation initiative:** [ADR-0007](ADR-0007-platform-tenant-application-separation.md) + [JABAL Core Realignment](../../reports/JABAL_CORE_REALIGNMENT.md). ADR-0004–0006 describe **legacy Phase 4** work on experimental branches — **reference / Stage 6+ re-home** only; not merge authority.
+**Current separation initiative:** [ADR-0007](ADR-0007-platform-tenant-application-separation.md) + [JABAL Core Realignment](../../reports/JABAL_CORE_REALIGNMENT.md). **Stage 2.5** closes runtime/storage isolation (Suite C UAT). ADR-0004–0006 describe **legacy Phase 4** work on experimental branches — **reference / Stage 6+ re-home** only; not merge authority.
 
 ## Naming
 

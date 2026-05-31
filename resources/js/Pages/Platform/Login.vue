@@ -51,6 +51,6 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post(route('platform.login'));
+    form.post(route('platform.login.attempt'));
 };
 </script>

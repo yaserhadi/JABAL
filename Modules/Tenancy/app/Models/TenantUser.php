@@ -44,7 +44,17 @@ class TenantUser extends Pivot
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->applicationUser();
+    }
+
+    /**
+     * Tenant-application user (tenant DB). Membership is authoritative on this pivot;
+     * do not scope by users.tenant_id — shared_db users may belong via central tenant_users
+     * while their home tenant_id points at another workspace.
+     */
+    public function applicationUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id')->withoutGlobalScope('tenant');
     }
 
     public function scopeActiveMembers($query)

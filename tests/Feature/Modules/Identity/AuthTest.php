@@ -74,4 +74,26 @@ class AuthTest extends TestCase
         $dash = $this->get((string) $target);
         $dash->assertStatus(200);
     }
+
+    /**
+     * Mirrors local .env (database cache + tenancy bootstrapper): permission cache must use central store.
+     */
+    public function test_register_dashboard_with_database_cache_store(): void
+    {
+        config(['cache.default' => 'database']);
+        config(['permission.cache.store' => 'central']);
+
+        $response = $this->post('/register', [
+            'name' => 'Cache Signup',
+            'email' => 'cache-signup-'.uniqid().'@example.com',
+            'password' => 'password-Str0ng!',
+            'password_confirmation' => 'password-Str0ng!',
+        ]);
+
+        $this->assertAuthenticated();
+        $target = $response->headers->get('Location');
+        $this->assertMatchesRegularExpression('#/t/[a-f0-9-]{36}/dashboard#', (string) $target);
+
+        $this->get((string) $target)->assertOk();
+    }
 }

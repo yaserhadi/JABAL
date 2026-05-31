@@ -193,6 +193,7 @@ return [
          * file. Using 'default' here means to use the `default` set in cache.php.
          */
 
-        'store' => 'default',
+        // Must not use tenant-scoped default cache (CacheTenancyBootstrapper + shared tenant DB).
+        'store' => 'central',
     ],
 ];

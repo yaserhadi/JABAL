@@ -84,6 +84,44 @@ class TenantMemberManagementTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_member_list_includes_name_when_home_tenant_differs(): void
+    {
+        $otherOwner = User::factory()->create();
+        $otherTenant = $this->createPersonalTenant($otherOwner);
+
+        $crossTenantMember = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Cross Tenant Member',
+            'email' => 'cross-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+
+        TenantUser::create([
+            'tenant_id' => $this->tenant->id,
+            'user_id' => $crossTenantMember->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $this->assignMemberRole($this->owner, $this->tenant, 'tenant-admin', ['member.view', 'dashboard.view']);
+
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->get('/t/'.$this->tenant->id.'/members');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Members/Index')
+            ->has('members', 3)
+            ->where('members', function ($members) use ($crossTenantMember) {
+                return collect($members)->contains(
+                    fn (array $row) => ($row['user']['name'] ?? null) === 'Cross Tenant Member'
+                        && ($row['user']['email'] ?? null) === $crossTenantMember->email
+                );
+            }));
+    }
+
     public function test_member_list_without_permission_returns_403(): void
     {
         $this->assignMemberRole($this->memberUser, $this->tenant, 'member', ['dashboard.view']);
