@@ -35,18 +35,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Authentication routes (public, no tenant context)
     Route::post('/auth/token', [TokenController::class, 'store'])->name('auth.token.store');
 
-    // Protected routes (require auth but NOT tenant context)
-    Route::middleware('auth:sanctum')->group(function () {
-        // Token management (central, no tenant context needed)
+    Route::middleware([
+        ValidateTenantToken::class,
+        'auth:sanctum',
+        InitializeTenancyByRequestData::class,
+    ])->group(function () {
         Route::delete('/auth/token', [TokenController::class, 'destroy'])->name('auth.token.destroy');
     });
 
     // Tenant-scoped protected routes (require auth + tenant context + RBAC)
-    // Enforcement order: tenancy → membership (ValidateTenantToken) → RBAC (PHASE3B-RBAC)
+    // Order: token/header/membership (403 on mismatch before auth) → sanctum → tenancy init
     Route::middleware([
+        ValidateTenantToken::class,
         'auth:sanctum',
         InitializeTenancyByRequestData::class,
-        ValidateTenantToken::class,
     ])->group(function () {
         // Current user endpoint (requires dashboard.view)
         Route::apiResource('workspaces', WorkspacesController::class)->names('workspaces');

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Modules\Identity\Models\TenantUser as TenantApplicationUser;
 use Modules\Tenancy\Models\TenantUser;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -28,6 +29,10 @@ class EnsureUserBelongsToTenant
         $routeTenant = $request->route('tenant');
         $routeTenantId = is_object($routeTenant) ? ($routeTenant->id ?? null) : $routeTenant;
 
+        if (! $routeTenantId && $request->segment(1) === 't') {
+            $routeTenantId = $request->segment(2);
+        }
+
         if ($routeTenantId && $routeTenantId !== $tenant->id) {
             abort(403, 'Route tenant does not match tenancy context');
         }
@@ -48,6 +53,15 @@ class EnsureUserBelongsToTenant
 
         if (! $isMember) {
             abort(403, 'You are not a member of this tenant');
+        }
+
+        $belongsInTenantStore = TenantApplicationUser::query()
+            ->where('id', $user->id)
+            ->where('tenant_id', $tenant->id)
+            ->exists();
+
+        if (! $belongsInTenantStore) {
+            abort(403, 'Tenant application user not found in this tenant');
         }
 
         return $next($request);

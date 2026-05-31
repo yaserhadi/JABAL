@@ -8,8 +8,8 @@ use Modules\Audit\Models\AuditLog;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantSetting;
 use Modules\Tenancy\Models\TenantUser;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -209,7 +209,8 @@ class TenantSettingsTest extends TestCase
             'Accept' => 'application/json',
         ])->getJson('/api/v1/tenants/current/settings');
 
-        $response->assertStatus(403);
+        $response->assertStatus(403)
+            ->assertJson(['error' => 'Header does not match token ability']);
     }
 
     public function test_api_admin_can_get_and_patch_settings(): void

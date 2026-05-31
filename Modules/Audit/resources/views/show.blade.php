@@ -32,5 +32,5 @@
             </tbody>
         </table>
     @endif
-    <p><a href="{{ route('audit.index') }}">Back to list</a></p>
+    <p><a href="{{ route('platform.audit.index') }}">Back to list</a></p>
 </x-audit::layouts.master>

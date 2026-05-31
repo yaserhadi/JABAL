@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Services\UserService;
+use Modules\Tenancy\Models\Tenant;
+use Modules\Tenancy\Models\TenantUser as TenantMembership;
 
 /**
  * TokenController handles API authentication token generation.
@@ -44,11 +46,12 @@ class TokenController extends Controller
             'tenant_id' => 'sometimes|uuid',
         ]);
 
-        // Find user by email
-        $user = User::where('email', $request->email)->first();
+        $user = User::withoutGlobalScope('tenant')
+            ->where('email', $request->email)
+            ->get()
+            ->first(fn (User $candidate) => Hash::check($request->password, $candidate->password));
 
-        // Verify password
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (! $user) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
@@ -57,8 +60,14 @@ class TokenController extends Controller
         // Determine tenant
         $tenantId = $request->input('tenant_id');
         if ($tenantId) {
-            // Verify user has access to the specified tenant
-            $tenant = $this->userService->getTenants($user)->firstWhere('id', $tenantId);
+            $hasAccess = TenantMembership::query()
+                ->where('user_id', $user->id)
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->exists();
+
+            $tenant = $hasAccess ? Tenant::query()->find($tenantId) : null;
+
             if (! $tenant) {
                 return ApiResponse::error(
                     'TENANT_ACCESS_DENIED',
@@ -68,12 +77,12 @@ class TokenController extends Controller
                 );
             }
         } else {
-            // Use personal tenant as default
-            $tenant = $this->userService->getPersonalTenant($user);
+            $tenant = $this->userService->getPersonalTenant($user)
+                ?? $this->userService->getTenants($user)->first();
             if (! $tenant) {
                 return ApiResponse::error(
                     'PERSONAL_TENANT_NOT_FOUND',
-                    'Personal tenant not found for user.',
+                    'No active tenant membership found for user.',
                     [],
                     404
                 );

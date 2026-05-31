@@ -45,6 +45,17 @@ return [
             'lock_connection' => env('DB_CACHE_LOCK_CONNECTION', null),
         ],
 
+        /*
+         * Central-only cache (not switched by CacheTenancyBootstrapper).
+         * Used for Spatie permission cache so RBAC does not require a tenant DB cache table.
+         */
+        'central' => [
+            'driver' => 'database',
+            'table' => env('DB_CACHE_TABLE', 'cache'),
+            'connection' => 'central',
+            'lock_connection' => env('DB_CACHE_LOCK_CONNECTION', null),
+        ],
+
         'file' => [
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),

@@ -8,7 +8,7 @@ Owner: KSS Steward - YH
 
 ## 1. Context
 
-Tenant-scoped RBAC uses Spatie with `tenant_id` as the team key (`PHASE3B-RBAC` lock). The **catalog** (permission names and `tenant-admin` / `member` matrices) was seeded only for tenants that existed when **`RbacCatalogSeeder`** ran.
+Tenant-scoped RBAC uses Spatie with `tenant_id` as the team key (`PHASE3B-RBAC` lock). **Tenant** RBAC tables live on the **tenant data layer** only. **Platform** RBAC is separate on central — see [ADR-0007 §3.1.5](ADR-0007-platform-tenant-application-separation.md). The **catalog** (permission names and `tenant-admin` / `member` matrices) was seeded only for tenants that existed when **`RbacCatalogSeeder`** ran.
 
 **New users** who register receive a **personal tenant** and an **owner** row in `tenant_users`, but until runtime provisioning existed they received **no** Spatie roles. Protected routes (e.g. `permission:dashboard.view`) then returned **403** immediately after signup.
 

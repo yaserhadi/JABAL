@@ -2,12 +2,20 @@
 
 namespace App\Providers;
 
+use App\Auth\TenantAwareUserProvider;
 use App\Listeners\SetSpatiePermissionsTeamId;
+use Illuminate\Support\Facades\Auth;
+use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Context\ActorContext;
+use App\Support\Tenancy\DefaultTenantStorageResolver;
 use App\Support\Context\ExecutionContext;
 use App\Support\Context\RequestContext;
+use App\Http\Middleware\ValidateTenantToken;
+use App\Models\TenantPersonalAccessToken;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
 class AppServiceProvider extends ServiceProvider
@@ -17,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(TenantStorageResolver::class, DefaultTenantStorageResolver::class);
+
         // Register RequestContext as singleton
         $this->app->singleton(RequestContext::class, function () {
             return RequestContext::getInstance();
@@ -38,6 +48,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Auth::provider('tenant_aware_eloquent', function ($app, array $config) {
+            return new TenantAwareUserProvider($app['hash'], $config['model']);
+        });
+
+        Sanctum::usePersonalAccessTokenModel(TenantPersonalAccessToken::class);
+
         // PHASE 2: Configure Stancl middleware to use X-Tenant-Id header
         InitializeTenancyByRequestData::$header = 'X-Tenant-Id';
 
@@ -51,5 +67,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Phase 3B: Set Spatie permissions team context during tenancy initialization
         Event::subscribe(SetSpatiePermissionsTeamId::class);
+
+        // API pipeline: ValidateTenantToken before Sanctum on tenant API routes only.
+        // Do NOT prepend Authenticate globally — it runs before StartSession and breaks web session guards.
+        $this->app->booted(static function (): void {
+            $kernel = app(Kernel::class);
+            $kernel->prependToMiddlewarePriority(ValidateTenantToken::class);
+            // Sanctum must resolve the tokenable user before Stancl initializes tenancy from X-Tenant-Id,
+            // otherwise BelongsToTenant scopes the user query to the header tenant and cross-tenant tokens 401.
+            $kernel->appendToMiddlewarePriority(
+                \Illuminate\Auth\Middleware\Authenticate::class,
+                InitializeTenancyByRequestData::class,
+            );
+        });
     }
 }

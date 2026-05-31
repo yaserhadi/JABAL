@@ -17,7 +17,7 @@ class AuditTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'user.created',
-            'auditable_type' => User::class,
+            'auditable_type' => User::class, // App\Models\User extends TenantUser
             'auditable_id' => $user->id,
         ]);
     }
@@ -30,7 +30,7 @@ class AuditTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'user.updated',
-            'auditable_type' => User::class,
+            'auditable_type' => User::class, // App\Models\User extends TenantUser
             'auditable_id' => $user->id,
         ]);
     }
@@ -44,7 +44,7 @@ class AuditTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'user.deleted',
-            'auditable_type' => User::class,
+            'auditable_type' => User::class, // App\Models\User extends TenantUser
             'auditable_id' => $userId,
         ]);
     }

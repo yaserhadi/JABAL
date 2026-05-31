@@ -2,7 +2,30 @@
 
 use Illuminate\Support\Str;
 
+/*
+|--------------------------------------------------------------------------
+| HTTP web session runtime (ADR-0007 §3.1.3.1)
+|--------------------------------------------------------------------------
+|
+| ConfigureApplicationRuntime applies session.profiles.* before StartSession.
+| Top-level connection/table/cookie below are CLI / artisan / PHPUnit fallback only.
+|
+*/
+
 return [
+
+    'profiles' => [
+        'platform' => [
+            'connection' => 'central',
+            'table' => 'platform_sessions',
+            'cookie' => env('PLATFORM_SESSION_COOKIE', 'jabal_platform_session'),
+        ],
+        'tenant' => [
+            'connection' => 'tenant',
+            'table' => 'sessions',
+            'cookie' => env('TENANT_SESSION_COOKIE', 'jabal_tenant_session'),
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -73,7 +96,7 @@ return [
     |
     */
 
-    'connection' => env('SESSION_CONNECTION'),
+    'connection' => env('SESSION_CONNECTION', 'tenant'),
 
     /*
     |--------------------------------------------------------------------------

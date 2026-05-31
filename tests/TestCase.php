@@ -3,11 +3,13 @@
 namespace Tests;
 
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -16,6 +18,41 @@ use Spatie\Permission\PermissionRegistrar;
  */
 abstract class TestCase extends BaseTestCase
 {
+    use RefreshDatabase;
+
+    /**
+     * Defense in depth: refuse to run tests against non-isolated databases.
+     * RefreshDatabase performs migrate:fresh which would wipe dev data otherwise.
+     * Test DBs must be explicitly named with a "_testing" suffix.
+     *
+     * Read directly from env so the guard fires BEFORE the framework boots and
+     * BEFORE RefreshDatabase's migrate:fresh can touch any connection.
+     */
+    protected function setUp(): void
+    {
+        $central = (string) env('DB_DATABASE_CENTRAL', '');
+        $tenant = (string) env('DB_DATABASE_TENANT', '');
+
+        if (! str_ends_with($central, '_testing') || ! str_ends_with($tenant, '_testing')) {
+            throw new \RuntimeException(
+                'Refusing to run tests against non-isolated databases. '.
+                'Expected DB names ending in "_testing", got central='.$central.', tenant='.$tenant.'. '.
+                'Set DB_DATABASE_CENTRAL and DB_DATABASE_TENANT in phpunit.xml.'
+            );
+        }
+
+        parent::setUp();
+    }
+
+    protected function afterRefreshingDatabase()
+    {
+        $this->artisan('migrate', [
+            '--path' => 'database/migrations/tenant',
+            '--database' => 'tenant',
+            '--force' => true,
+        ]);
+    }
+
     /**
      * Set the currently authenticated user to act as a specific tenant.
      * Uses Stancl tenancy() for context management.
@@ -33,6 +70,16 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Web/session tests: initialize tenancy before actingAs to avoid scoped User/RBAC query errors.
+     */
+    protected function actingAsTenantUser(User $user, Tenant $tenant, string $guard = 'web'): static
+    {
+        $this->actingAsTenant($tenant);
+
+        return $this->actingAs($user, $guard);
+    }
+
+    /**
      * Create a personal tenant for the given user.
      *
      * PHASE 2: Sets status = 'active'.
@@ -41,7 +88,29 @@ abstract class TestCase extends BaseTestCase
      */
     protected function createPersonalTenant($user): Tenant
     {
-        return app(UserService::class)->createPersonalTenant($user);
+        $tenant = $user->personalTenant();
+
+        if (! $tenant) {
+            $tenant = Tenant::query()->where('created_by', $user->id)->first();
+        }
+
+        if ($tenant) {
+            app(\Modules\Tenancy\Services\TenantRbacProvisioner::class)->ensureRolesForTenant($tenant);
+            app(\Modules\Tenancy\Services\TenantRbacProvisioner::class)->assignTenantAdminRole($user, $tenant);
+        }
+
+        return $tenant;
+    }
+
+    protected function registerTenantUser(string $name = 'Test User', ?string $email = null): User
+    {
+        $email ??= 'tenant-'.uniqid().'@example.com';
+
+        return app(TenantRegistrationService::class)->registerTenantUser(
+            $name,
+            $email,
+            'password'
+        );
     }
 
     /**

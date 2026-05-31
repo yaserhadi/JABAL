@@ -3,31 +3,23 @@
 namespace Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Modules\Identity\Events\UserRegistered;
-use Modules\Identity\Services\UserService;
+use Modules\Identity\Models\TenantUser;
+use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Tenancy\Events\TenantCreated;
+use Modules\Tenancy\Models\Tenant;
 
 class AuthController extends Controller
 {
-    /**
-     * Show the login form.
-     */
     public function showLogin()
     {
         return Inertia::render('Auth/Login');
     }
 
-    /**
-     * Handle login request.
-     *
-     * PHASE 2: Redirects to tenant-scoped dashboard /t/{tenant}/dashboard
-     */
     public function login(Request $request)
     {
         $request->validate([
@@ -35,93 +27,90 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+        $tenantUser = TenantUser::withoutGlobalScope('tenant')
+            ->where('email', $request->input('email'))
+            ->first();
+
+        if (! $tenantUser) {
+            throw ValidationException::withMessages([
+                'email' => __('The provided credentials do not match our records.'),
+            ]);
+        }
+
+        $tenant = Tenant::find($tenantUser->tenant_id);
+        if (! $tenant || $tenant->status !== 'active') {
+            throw ValidationException::withMessages([
+                'email' => __('The provided credentials do not match our records.'),
+            ]);
+        }
+
+        tenancy()->initialize($tenant);
+
+        if (! Auth::guard('web')->attempt(
+            $request->only('email', 'password'),
+            $request->boolean('remember')
+        )) {
+            tenancy()->end();
             throw ValidationException::withMessages([
                 'email' => __('The provided credentials do not match our records.'),
             ]);
         }
 
         $request->session()->regenerate();
+        $request->session()->put('tenant_id', $tenant->id);
 
-        $user = Auth::user();
-        $personalTenant = $user->personalTenant();
-
-        if ($personalTenant) {
-            return redirect()->intended('/t/'.$personalTenant->id.'/dashboard');
-        }
-
-        return redirect()->route('login');
+        return redirect()->intended('/t/'.$tenant->id.'/dashboard');
     }
 
-    /**
-     * Show the registration form.
-     */
     public function showRegister()
     {
         return Inertia::render('Auth/Register');
     }
 
-    /**
-     * Handle registration request.
-     * Creates user, personal tenant, and owner membership (Phase 1).
-     *
-     * PHASE 2: Redirects to tenant-scoped dashboard /t/{tenant}/dashboard
-     */
-    public function register(Request $request)
+    public function register(Request $request, TenantRegistrationService $registration)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-        ]);
+        $tenantUser = $registration->registerTenantUser(
+            $validated['name'],
+            $validated['email'],
+            $validated['password']
+        );
 
-        $userService = app(UserService::class);
-        $tenant = $userService->createPersonalTenant($user);
+        $tenant = $tenantUser->personalTenant();
 
-        event(new UserRegistered($user));
-        event(new TenantCreated($tenant));
+        event(new UserRegistered($tenantUser));
+        if ($tenant) {
+            event(new TenantCreated($tenant));
+        }
 
-        Auth::login($user);
-
+        tenancy()->initialize($tenant);
+        Auth::guard('web')->login($tenantUser);
         $request->session()->regenerate();
+        $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect('/t/'.$tenant->id.'/dashboard');
+        $target = '/t/'.$tenant->id.'/dashboard';
+
+        if ($request->header('X-Inertia')) {
+            return Inertia::location($target);
+        }
+
+        return redirect($target);
     }
 
-    /**
-     * Logout the authenticated user.
-     */
     public function logout(Request $request)
     {
         Auth::guard('web')->logout();
-
+        if (tenancy()->initialized) {
+            tenancy()->end();
+        }
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
-    }
-
-    /**
-     * Show the password reset request form.
-     */
-    public function showForgotPassword()
-    {
-        return Inertia::render('Auth/ForgotPassword');
-    }
-
-    /**
-     * Show the password reset form.
-     */
-    public function showResetPassword(string $token)
-    {
-        return Inertia::render('Auth/ResetPassword', [
-            'token' => $token,
-        ]);
     }
 }

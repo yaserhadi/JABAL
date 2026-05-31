@@ -29,8 +29,14 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <!--
+            Tests MUST NOT touch the dev databases. RefreshDatabase runs migrate:fresh
+            on the central connection; without these overrides PHPUnit inherits
+            DB_DATABASE_* from .env and wipes the live dev DBs. See tests/TestCase.php
+            guard in setUp() for defense-in-depth.
+        -->
+        <env name="DB_DATABASE_CENTRAL" value="jabal_central_testing"/>
+        <env name="DB_DATABASE_TENANT" value="jabal_tenant_shared_testing"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

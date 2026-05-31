@@ -2,6 +2,43 @@
 
 This document defines testing standards and practices for the Jabal SaaS Core Platform.
 
+## ⚠ Test database isolation (required — read this first)
+
+Tests use `RefreshDatabase`, which calls `migrate:fresh` and **drops every table** on
+the central and tenant connections. Without isolation this destroys the dev databases.
+
+This project enforces isolation in two independent layers:
+
+1. **`phpunit.xml`** overrides `DB_DATABASE_CENTRAL` and `DB_DATABASE_TENANT` so test runs
+   target `jabal_central_testing` and `jabal_tenant_shared_testing` only — never the dev DBs.
+2. **`tests/TestCase.php::setUp()`** reads the env BEFORE the framework boots and throws
+   a `RuntimeException` if either name does not end with `_testing`. This catches
+   accidental `phpunit.xml` regressions before any migration runs.
+
+### One-time setup for a new workstation
+
+```bash
+psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_central_testing"'
+psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_tenant_shared_testing"'
+```
+
+### Verifying isolation is still in place
+
+A test run should never modify dev data. To prove it, snapshot a value in your dev DB
+before and after a test run — e.g. count of `platform_users` — and confirm it is unchanged.
+For background on why this matters, read [`docs/reports/TEST_DB_ISOLATION_INCIDENT.md`](../docs/reports/TEST_DB_ISOLATION_INCIDENT.md).
+
+### Stage 2.5 — runtime session isolation tests
+
+`phpunit.xml` sets `SESSION_DRIVER=array` by default. Tests that assert session **persistence**
+in `central.platform_sessions` vs `tenant.sessions` (see `RuntimeSessionIsolationTest`) override
+the driver to `database` in `setUp()`.
+
+HTTP web runtime is selected by `ConfigureApplicationRuntime` (not `SESSION_CONNECTION`).
+Env vars: `PLATFORM_SESSION_COOKIE`, `TENANT_SESSION_COOKIE` (see `.env.example`).
+
+---
+
 ## Testing Overview
 
 The Jabal platform uses **PHPUnit** with **Laravel** for testing. Tests are organized into two main categories:

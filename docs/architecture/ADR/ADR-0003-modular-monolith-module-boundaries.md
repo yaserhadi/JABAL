@@ -4,7 +4,7 @@ Status: **Final**
 Date: 2026-03-29  
 Owner: KSS Steward - YH
 
-**Promotion rationale:** ADR-0003 is **Final** because the **documented hybrid** boundary model (kernel in `app/`, construction blocks in `Modules/`) is **no longer provisional**. Codebase practice was reviewed in the **Module Boundary Audit** with **Phase B** cleanup completed ([`docs/reports/MODULE_BOUNDARY_AUDIT.md`](../../reports/MODULE_BOUNDARY_AUDIT.md)). **MODULE-CREATION-GATE** is **operationally adopted** (`kss-framework/rules/module-creation-gate.mdc`, `/gw-triage`, `/boot` pointer). Automated tests, manual smoke, and frontend build were verified on `main` before promotion.
+**Promotion rationale:** ADR-0003 is **Final** because the **documented hybrid** boundary model (kernel in `app/`, construction blocks in `Modules/`) is **no longer provisional**. Codebase practice was reviewed in the **Module Boundary Audit** with **Phase B** cleanup completed ([`docs/reports/MODULE_BOUNDARY_AUDIT.md`](../../reports/MODULE_BOUNDARY_AUDIT.md)). **MODULE-CREATION-GATE** is **operationally adopted** (`.cursor/rules/module-creation-gate.mdc`, `/gw-triage`, `/boot` pointer). Automated tests, manual smoke, and frontend build were verified on `main` before promotion.
 
 ---
 
@@ -118,7 +118,7 @@ This ADR does **not** automatically change enforcement files. If **Status** beco
 - `Modules/Workspaces/` — validated reference slice for tenant-facing module pattern
 - ADR-0001 — tenancy approach (stancl)
 - ADR-0002 — tenant RBAC provisioning (related platform discipline)
-- `kss-framework/rules/module-creation-gate.mdc` — **MODULE-CREATION-GATE** (operational; existing module vs `app/` kernel vs new module); enforced in `/gw-triage` workflow
+- `.cursor/rules/module-creation-gate.mdc` — **MODULE-CREATION-GATE** (operational; existing module vs `app/` kernel vs new module); enforced in `/gw-triage` workflow
 
 ### Diagram (reference)
 
