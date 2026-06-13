@@ -50,6 +50,39 @@ class PlatformUser extends Authenticatable
         return (bool) $this->is_active;
     }
 
+    public function hasPlatformPermission(string $permission): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        $direct = \DB::connection('central')
+            ->table('platform_model_has_permissions')
+            ->join('platform_permissions', 'platform_permissions.id', '=', 'platform_model_has_permissions.platform_permission_id')
+            ->where('platform_model_has_permissions.model_type', self::class)
+            ->where('platform_model_has_permissions.model_id', $this->id)
+            ->where('platform_permissions.name', $permission)
+            ->exists();
+
+        if ($direct) {
+            return true;
+        }
+
+        return \DB::connection('central')
+            ->table('platform_model_has_roles')
+            ->join('platform_role_has_permissions', 'platform_role_has_permissions.platform_role_id', '=', 'platform_model_has_roles.platform_role_id')
+            ->join('platform_permissions', 'platform_permissions.id', '=', 'platform_role_has_permissions.platform_permission_id')
+            ->where('platform_model_has_roles.model_type', self::class)
+            ->where('platform_model_has_roles.model_id', $this->id)
+            ->where('platform_permissions.name', $permission)
+            ->exists();
+    }
+
+    public function canAccessPlatform(): bool
+    {
+        return $this->hasPlatformPermission('platform.access');
+    }
+
     public function homeRedirectPath(): string
     {
         return route('platform.settings.index');

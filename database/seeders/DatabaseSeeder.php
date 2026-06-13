@@ -10,6 +10,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             PlatformAdminSeeder::class,
+            PlatformRbacSeeder::class,
+            TenantContactRoleSeeder::class,
             RbacCatalogSeeder::class,
             SystemSettingsSeeder::class,
         ]);
