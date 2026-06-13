@@ -254,10 +254,12 @@ Target: Same cleanup wave as §9.1 or immediately after foundation merge audit
 
 ### 9.3 Pre-merge checklist (owner)
 
-- [x] §9.1 and §9.2 documented as **mandatory sunset** (not optional cleanup) — **owner sign-off required before merge to `main`**
+- [x] §9.1 and §9.2 documented as **mandatory sunset** (not optional cleanup)
+- [x] **Owner sign-off (2026-05-28):** §9.1 and §9.2 **approved as mandatory sunset registry** — **not approved as permanent architecture**. `tenant_users` and legacy central Spatie remain **temporary only**; new use = merge blocker; **cleanup wave required** after first merge/PR.
 - [x] No new code paths write to `tenant_users` or central Spatie (Wave 1 runtime verified)
 - [x] R15 documented: commercial contacts ≠ application users
 - [x] 114 tests pass after `composer dump-autoload -o` (verified on branch before PR)
+- [x] Fresh DB bootstrap verified: `migrate:fresh` central + tenant + `db:seed` (2026-05-28)
 
 ---
 
