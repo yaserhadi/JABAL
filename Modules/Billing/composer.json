@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/billing",
+    "description": "Platform billing module",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Billing\\": "app/",
+            "Modules\\Billing\\Database\\Factories\\": "database/factories/",
+            "Modules\\Billing\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Billing\\Tests\\": "tests/"
+        }
+    }
+}
