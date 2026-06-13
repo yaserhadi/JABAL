@@ -1,7 +1,7 @@
 <?php
 
+use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
 
 /**
  * PHASE 2: Helpers now use Stancl tenancy() instead of TenantContext.
@@ -59,7 +59,7 @@ if (! function_exists('actor')) {
 }
 
 if (! function_exists('membership')) {
-    function membership(): ?TenantUser
+    function membership(): ?Membership
     {
         $user = auth()->user();
         $tenant = current_tenant();
@@ -68,7 +68,10 @@ if (! function_exists('membership')) {
             return null;
         }
 
-        return TenantUser::where('user_id', $user->id)->where('tenant_id', $tenant->id)->first();
+        return Membership::query()
+            ->where('user_id', $user->id)
+            ->where('tenant_id', $tenant->id)
+            ->first();
     }
 }
 

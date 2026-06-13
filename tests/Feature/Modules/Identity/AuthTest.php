@@ -2,12 +2,10 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
-
     public function test_users_can_view_login_page(): void
     {
         $response = $this->get('/login');

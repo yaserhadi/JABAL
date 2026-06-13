@@ -2,12 +2,12 @@
 
 namespace Modules\Tenancy\Services;
 
-use InvalidArgumentException;
-use Modules\Identity\Models\TenantUser as TenantApplicationUser;
-use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser as TenantMembership;
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
+use InvalidArgumentException;
+use Modules\Identity\Models\Membership;
+use Modules\Identity\Models\TenantUser as TenantApplicationUser;
+use Modules\Tenancy\Models\Tenant;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -136,7 +136,8 @@ class TenantRbacProvisioner
 
     protected function userIsActiveOwner(TenantApplicationUser $user, Tenant $tenant): bool
     {
-        return TenantMembership::query()
+        return Membership::query()
+            ->withoutGlobalScope('tenant')
             ->where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('membership_type', 'owner')

@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
+use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
 
 class MembershipSeeder extends Seeder
 {
@@ -21,7 +21,9 @@ class MembershipSeeder extends Seeder
             return;
         }
 
-        TenantUser::firstOrCreate(
+        // Create membership on the tenant database/connection
+        tenancy()->initialize($tenant);
+        Membership::firstOrCreate(
             [
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
@@ -32,5 +34,6 @@ class MembershipSeeder extends Seeder
                 'joined_at' => now(),
             ]
         );
+        tenancy()->end();
     }
 }

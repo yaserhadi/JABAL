@@ -2,13 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
 use Modules\Workspaces\Models\Workspace;
-use App\Models\Rbac\TenantPermission as Permission;
-use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -114,13 +113,7 @@ class WorkspaceCrudTest extends TestCase
 
     public function test_workspace_without_permission_returns_403(): void
     {
-        TenantUser::create([
-            'tenant_id' => $this->tenantA->id,
-            'user_id' => $this->userB->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->userB, $this->tenantA, 'member', 'active');
         // Catalog `member` includes workspace.view; use a dedicated role for "no workspace" coverage.
         app(PermissionRegistrar::class)->setPermissionsTeamId($this->tenantA->getTenantKey());
         $guard = config('auth.defaults.guard');

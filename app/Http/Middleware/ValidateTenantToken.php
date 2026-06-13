@@ -5,8 +5,8 @@ namespace App\Http\Middleware;
 use App\Models\TenantPersonalAccessToken;
 use Closure;
 use Illuminate\Http\Request;
+use Modules\Identity\Services\MembershipService;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -129,10 +129,6 @@ class ValidateTenantToken
 
     private function userHasTenantAccess($user, string $tenantId): bool
     {
-        return TenantUser::where('user_id', $user->id)
-            ->where('tenant_id', $tenantId)
-            ->where('status', 'active')
-            ->exists();
+        return app(MembershipService::class)->hasActiveMembership($user->id, $tenantId);
     }
-
 }

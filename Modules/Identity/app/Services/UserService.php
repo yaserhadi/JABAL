@@ -3,10 +3,9 @@
 namespace Modules\Identity\Services;
 
 use Illuminate\Database\Eloquent\Collection;
+use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser as TenantMembership;
-use Modules\Tenancy\Services\TenantRbacProvisioner;
 
 /**
  * Tenant Application user operations (ADR-0007).
@@ -24,13 +23,14 @@ class UserService
      */
     public function getTenants(TenantUser $user): Collection
     {
-        $tenants = Tenant::whereHas('tenantUsers', function ($query) use ($user) {
-            $query->where('user_id', $user->id)
-                ->where('status', 'active');
-        })->get();
+        $tenantIds = Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->pluck('tenant_id');
 
-        if ($tenants->isNotEmpty()) {
-            return $tenants;
+        if ($tenantIds->isNotEmpty()) {
+            return Tenant::query()->whereIn('id', $tenantIds)->get();
         }
 
         if ($user->tenant_id) {
@@ -57,19 +57,20 @@ class UserService
         Tenant $tenant,
         string $membershipType = 'member',
         string $status = 'active'
-    ): TenantMembership {
-        return TenantMembership::create([
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-            'membership_type' => $membershipType,
-            'status' => $status,
-            'joined_at' => $status === 'active' ? now() : null,
-        ]);
+    ): Membership {
+        return app(MembershipService::class)->create(
+            $user->id,
+            $tenant->id,
+            $membershipType,
+            $status
+        );
     }
 
     public function removeUserFromTenant(TenantUser $user, Tenant $tenant): bool
     {
-        return TenantMembership::where('user_id', $user->id)
+        return Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('user_id', $user->id)
             ->where('tenant_id', $tenant->id)
             ->delete() > 0;
     }

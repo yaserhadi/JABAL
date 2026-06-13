@@ -22,7 +22,7 @@ class EnsurePlatformAdmin
         /** @var PlatformUser $user */
         $user = Auth::guard('platform')->user();
 
-        if (! $user->isPlatformOperator()) {
+        if (! $user->canAccessPlatform()) {
             abort(403, 'Platform admin access required');
         }
 

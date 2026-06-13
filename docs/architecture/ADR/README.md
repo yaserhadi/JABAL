@@ -9,12 +9,12 @@ Human deliberation records for architectural decisions. One file per decision.
 | [ADR-0001](ADR-0001-tenancy.md) | Multi-tenancy approach (stancl) | Final |
 | [ADR-0002](ADR-0002-tenant-rbac-provisioning.md) | Tenant RBAC provisioning (catalog + runtime + shell nav) | Final |
 | [ADR-0003](ADR-0003-modular-monolith-module-boundaries.md) | Modular monolith — module boundaries (documented hybrid) | Final |
-| ADR-0004 | Billing plans and entitlements (legacy Phase 4A) | Draft — on experimental branch only (not in repo) |
-| ADR-0005 | Enterprise access — OIDC and MFA (legacy Phase 4B) | Draft — on experimental branch only (not in repo) |
-| [ADR-0006](ADR-0006-mfa-architecture-security-model.md) | MFA architecture and security model (legacy Phase 4B addendum) | Reference |
-| [ADR-0007](ADR-0007-platform-tenant-application-separation.md) | Platform Management and Tenant Application separation (§3.1.1 runtime boundaries, §3.1.5 Platform RBAC ≠ Tenant RBAC) | Draft |
+| [ADR-0004](ADR-0004-billing-plans-entitlements.md) | Billing plans and entitlements (Phase 4A re-home) | Draft |
+| ADR-0005 | Enterprise access — OIDC and MFA (legacy Phase 4B) | Draft — re-home Wave 3; not merge authority |
+| [ADR-0006](ADR-0006-mfa-architecture-security-model.md) | MFA architecture and security model (legacy Phase 4B addendum) | Reference — tenant-layer re-home Wave 3 |
+| [ADR-0007](ADR-0007-platform-tenant-application-separation.md) | Platform Management and Tenant Application separation (§3.1.1 runtime boundaries, §3.1.5 Platform RBAC ≠ Tenant RBAC, §3.2 R11–R15 contacts/ownership/commercial identity) | Draft |
 
-**Current separation initiative:** [ADR-0007](ADR-0007-platform-tenant-application-separation.md) + [JABAL Core Realignment](../../reports/JABAL_CORE_REALIGNMENT.md). **Stage 2.5** closes runtime/storage isolation (Suite C UAT). ADR-0004–0006 describe **legacy Phase 4** work on experimental branches — **reference / Stage 6+ re-home** only; not merge authority.
+**Current separation initiative:** [ADR-0007](ADR-0007-platform-tenant-application-separation.md) + [JABAL Core Realignment](../../reports/JABAL_CORE_REALIGNMENT.md) + **Phase 4 re-home (foundation-first)**. ADR-0004–0006 describe **legacy Phase 4 goals** — re-homed after F1–F8 via salvage/cherry-pick; **not merge authority**.
 
 ## Naming
 

@@ -85,7 +85,7 @@ JABAL must behave as **two logical applications with isolated runtime boundaries
 - **Logical separation** (routes + guards) is necessary but **insufficient**.
 - Each application owns a **runtime profile** selected by middleware (`platform.web` / `tenant.web`) **before** `StartSession`.
 - **Forbidden:** one global `session.php` connection/cookie for both apps on HTTP web requests.
-- **Forbidden:** platform auth runtime artifacts on the tenant data layer; tenant auth runtime artifacts on central (except registry metadata: `tenants`, `tenant_users` membership bridge).
+- **Forbidden:** platform auth runtime artifacts on the tenant data layer; tenant auth runtime artifacts on central (except registry metadata: `tenants`, `domains`, **`tenant_contacts`**, provisioning metadata — **not** `tenant_users` as auth authority per R11).
 
 #### 3.1.2 Auth runtime artifact ownership matrix
 
@@ -127,6 +127,7 @@ JABAL must behave as **two logical applications with isolated runtime boundaries
 - Relying on `SESSION_CONNECTION` for `/platform/*` web requests.
 - Web routes outside `platform.web` / `tenant.web` that start a session without a documented neutral profile.
 - Reusing tenant Spatie tables for platform RBAC or vice versa.
+- Treating `tenant_contacts` as login identities or coupling contact email to tenant user auth without explicit registration (R15).
 - A platform role granting tenant permissions, or a tenant role granting platform permissions.
 - Checking tenant permissions with `platform` guard or platform permissions with `tenant` / `web` guard.
 
@@ -153,7 +154,7 @@ JABAL must behave as **two logical applications with isolated runtime boundaries
 - A platform role **must never** grant tenant permissions.
 - A tenant role **must never** grant platform permissions.
 
-**Stage 2.5:** Define placement in ADR + MANIFEST; verify tenant RBAC on tenant connection; keep `EnsurePlatformAdmin` until Stage 4 implements `platform_roles`.
+**Stage 2.5:** Define placement in ADR + MANIFEST; verify tenant RBAC on tenant connection. **Wave 1 (F4 Path A):** implement `platform_roles` / `platform_permissions` on central; retire `EnsurePlatformAdmin` boolean gate.
 
 **RBAC stop conditions:** platform role/permission rows in tenant DB; tenant role/permission rows in central DB; tenant-admin accessing `/platform/*`; platform-admin accessing `/t/{tenant}/*` without audited impersonation; wrong guard for permission checks.
 
@@ -163,15 +164,21 @@ JABAL must behave as **two logical applications with isolated runtime boundaries
 
 - `platform_users`
 - `platform_sessions`, `platform_password_reset_tokens`
-- `platform_roles`, `platform_permissions`, platform RBAC pivots (Stage 4+)
+- `platform_roles`, `platform_permissions`, platform RBAC pivots (Wave 1 F4 Path A)
 - `tenants`, `domains`
+- **`tenant_contacts`**, **`tenant_contact_roles`**, **`tenant_contact_role_assignments`** (R11 + R12 — commercial/admin contacts only; not login identity; **R15** — commercial identity ≠ application identity)
+- **`tenants.commercial_owner_contact_id`** and/or **`tenant_ownerships`** (R14 — ownership ≠ contact role assignment)
 - `plans`, `subscriptions`, invoices/billing artifacts (per ADR-0004)
 - `tenant_provisioning_status`, `tenant_database_config` (isolation metadata)
 - Platform audit / KPI configuration
 
 **Does not own:** tenant application login identities, tenant `users`, tenant `sessions`, tenant Spatie RBAC tables, tenant MFA/SSO secrets (tenant data layer only).
 
-**Deprecate (phased):** central `users` for new installs as tenant login; `tenant_users` pivot after migration.
+**Deprecate (Wave 1):** central `tenant_users` as membership/auth authority — migrate to tenant-layer `memberships`; commercial “who to contact” → `tenant_contacts` (R11). Legacy central `users` for tenant login already deprecated.
+
+**R15 — Commercial identity ≠ application identity:** A row in `tenant_contacts` is a platform commercial/admin contact (billing, legal, account owner contact purpose, etc.). It is **not** an application user and must **never** be used for login, MFA, sessions, or tenant RBAC. Tenant application `users` are identities on the tenant data layer only; they are **not** automatically commercial contacts. The same email address may appear in both tables as **unrelated records**; equality of email must not imply a shared identity or auth path.
+
+**Legacy sunset (Wave 1 complete, pre-merge):** Central `tenant_users` remains in schema **deprecated, read-only, scheduled for removal** — see [PHASE4_REHOME_FOUNDATION.md](../../reports/PHASE4_REHOME_FOUNDATION.md) §9. Legacy central Spatie RBAC tables (pre–tenant-layer cutover) are similarly scheduled for audit and drop (§9.2). **Do not reuse** either for new features.
 
 ### 3.3 Tenant data layer — configurable mode
 
