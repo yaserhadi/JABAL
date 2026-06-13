@@ -7,7 +7,6 @@ use App\Models\PlatformRole;
 use App\Models\PlatformUser;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PlatformRbacSeeder extends Seeder
 {

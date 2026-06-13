@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
-use Modules\Tenancy\Models\Tenant;
 use Modules\Identity\Models\Membership;
+use Modules\Tenancy\Models\Tenant;
 
 class MembershipSeeder extends Seeder
 {

@@ -3,7 +3,6 @@
 namespace Modules\Billing\Services;
 
 use App\Support\Contracts\Billing\TenantEntitlementsResolver;
-use Modules\Billing\Models\Entitlement;
 use Modules\Billing\Models\Subscription;
 
 class DatabaseTenantEntitlementsResolver implements TenantEntitlementsResolver

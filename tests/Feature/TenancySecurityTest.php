@@ -6,8 +6,8 @@ use App\Models\User;
 use App\Support\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Modules\Tenancy\Models\Tenant;
 use Modules\Identity\Models\Membership;
+use Modules\Tenancy\Models\Tenant;
 use RuntimeException;
 use Tests\TestCase;
 

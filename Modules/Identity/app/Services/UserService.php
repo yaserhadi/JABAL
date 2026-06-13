@@ -3,11 +3,9 @@
 namespace Modules\Identity\Services;
 
 use Illuminate\Database\Eloquent\Collection;
+use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Identity\Models\Membership;
-use Modules\Identity\Services\MembershipService;
-use Modules\Tenancy\Services\TenantRbacProvisioner;
 
 /**
  * Tenant Application user operations (ADR-0007).

@@ -131,5 +131,4 @@ class ValidateTenantToken
     {
         return app(MembershipService::class)->hasActiveMembership($user->id, $tenantId);
     }
-
 }

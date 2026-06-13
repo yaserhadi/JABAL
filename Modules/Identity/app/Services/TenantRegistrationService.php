@@ -3,8 +3,8 @@
 namespace Modules\Identity\Services;
 
 use App\Models\User;
-use Modules\Tenancy\Models\Tenant;
 use Modules\Identity\Models\Membership;
+use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
 
 class TenantRegistrationService

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Identity\Services\UserService;
 use Tests\TestCase;

@@ -4,8 +4,8 @@ namespace Tests\Feature\Modules\Tenancy;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Modules\Tenancy\Models\Tenant;
 use Modules\Identity\Models\Membership;
+use Modules\Tenancy\Models\Tenant;
 use Tests\TestCase;
 
 class TenantTest extends TestCase

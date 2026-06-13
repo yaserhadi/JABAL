@@ -13,7 +13,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Identity\Models\Membership;
 use Spatie\Permission\Traits\HasRoles;
 
 /**

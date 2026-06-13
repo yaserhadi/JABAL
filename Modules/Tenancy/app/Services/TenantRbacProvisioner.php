@@ -2,12 +2,12 @@
 
 namespace Modules\Tenancy\Services;
 
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use InvalidArgumentException;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser as TenantApplicationUser;
 use Modules\Tenancy\Models\Tenant;
-use App\Models\Rbac\TenantPermission as Permission;
-use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**

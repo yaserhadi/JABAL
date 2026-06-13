@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
-use Modules\Tenancy\Models\Tenant;
 use Modules\Identity\Models\Membership;
-use App\Models\Rbac\TenantPermission as Permission;
-use App\Models\Rbac\TenantRole as Role;
+use Modules\Tenancy\Models\Tenant;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
