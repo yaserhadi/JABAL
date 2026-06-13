@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser as TenantMembership;
+use Modules\Identity\Models\Membership;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -71,7 +71,7 @@ class TenantUser extends Authenticatable
      */
     public function tenantMemberships(): HasMany
     {
-        return $this->hasMany(TenantMembership::class, 'user_id');
+        return $this->hasMany(Membership::class, 'user_id');
     }
 
     public function personalTenant(): ?Tenant

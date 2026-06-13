@@ -4,8 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser as TenantApplicationUser;
-use Modules\Tenancy\Models\TenantUser;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -46,7 +46,8 @@ class EnsureUserBelongsToTenant
             return redirect()->route('login');
         }
 
-        $isMember = TenantUser::where('user_id', $user->id)
+        $isMember = Membership::query()
+            ->where('user_id', $user->id)
             ->where('tenant_id', $tenant->id)
             ->where('status', 'active')
             ->exists();

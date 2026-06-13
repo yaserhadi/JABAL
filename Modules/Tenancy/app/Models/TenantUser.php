@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
+/**
+ * @deprecated Central membership bridge — **read-only legacy**. Current authority:
+ *     {@see \Modules\Identity\Models\Membership} on tenant layer (R11).
+ * Status: Deprecated, read-only, scheduled for removal — see
+ *     docs/reports/PHASE4_REHOME_FOUNDATION.md §9.1. Do not add new writes or auth checks.
+ */
 class TenantUser extends Pivot
 {
     use HasFactory;

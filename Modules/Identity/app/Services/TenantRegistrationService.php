@@ -4,7 +4,7 @@ namespace Modules\Identity\Services;
 
 use App\Models\User;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser as TenantMembership;
+use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
 
 class TenantRegistrationService
@@ -34,7 +34,7 @@ class TenantRegistrationService
                 'slug' => 'personal-'.$tenantUser->id,
             ]);
 
-            TenantMembership::create([
+            Membership::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $tenantUser->id,
                 'membership_type' => 'owner',
