@@ -2,18 +2,19 @@
 
 High-level direction for Jabal (SaaS core platform). **Current execution** for active work: [JABAL Core Realignment](../reports/JABAL_CORE_REALIGNMENT.md), `.cursor/memory/STATE.yaml`, and `.cursor/memory/HANDOFF.md`. Closure evidence lives under `.cursor/reports/` and `docs/reports/`.
 
-## Current initiative (2026-05-26)
+## Current initiative (2026-05-28)
 
-**[JABAL Core Realignment](../reports/JABAL_CORE_REALIGNMENT.md)** — rebuild platform/tenant core before re-introducing SaaS features.
+**Phase 4 re-home (foundation-first)** — [plan](../../.cursor/plans/phase_4_re-home_revised_9d6e261c.plan.md). Re-home legacy 4A/4B/4C goals under ADR-0007 after F1–F8; salvage legacy branches, never merge them.
 
 | Item | Value |
 |------|--------|
-| Branch | `feature/platform-tenant-separation` |
+| LKGS | `main` @ `4f40f0b` (106 tests pass) |
+| Active branch | `feature/core-realignment-foundation` |
 | Lock | `PLATFORM-TENANT-SEPARATION` (Active) |
-| Done | Stages 0–1; Stage 2 logical split; Stage 3 design/docs |
-| In progress | **Stage 2.5** — runtime/session/RBAC boundary hardening (closes Suite C UAT) |
-| Next | Re-UAT 1+2+2.5; then PR; Stage 4 blocked until Stage 2 closed |
-| Legacy Phase 4 branches | Superseded — Stage 6+ re-home only |
+| Done | Stages 0–2.5; Stage 3 design/docs; Wave 0 baseline |
+| In progress | Wave 0.5 doc alignment; Wave 1 F1–F8 |
+| Next | Wave 1.5 salvage audit → Wave 2 (4A Billing) → Wave 3 (4B) → Wave 4 (4C charter) |
+| Legacy Phase 4 branches | Salvage only — `feature/phase-4a-billing-plans`, `feature/phase-4b-enterprise-access`, `feature/mfa-*` |
 
 The **Phase overview** below is the **historical roadmap** (Phase 1–5 on `main` and in MANIFEST). Do **not** label Core Realignment stages as “Phase 3” or “Phase 5” in new docs.
 
@@ -21,7 +22,7 @@ The **Phase overview** below is the **historical roadmap** (Phase 1–5 on `main
 
 | Question | Where to read |
 |----------|----------------|
-| What are we doing *now*? | [JABAL_CORE_REALIGNMENT.md](../reports/JABAL_CORE_REALIGNMENT.md), `STATE.yaml`, `HANDOFF.md` |
+| What are we doing *now*? | [JABAL_CORE_REALIGNMENT.md](../reports/JABAL_CORE_REALIGNMENT.md), `STATE.yaml`, `HANDOFF.md`, Phase 4 re-home plan |
 | Why does the project exist (strategy)? | `.cursor/goals/GOALS.md` |
 | Locks, ADRs, governance | `PROJECT_MANIFEST.md`, `docs/architecture/ADR/` |
 
@@ -36,11 +37,11 @@ The **Phase overview** below is the **historical roadmap** (Phase 1–5 on `main
   - **3B — RBAC** — Tenant-aware Spatie permissions, roles scoped by tenant, API/web enforcement (delivered; extend only via catalog changes).
   - **3C — Workspaces & membership** — Workspace CRUD, tenant member management, tenant-scoped web/API (delivered).
   - **3D — Tenant settings** — Central `tenant_settings`, branding/timezone/locale, web + API, RBAC + audit (delivered).
-  - **3E — Next domain** — Next aggregate under `jabal_tenant_shared` + RBAC + isolation tests (planned; see `HANDOFF.md`).
-- **Phase 4:** Enterprise & scale readiness (**legacy — superseded for merge** by Core Realignment; concepts → Stage 6+):
-  - **4A** — Subscription/billing + plans.
-  - **4B** — Enterprise access (SSO, MFA, rate limits, session controls).
-  - **4C** — Observability, DR/BCP, performance.
+  - **3E — Next domain** — **Deferred** until Phase 4 re-home completes (R6).
+- **Phase 4:** Enterprise & scale readiness — **re-homed after F1–F8**, not legacy branch merge:
+  - **4A** — Subscription/billing + plans (Wave 2).
+  - **4B** — Enterprise access (SSO, MFA, rate limits, session controls) (Wave 3).
+  - **4C** — Observability, DR/BCP, performance (Wave 4 charter only).
 - **Phase 5:** Platform productization & tenant evolution:
   - **5A** — Productization layer (core vs product, lifecycle).
   - **5B** — Multi-product / multi-app readiness.
@@ -55,9 +56,9 @@ Items below are **not** execution checklists; they are strategic deferrals inher
 ### Still open (product / platform)
 
 - **User preferences** — Per-user settings (not tenant settings); no dedicated phase table in central DB for this yet.
-- **Phase 4A —** Subscription/billing + plans (usage limits, billing lifecycle).
-- **Phase 4B —** SSO + advanced security (e.g. SAML/OIDC, MFA policies).
-- **Phase 4C —** Observability + DR/BCP + performance (tenant-aware logging, backups, indexing).
+- **Phase 4A —** Subscription/billing + plans (Wave 2 after F1–F8).
+- **Phase 4B —** SSO + advanced security (Wave 3).
+- **Phase 4C —** Observability + DR/BCP + performance (Wave 4 charter).
 - **Phase 5A —** Platform productization (reusable foundation, starter modules, templates).
 - **Phase 5B —** Multi-product / multi-app readiness.
 - **Phase 5C —** Advanced isolation strategy (promote shared → schema/database, data mobility).
@@ -71,13 +72,11 @@ Items below are **not** execution checklists; they are strategic deferrals inher
 
 - **Tenant-aware RBAC (ex Phase 3B)** — Delivered; catalog extended over time (e.g. workspace, member, tenant settings permissions).
 - **Tenant-level settings (ex Phase 3D)** — Delivered as central `tenant_settings` + Tenancy module; scope lock on columns per plan.
-- **Broader 3A domain foundation** — Workspaces are one domain; additional entities continue under Phase 3E+.
+- **Broader 3A domain foundation** — Workspaces are one domain; additional entities continue under Phase 3E+ (deferred).
 - **Modular monolith module boundaries (Phase 1 alignment)** — **ADR-0003** (Final) plus Phase A/B record in **`docs/reports/MODULE_BOUNDARY_AUDIT.md`**; new modules follow **MODULE-CREATION-GATE** (`.cursor/rules/module-creation-gate.mdc`). Syncing boundary language into `PROJECT_MANIFEST.md` remains **human-approved** (ADR-0003 §6).
 
 ---
 
 ## Reference
 
-- Strategic goals (why): `.cursor/goals/GOALS.md`
-- Project state: `.cursor/memory/STATE.yaml`
-- Reports: `.cursor/reports/`
+See [JABAL_CORE_REALIGNMENT.md](../reports/JABAL_CORE_REALIGNMENT.md) for the canonical stage map vs this historical phase numbering.
