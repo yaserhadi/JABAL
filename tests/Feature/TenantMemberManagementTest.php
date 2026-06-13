@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
+use Modules\Identity\Models\Membership;
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -37,14 +37,7 @@ class TenantMemberManagementTest extends TestCase
             'email' => 'member-'.uniqid().'@example.com',
             'password' => 'password',
         ]);
-
-        TenantUser::create([
-            'tenant_id' => $this->tenant->id,
-            'user_id' => $this->memberUser->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->memberUser, $this->tenant, 'member', 'active');
     }
 
     protected function seedMemberRbac(): void
@@ -97,13 +90,7 @@ class TenantMemberManagementTest extends TestCase
             'password' => 'password',
         ]);
 
-        TenantUser::create([
-            'tenant_id' => $this->tenant->id,
-            'user_id' => $crossTenantMember->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($crossTenantMember, $this->tenant, 'member', 'active');
 
         $this->assignMemberRole($this->owner, $this->tenant, 'tenant-admin', ['member.view', 'dashboard.view']);
 
@@ -148,7 +135,9 @@ class TenantMemberManagementTest extends TestCase
             ->post('/t/'.$this->tenant->id.'/members/'.$this->memberUser->id.'/suspend');
         $response->assertSessionHasNoErrors();
 
-        $tu = TenantUser::where('tenant_id', $this->tenant->id)->where('user_id', $this->memberUser->id)->first();
+        tenancy()->initialize($this->tenant);
+        $tu = Membership::where('tenant_id', $this->tenant->id)->where('user_id', $this->memberUser->id)->first();
         $this->assertEquals('suspended', $tu->status);
+        tenancy()->end();
     }
 }

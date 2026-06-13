@@ -5,7 +5,7 @@ namespace Tests\Feature\Modules\Tenancy;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
+use Modules\Identity\Models\Membership;
 use Tests\TestCase;
 
 class TenantTest extends TestCase
@@ -45,15 +45,19 @@ class TenantTest extends TestCase
         $tenant1 = Tenant::factory()->create();
         $tenant2 = Tenant::factory()->create();
 
-        TenantUser::factory()->create([
+        tenancy()->initialize($tenant1);
+        Membership::factory()->create([
             'tenant_id' => $tenant1->id,
             'user_id' => $user->id,
         ]);
+        tenancy()->end();
 
-        TenantUser::factory()->create([
+        tenancy()->initialize($tenant2);
+        Membership::factory()->create([
             'tenant_id' => $tenant2->id,
             'user_id' => $user->id,
         ]);
+        tenancy()->end();
 
         $userService = app(\Modules\Identity\Services\UserService::class);
         $userTenants = $userService->getTenants($user);
@@ -66,13 +70,15 @@ class TenantTest extends TestCase
         $tenant = Tenant::factory()->create();
         $users = User::factory()->count(3)->create();
 
+        tenancy()->initialize($tenant);
         foreach ($users as $user) {
-            TenantUser::factory()->create([
+            Membership::factory()->create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
             ]);
         }
 
-        $this->assertCount(3, $tenant->tenantUsers);
+        $this->assertSame(3, Membership::query()->where('tenant_id', $tenant->id)->count());
+        tenancy()->end();
     }
 }

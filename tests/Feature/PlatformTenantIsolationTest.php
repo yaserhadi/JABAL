@@ -18,6 +18,7 @@ class PlatformTenantIsolationTest extends TestCase
             'password' => Hash::make('password'),
             'is_active' => true,
         ]);
+        $this->grantPlatformAccess($platformUser);
 
         $tenantUser = $this->registerTenantUser('Tenant Member', 'member-'.uniqid().'@tenant.test');
         $tenant = $tenantUser->personalTenant();
@@ -48,6 +49,7 @@ class PlatformTenantIsolationTest extends TestCase
             'password' => Hash::make('password'),
             'is_active' => true,
         ]);
+        $this->grantPlatformAccess(PlatformUser::query()->latest('created_at')->first());
 
         $response = $this->post('/platform/login', [
             'email' => PlatformUser::query()->latest('created_at')->value('email'),
@@ -66,6 +68,7 @@ class PlatformTenantIsolationTest extends TestCase
             'password' => Hash::make('password'),
             'is_active' => true,
         ]);
+        $this->grantPlatformAccess($platformUser);
 
         $response = $this->actingAs($platformUser, 'platform')
             ->get('/platform/login');
@@ -75,16 +78,17 @@ class PlatformTenantIsolationTest extends TestCase
 
     public function test_platform_login_can_load_settings_page_after_redirect(): void
     {
-        PlatformUser::create([
+        $platformUser = PlatformUser::create([
             'name' => 'Admin',
             'email' => 'plat-chain-'.uniqid().'@test.com',
             'password' => Hash::make('password'),
             'is_active' => true,
         ]);
+        $this->grantPlatformAccess($platformUser);
 
         $response = $this->followingRedirects()
             ->post('/platform/login', [
-                'email' => PlatformUser::query()->latest('created_at')->value('email'),
+                'email' => $platformUser->email,
                 'password' => 'password',
             ]);
 
@@ -95,16 +99,17 @@ class PlatformTenantIsolationTest extends TestCase
 
     public function test_platform_login_with_inertia_uses_external_location(): void
     {
-        PlatformUser::create([
+        $platformUser = PlatformUser::create([
             'name' => 'Admin',
             'email' => 'plat-inertia-'.uniqid().'@test.com',
             'password' => Hash::make('password'),
             'is_active' => true,
         ]);
+        $this->grantPlatformAccess($platformUser);
 
         $response = $this->withHeader('X-Inertia', 'true')
             ->post('/platform/login', [
-                'email' => PlatformUser::query()->latest('created_at')->value('email'),
+                'email' => $platformUser->email,
                 'password' => 'password',
             ]);
 
@@ -124,7 +129,10 @@ class PlatformTenantIsolationTest extends TestCase
     {
         $user = User::factory()->create();
         \Modules\Tenancy\Models\Tenant::where('created_by', $user->id)->update(['created_by' => null]);
-        \Modules\Tenancy\Models\TenantUser::where('user_id', $user->id)->delete();
+        \Modules\Identity\Models\Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('user_id', $user->id)
+            ->delete();
 
         $response = $this->actingAs($user, 'web')
             ->followingRedirects()

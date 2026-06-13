@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
+use Modules\Identity\Models\Membership;
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -98,13 +98,7 @@ class RbacTenancyTest extends TestCase
 
     public function test_user_in_tenant_b_without_role_denied_access(): void
     {
-        TenantUser::create([
-            'tenant_id' => $this->tenantB->id,
-            'user_id' => $this->userA->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->userA, $this->tenantB, 'member', 'active');
 
         $this->createRoleForTenant($this->tenantA, 'member', ['dashboard.view']);
         $this->createRoleForTenant($this->tenantB, 'member', ['dashboard.view']);
@@ -124,13 +118,7 @@ class RbacTenancyTest extends TestCase
     public function test_role_in_tenant_a_does_not_leak_to_tenant_b(): void
     {
         // userA has role in both tenant A and tenant B; access in A works
-        TenantUser::create([
-            'tenant_id' => $this->tenantB->id,
-            'user_id' => $this->userA->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->userA, $this->tenantB, 'member', 'active');
 
         $this->createRoleForTenant($this->tenantA, 'tenant-admin', ['dashboard.view']);
         $this->createRoleForTenant($this->tenantB, 'member', ['dashboard.view']);
@@ -150,13 +138,7 @@ class RbacTenancyTest extends TestCase
 
     public function test_user_with_role_in_tenant_b_can_access(): void
     {
-        TenantUser::create([
-            'tenant_id' => $this->tenantB->id,
-            'user_id' => $this->userA->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->userA, $this->tenantB, 'member', 'active');
         $this->createRoleForTenant($this->tenantB, 'member', ['dashboard.view']);
         $this->assignRoleToUser($this->userA, $this->tenantB, 'member');
 
@@ -173,10 +155,11 @@ class RbacTenancyTest extends TestCase
     {
         $this->createRoleForTenant($this->tenantA, 'member', ['dashboard.view']);
         $this->assignRoleToUser($this->userA, $this->tenantA, 'member');
-
-        TenantUser::where('user_id', $this->userA->id)
+        tenancy()->initialize($this->tenantA);
+        Membership::where('user_id', $this->userA->id)
             ->where('tenant_id', $this->tenantA->id)
             ->update(['status' => 'suspended']);
+        tenancy()->end();
 
         $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
             ->get('/t/'.$this->tenantA->id.'/dashboard');

@@ -66,11 +66,11 @@ class TokenTest extends TestCase
         ]);
         $userService->addUserToTenant($user, $orgTenant, 'member');
 
-        $this->assertDatabaseHas('tenant_users', [
+        $this->assertDatabaseHas('memberships', [
             'user_id' => $user->id,
             'tenant_id' => $orgTenant->id,
             'status' => 'active',
-        ], 'central');
+        ], 'tenant');
 
         $response = $this->postJson('/api/v1/auth/token', [
             'email' => $email,
