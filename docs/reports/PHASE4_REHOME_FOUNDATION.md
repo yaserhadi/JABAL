@@ -257,7 +257,7 @@ Target: Same cleanup wave as §9.1 or immediately after foundation merge audit
 - [x] §9.1 and §9.2 documented as **mandatory sunset** (not optional cleanup) — **owner sign-off required before merge to `main`**
 - [x] No new code paths write to `tenant_users` or central Spatie (Wave 1 runtime verified)
 - [x] R15 documented: commercial contacts ≠ application users
-- [ ] 114 tests pass after `composer dump-autoload -o` (agent gate — run before PR)
+- [x] 114 tests pass after `composer dump-autoload -o` (verified on branch before PR)
 
 ---
 
