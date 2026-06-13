@@ -1,6 +1,6 @@
 # Phase 4 Re-home — Foundation Report (Wave 1.0)
 
-**Status:** Wave 1 deliverable (post-implementation review)  
+**Status:** Wave 1 deliverable — **READY FOR PR** (owner sign-off §9.4, 2026-05-28)  
 **Branch:** `feature/core-realignment-foundation` @ `f7c9a94`  
 **LKGS:** `main` @ `4f40f0b` (106 tests) → **114 tests pass** on foundation branch  
 **Date:** 2026-05-28  
@@ -260,6 +260,23 @@ Target: Same cleanup wave as §9.1 or immediately after foundation merge audit
 - [x] R15 documented: commercial contacts ≠ application users
 - [x] 114 tests pass after `composer dump-autoload -o` (verified on branch before PR)
 - [x] Fresh DB bootstrap verified: `migrate:fresh` central + tenant + `db:seed` (2026-05-28)
+- [x] Production readiness review — **passed** (2026-05-28)
+
+### 9.4 Owner sign-off record (final)
+
+**Decision:** Core Realignment Foundation — **READY FOR PR** (Pull Request workflow; no direct push to `main`).
+
+| Artifact | Status | Lifecycle | Authority | New usage |
+|----------|--------|-----------|-----------|-----------|
+| **§9.1** `jabal_central.tenant_users` | Approved as **Mandatory Sunset Artifact** | Deprecated → Read-only → Scheduled removal | **NONE** (tenant `memberships` is authority) | **BLOCKER** |
+| **§9.2** Legacy central Spatie RBAC | Approved as **Mandatory Sunset Artifact** | Deprecated → Read-only → Scheduled removal | **NONE** (tenant-layer Spatie is authority) | **BLOCKER** |
+
+**Architectural outcomes confirmed:**
+
+- **Platform Management ≠ Tenant Application** — documented and implemented (not ADR-only).
+- **Commercial Identity ≠ Application Identity (R15)** — governing project rule.
+
+**Post-merge next wave:** Cleanup — remove central `tenant_users`; remove legacy central Spatie RBAC (§9.1–§9.2 removal plan).
 
 ---
 
