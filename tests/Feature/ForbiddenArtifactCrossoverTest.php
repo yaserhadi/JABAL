@@ -37,6 +37,18 @@ class ForbiddenArtifactCrossoverTest extends TestCase
         }
     }
 
+    public function test_legacy_central_tenant_users_dropped(): void
+    {
+        $this->assertFalse(Schema::connection('central')->hasTable('tenant_users'));
+    }
+
+    public function test_legacy_central_spatie_rbac_dropped(): void
+    {
+        foreach (['roles', 'permissions', 'model_has_roles'] as $table) {
+            $this->assertFalse(Schema::connection('central')->hasTable($table), "Central must not have legacy {$table}");
+        }
+    }
+
     public function test_memberships_on_tenant_not_central(): void
     {
         $this->assertTrue(Schema::connection('tenant')->hasTable('memberships'));
