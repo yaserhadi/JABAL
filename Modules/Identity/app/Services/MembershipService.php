@@ -2,6 +2,8 @@
 
 namespace Modules\Identity\Services;
 
+use App\Support\Contracts\Billing\TenantSeatLimitResolver;
+use InvalidArgumentException;
 use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
 
@@ -43,6 +45,10 @@ class MembershipService
         string $membershipType = 'member',
         string $status = 'active'
     ): Membership {
+        if ($status === 'active') {
+            $this->assertSeatCapacity($tenantId);
+        }
+
         $tenant = Tenant::query()->findOrFail($tenantId);
         $wasInitialized = tenancy()->initialized;
 
@@ -72,5 +78,42 @@ class MembershipService
             ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->first();
+    }
+
+    public function activeMemberCount(string $tenantId): int
+    {
+        $tenant = Tenant::query()->find($tenantId);
+        if (! $tenant) {
+            return 0;
+        }
+
+        $wasInitialized = tenancy()->initialized;
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            return Membership::query()
+                ->withoutGlobalScope('tenant')
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->count();
+        } finally {
+            if (! $wasInitialized) {
+                tenancy()->end();
+            }
+        }
+    }
+
+    protected function assertSeatCapacity(string $tenantId): void
+    {
+        $limit = app(TenantSeatLimitResolver::class)->seatLimitForTenant($tenantId);
+        if ($limit === null) {
+            return;
+        }
+
+        if ($this->activeMemberCount($tenantId) >= $limit) {
+            throw new InvalidArgumentException('Seat limit reached for this tenant.');
+        }
     }
 }

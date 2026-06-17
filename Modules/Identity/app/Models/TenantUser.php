@@ -65,8 +65,7 @@ class TenantUser extends Authenticatable
     }
 
     /**
-     * Central registry rows linking this tenant-application user to tenants.
-     * pivot user_id stores tenant user uuid (not a central user).
+     * Tenant-layer membership records (auth authority — ADR-0007 R11).
      */
     public function tenantMemberships(): HasMany
     {
