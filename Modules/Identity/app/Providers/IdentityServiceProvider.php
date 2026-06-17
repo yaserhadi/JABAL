@@ -36,6 +36,7 @@ class IdentityServiceProvider extends ServiceProvider
     {
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
+        $this->app->singleton(\PragmaRX\Google2FA\Google2FA::class, fn () => new \PragmaRX\Google2FA\Google2FA);
     }
 
     /**
