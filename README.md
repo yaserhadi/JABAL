@@ -288,8 +288,12 @@ Jabal/
 ├── tests/                 # PHPUnit tests
 │   ├── Unit/             # Unit tests
 │   └── Feature/          # Feature tests
-└── docs/                  # Project documentation
+└── .cursor/               # Agent SSOT (memory, plans, rules — local/gitignored)
 ```
+
+## Agent / development knowledge
+
+Execution authority for AI agents and architects lives in **`.cursor/`** (see `.cursor/memory/HANDOFF.md` and `AGENT_CONSTITUTION.md`). Legacy `docs/` was migrated and removed (Phase B, 2026-06-16). Human-facing documentation is a separate Phase C program.
 
 ## Contributing
 
@@ -305,4 +309,4 @@ This project is proprietary software. All rights reserved.
 
 ## Support
 
-For questions or issues, please refer to the documentation in the `docs/` directory or create an issue in the project repository.
+For questions or issues, refer to `.cursor/memory/HANDOFF.md` (local agent workspace) or create an issue in the project repository.

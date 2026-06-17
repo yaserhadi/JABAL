@@ -26,7 +26,7 @@ psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_tenant_shared_testing"'
 
 A test run should never modify dev data. To prove it, snapshot a value in your dev DB
 before and after a test run — e.g. count of `platform_users` — and confirm it is unchanged.
-For background on why this matters, read [`docs/reports/TEST_DB_ISOLATION_INCIDENT.md`](../docs/reports/TEST_DB_ISOLATION_INCIDENT.md).
+For background on why this matters, see `.cursor/reports/TEST_DB_ISOLATION.md` (local agent workspace).
 
 ### Stage 2.5 — runtime session isolation tests
 
