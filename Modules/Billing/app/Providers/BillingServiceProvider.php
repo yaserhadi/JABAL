@@ -4,6 +4,7 @@ namespace Modules\Billing\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\Billing\Services\DatabaseTenantEntitlementsResolver;
+use Modules\Billing\Services\DatabaseTenantSeatLimitResolver;
 
 class BillingServiceProvider extends ServiceProvider
 {
@@ -12,6 +13,10 @@ class BillingServiceProvider extends ServiceProvider
         $this->app->singleton(
             \App\Support\Contracts\Billing\TenantEntitlementsResolver::class,
             DatabaseTenantEntitlementsResolver::class
+        );
+        $this->app->singleton(
+            \App\Support\Contracts\Billing\TenantSeatLimitResolver::class,
+            DatabaseTenantSeatLimitResolver::class
         );
     }
 
