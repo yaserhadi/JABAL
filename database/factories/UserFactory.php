@@ -3,10 +3,9 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser as TenantMembership;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\Modules\Identity\Models\TenantUser>
@@ -46,17 +45,23 @@ class UserFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function ($user) {
-            TenantMembership::firstOrCreate(
-                [
-                    'tenant_id' => $user->tenant_id,
-                    'user_id' => $user->id,
-                ],
-                [
-                    'membership_type' => 'owner',
-                    'status' => 'active',
-                    'joined_at' => now(),
-                ]
-            );
+            tenancy()->initialize(Tenant::find($user->tenant_id));
+
+            try {
+                Membership::firstOrCreate(
+                    [
+                        'tenant_id' => $user->tenant_id,
+                        'user_id' => $user->id,
+                    ],
+                    [
+                        'membership_type' => 'owner',
+                        'status' => 'active',
+                        'joined_at' => now(),
+                    ]
+                );
+            } finally {
+                tenancy()->end();
+            }
 
             Tenant::where('id', $user->tenant_id)->update([
                 'created_by' => $user->id,

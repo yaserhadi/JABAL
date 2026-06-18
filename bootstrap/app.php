@@ -4,9 +4,9 @@ use App\Exceptions\DomainException;
 use App\Http\Auth\AuthenticationRedirects;
 use App\Support\Context\RequestContext;
 use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(

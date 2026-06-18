@@ -6,7 +6,6 @@ use App\Support\Audit\Auditable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Stancl\Tenancy\Contracts\Tenant as TenantContract;
@@ -51,31 +50,11 @@ class Tenant extends Model implements TenantContract
     ];
 
     /**
-     * Tenant membership records (tenant_users).
+     * Tenant settings (central metadata on tenant registry).
      */
-    public function tenantUsers(): HasMany
-    {
-        return $this->hasMany(TenantUser::class);
-    }
-
     public function tenantSettings(): HasOne
     {
         return $this->hasOne(TenantSetting::class, 'tenant_id');
-    }
-
-    /**
-     * Users belonging to this tenant via membership.
-     */
-    public function users()
-    {
-        return $this->belongsToMany(
-            \App\Models\User::class,
-            'tenant_users',
-            'tenant_id',
-            'user_id'
-        )->withPivot(['id', 'membership_type', 'status', 'joined_at'])
-            ->withTimestamps()
-            ->using(TenantUser::class);
     }
 
     /**

@@ -4,5 +4,6 @@
     "Settings": true,
     "Audit": true,
     "Api": true,
-    "Workspaces": true
+    "Workspaces": true,
+    "Billing": true
 }

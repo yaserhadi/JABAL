@@ -18,7 +18,7 @@ use Modules\Tenancy\Models\Tenant;
  *
  * **Stage boundary (JABAL Core Realignment):** Stage 3 = contract + config + resolver binding
  * (`DefaultTenantStorageResolver`). Stage 5 = runtime provisioning for `database_per_tenant` /
- * `schema_per_tenant` (Stancl bootstrappers). See docs/reports/JABAL_CORE_REALIGNMENT.md.
+ * `schema_per_tenant` (Stancl bootstrappers). See DEC-0001, DEC-0007; `.cursor/reports/CORE_REALIGNMENT_HISTORY.md`.
  */
 interface TenantStorageResolver
 {

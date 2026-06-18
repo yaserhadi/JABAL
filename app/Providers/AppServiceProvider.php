@@ -3,16 +3,16 @@
 namespace App\Providers;
 
 use App\Auth\TenantAwareUserProvider;
+use App\Http\Middleware\ValidateTenantToken;
 use App\Listeners\SetSpatiePermissionsTeamId;
-use Illuminate\Support\Facades\Auth;
-use App\Support\Contracts\Tenancy\TenantStorageResolver;
+use App\Models\TenantPersonalAccessToken;
 use App\Support\Context\ActorContext;
-use App\Support\Tenancy\DefaultTenantStorageResolver;
 use App\Support\Context\ExecutionContext;
 use App\Support\Context\RequestContext;
-use App\Http\Middleware\ValidateTenantToken;
-use App\Models\TenantPersonalAccessToken;
+use App\Support\Contracts\Tenancy\TenantStorageResolver;
+use App\Support\Tenancy\DefaultTenantStorageResolver;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;

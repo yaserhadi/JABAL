@@ -9,9 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Modules\Api\Http\ApiResponse;
+use Modules\Identity\Services\MembershipService;
 use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser as TenantMembership;
 
 /**
  * TokenController handles API authentication token generation.
@@ -60,11 +60,7 @@ class TokenController extends Controller
         // Determine tenant
         $tenantId = $request->input('tenant_id');
         if ($tenantId) {
-            $hasAccess = TenantMembership::query()
-                ->where('user_id', $user->id)
-                ->where('tenant_id', $tenantId)
-                ->where('status', 'active')
-                ->exists();
+            $hasAccess = app(MembershipService::class)->hasActiveMembership($user->id, $tenantId);
 
             $tenant = $hasAccess ? Tenant::query()->find($tenantId) : null;
 

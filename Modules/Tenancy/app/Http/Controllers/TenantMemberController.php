@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Modules\Api\Http\ApiResponse;
-use Modules\Tenancy\Models\TenantUser;
+use Modules\Identity\Models\Membership;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -30,21 +30,22 @@ class TenantMemberController extends Controller
             abort(404);
         }
 
-        $tenantUsers = TenantUser::where('tenant_id', $tenant->id)
-            ->with('applicationUser')
+        $memberships = Membership::query()
+            ->where('tenant_id', $tenant->id)
+            ->with('user')
             ->get();
 
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
-        $members = $tenantUsers->map(function (TenantUser $tu) {
-            $user = $tu->applicationUser;
+        $members = $memberships->map(function (Membership $membership) {
+            $user = $membership->user;
             $roles = $user ? $user->getRoleNames()->toArray() : [];
 
             return [
-                'id' => $tu->id,
-                'user_id' => $tu->user_id,
-                'membership_type' => $tu->membership_type,
-                'status' => $tu->status,
-                'joined_at' => $tu->joined_at?->toIso8601String(),
+                'id' => $membership->id,
+                'user_id' => $membership->user_id,
+                'membership_type' => $membership->membership_type,
+                'status' => $membership->status,
+                'joined_at' => $membership->joined_at?->toIso8601String(),
                 'user' => $user ? [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -76,8 +77,11 @@ class TenantMemberController extends Controller
 
         $user = $this->resolveApplicationUser($user);
 
-        $tenantUser = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
-        if (! $tenantUser) {
+        $membership = Membership::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->first();
+        if (! $membership) {
             abort(404);
         }
 
@@ -86,20 +90,21 @@ class TenantMemberController extends Controller
         ]);
         $newRole = $validated['role'];
 
-        $actorTenantUser = TenantUser::where('tenant_id', $tenant->id)
+        $actorMembership = Membership::query()
+            ->where('tenant_id', $tenant->id)
             ->where('user_id', auth()->id())
             ->first();
-        if (! $actorTenantUser) {
+        if (! $actorMembership) {
             abort(403);
         }
 
-        if ($newRole === 'tenant-admin' && ! $actorTenantUser->isOwner()) {
+        if ($newRole === 'tenant-admin' && ! $actorMembership->isOwner()) {
             throw ValidationException::withMessages([
                 'role' => ['Only the tenant owner may promote members to tenant-admin.'],
             ]);
         }
 
-        $this->ensureLastOwnerProtection($tenant, $tenantUser, null, $newRole);
+        $this->ensureLastOwnerProtection($tenant, $membership, null, $newRole);
 
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $oldRoles = $user->getRoleNames()->toArray();
@@ -107,8 +112,8 @@ class TenantMemberController extends Controller
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
         app(AuditLoggerInterface::class)->log('tenant_member.role_changed', [
-            'auditable_type' => TenantUser::class,
-            'auditable_id' => $tenantUser->id,
+            'auditable_type' => Membership::class,
+            'auditable_id' => $membership->id,
             'old_values' => ['roles' => $oldRoles],
             'new_values' => ['roles' => [$newRole]],
         ]);
@@ -139,20 +144,23 @@ class TenantMemberController extends Controller
 
         $user = $this->resolveApplicationUser($userId);
 
-        $tenantUser = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
-        if (! $tenantUser) {
+        $membership = Membership::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->first();
+        if (! $membership) {
             abort(404);
         }
 
-        $this->ensureLastOwnerProtection($tenant, $tenantUser, $status, null);
+        $this->ensureLastOwnerProtection($tenant, $membership, $status, null);
 
-        $oldStatus = $tenantUser->status;
-        $tenantUser->status = $status;
-        $tenantUser->save();
+        $oldStatus = $membership->status;
+        $membership->status = $status;
+        $membership->save();
 
         app(AuditLoggerInterface::class)->log($auditEvent, [
-            'auditable_type' => TenantUser::class,
-            'auditable_id' => $tenantUser->id,
+            'auditable_type' => Membership::class,
+            'auditable_id' => $membership->id,
             'old_values' => ['status' => $oldStatus],
             'new_values' => ['status' => $status],
         ]);
@@ -170,16 +178,17 @@ class TenantMemberController extends Controller
      */
     protected function ensureLastOwnerProtection(
         \Modules\Tenancy\Models\Tenant $tenant,
-        TenantUser $tenantUser,
+        Membership $membership,
         ?string $newStatus,
         ?string $newRole
     ): void {
-        $ownerCount = TenantUser::where('tenant_id', $tenant->id)
+        $ownerCount = Membership::query()
+            ->where('tenant_id', $tenant->id)
             ->where('membership_type', 'owner')
             ->where('status', 'active')
             ->count();
 
-        if ($ownerCount <= 1 && $tenantUser->isOwner() && $tenantUser->status === 'active') {
+        if ($ownerCount <= 1 && $membership->isOwner() && $membership->status === 'active') {
             if ($newStatus === 'suspended') {
                 throw ValidationException::withMessages([
                     'status' => ['Cannot suspend the last owner of the tenant.'],

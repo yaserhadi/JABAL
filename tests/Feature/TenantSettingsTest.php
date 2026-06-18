@@ -2,14 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Audit\Models\AuditLog;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantSetting;
-use Modules\Tenancy\Models\TenantUser;
-use App\Models\Rbac\TenantPermission as Permission;
-use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -33,14 +32,7 @@ class TenantSettingsTest extends TestCase
         $this->owner = User::factory()->create();
         $this->memberUser = User::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
-
-        TenantUser::create([
-            'tenant_id' => $this->tenant->id,
-            'user_id' => $this->memberUser->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->memberUser, $this->tenant, 'member', 'active');
     }
 
     protected function seedSettingsRbac(): void

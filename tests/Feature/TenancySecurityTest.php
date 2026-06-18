@@ -6,8 +6,8 @@ use App\Models\User;
 use App\Support\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantUser;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -59,9 +59,11 @@ class TenancySecurityTest extends TestCase
     public function test_web_user_not_member_returns_403(): void
     {
         // Remove userA from tenantA
-        TenantUser::where('user_id', $this->userA->id)
+        tenancy()->initialize($this->tenantA);
+        Membership::where('user_id', $this->userA->id)
             ->where('tenant_id', $this->tenantA->id)
             ->delete();
+        tenancy()->end();
 
         $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
             ->get('/t/'.$this->tenantA->id.'/dashboard');
@@ -116,13 +118,7 @@ class TenancySecurityTest extends TestCase
         $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
 
         // Add userA to tenantB for this test
-        TenantUser::create([
-            'tenant_id' => $this->tenantB->id,
-            'user_id' => $this->userA->id,
-            'membership_type' => 'member',
-            'status' => 'active',
-            'joined_at' => now(),
-        ]);
+        $this->createMembership($this->userA, $this->tenantB, 'member', 'active');
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -151,9 +147,11 @@ class TenancySecurityTest extends TestCase
     public function test_api_user_not_member_returns_403(): void
     {
         // Remove membership
-        TenantUser::where('user_id', $this->userA->id)
+        tenancy()->initialize($this->tenantA);
+        Membership::where('user_id', $this->userA->id)
             ->where('tenant_id', $this->tenantA->id)
             ->delete();
+        tenancy()->end();
 
         $token = $this->userA->createToken('test', ['tenant:'.$this->tenantA->id])->plainTextToken;
 

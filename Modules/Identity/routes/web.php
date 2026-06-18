@@ -6,6 +6,8 @@ use App\Http\Middleware\InitializeTenancyFromSession;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\MfaController;
+use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +42,22 @@ Route::prefix('t/{tenant}')
         InitializeTenancyFromSession::class,
         InitializeTenancyByPathWhenApplicable::class,
         EnsureUserBelongsToTenant::class,
+    ])
+    ->group(function () {
+        Route::get('/security/mfa/enroll', [MfaController::class, 'showEnroll'])->name('identity.mfa.enroll');
+        Route::post('/security/mfa/enroll', [MfaController::class, 'confirmEnroll'])->name('identity.mfa.enroll.confirm');
+        Route::get('/security/mfa/challenge', [MfaController::class, 'showChallenge'])->name('identity.mfa.challenge');
+        Route::post('/security/mfa/challenge', [MfaController::class, 'verifyChallenge'])->name('identity.mfa.challenge.verify');
+    });
+
+Route::prefix('t/{tenant}')
+    ->middleware([
+        'web',
+        'auth',
+        InitializeTenancyFromSession::class,
+        InitializeTenancyByPathWhenApplicable::class,
+        EnsureUserBelongsToTenant::class,
+        EnsureMfaVerified::class,
     ])
     ->group(function () {
         Route::get('/dashboard', function () {

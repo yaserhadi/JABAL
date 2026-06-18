@@ -2,14 +2,13 @@
 
 namespace Tests;
 
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Modules\Identity\Services\TenantRegistrationService;
-use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
-use App\Models\Rbac\TenantPermission as Permission;
-use App\Models\Rbac\TenantRole as Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -46,11 +45,67 @@ abstract class TestCase extends BaseTestCase
 
     protected function afterRefreshingDatabase()
     {
-        $this->artisan('migrate', [
+        $this->artisan('migrate:fresh', [
             '--path' => 'database/migrations/tenant',
             '--database' => 'tenant',
             '--force' => true,
         ]);
+
+        $this->seed(\Database\Seeders\PlatformRbacSeeder::class);
+        $this->seed(\Database\Seeders\TenantContactRoleSeeder::class);
+        $this->seed(\Database\Seeders\RbacCatalogSeeder::class);
+    }
+
+    protected function grantPlatformAccess(\App\Models\PlatformUser $user): void
+    {
+        $roleId = \App\Models\PlatformRole::query()
+            ->where('name', 'platform-super-admin')
+            ->value('id');
+
+        if (! $roleId) {
+            $this->seed(\Database\Seeders\PlatformRbacSeeder::class);
+            $roleId = \App\Models\PlatformRole::query()
+                ->where('name', 'platform-super-admin')
+                ->value('id');
+        }
+
+        if ($roleId) {
+            \Illuminate\Support\Facades\DB::connection('central')->table('platform_model_has_roles')->insertOrIgnore([
+                'platform_role_id' => $roleId,
+                'model_type' => \App\Models\PlatformUser::class,
+                'model_id' => $user->id,
+            ]);
+        }
+    }
+
+    protected function createMembership(
+        \App\Models\User $user,
+        \Modules\Tenancy\Models\Tenant $tenant,
+        string $membershipType = 'member',
+        string $status = 'active'
+    ): \Modules\Identity\Models\Membership {
+        $wasInitialized = tenancy()->initialized;
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            return \Modules\Identity\Models\Membership::firstOrCreate(
+                [
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $user->id,
+                ],
+                [
+                    'membership_type' => $membershipType,
+                    'status' => $status,
+                    'joined_at' => $status === 'active' ? now() : null,
+                ]
+            );
+        } finally {
+            if (! $wasInitialized) {
+                tenancy()->end();
+            }
+        }
     }
 
     /**
@@ -95,8 +150,10 @@ abstract class TestCase extends BaseTestCase
         }
 
         if ($tenant) {
-            app(\Modules\Tenancy\Services\TenantRbacProvisioner::class)->ensureRolesForTenant($tenant);
-            app(\Modules\Tenancy\Services\TenantRbacProvisioner::class)->assignTenantAdminRole($user, $tenant);
+            $provisioner = app(\Modules\Tenancy\Services\TenantRbacProvisioner::class);
+            $provisioner->ensureGlobalPermissions();
+            $provisioner->ensureRolesForTenant($tenant);
+            $provisioner->assignTenantAdminRole($user, $tenant);
         }
 
         return $tenant;
