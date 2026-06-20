@@ -28,9 +28,13 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ExecutionContextMiddleware::class,
         ]);
 
-        // Platform vs tenant session runtime before StartSession (ADR-0007 §3.1.3.1).
+        // Stage 5B: session runtime + tenancy init before StartSession (ADR-0007 §3.1.3.1).
         $middleware->prependToGroup('web', [
             \App\Http\Middleware\ConfigureApplicationRuntime::class,
+            \App\Http\Middleware\InitializeTenancyByPathWhenApplicable::class,
+            \App\Http\Middleware\InitializeTenancyFromSession::class,
+            \App\Http\Middleware\InitializeTenancyFromAuthRequest::class,
+            \App\Http\Middleware\ConfigureTenantSessionConnection::class,
         ]);
         $middleware->prependToPriorityList(
             \Illuminate\Session\Middleware\StartSession::class,
@@ -45,6 +49,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\InitializeTenancyFromSession::class,
+        );
+        $middleware->prependToPriorityList(
+            \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\InitializeTenancyFromAuthRequest::class,
         );
         $middleware->prependToPriorityList(
             \Illuminate\Session\Middleware\StartSession::class,

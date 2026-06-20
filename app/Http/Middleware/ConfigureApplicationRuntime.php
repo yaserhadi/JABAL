@@ -6,6 +6,7 @@ use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -74,17 +75,61 @@ class ConfigureApplicationRuntime
 
     private function resolveTenantForDeferralDecision(Request $request): ?Tenant
     {
-        if ($request->segment(1) !== 't') {
+        if ($request->segment(1) === 't') {
+            $id = $request->segment(2);
+
+            if (! $id || ! Str::isUuid($id)) {
+                return null;
+            }
+
+            return Tenant::query()->find($id);
+        }
+
+        if ($this->isEligibleAuthPostForDeferral($request)) {
+            return $this->resolveTenantFromAuthEmail($request);
+        }
+
+        return null;
+    }
+
+    private function isEligibleAuthPostForDeferral(Request $request): bool
+    {
+        if (! $request->isMethod('POST')) {
+            return false;
+        }
+
+        if ($request->is('platform', 'platform/*', 'api', 'api/*')) {
+            return false;
+        }
+
+        if ($request->segment(1) === 't') {
+            return false;
+        }
+
+        $path = $request->path();
+
+        if (str_starts_with($path, 'password')) {
+            return false;
+        }
+
+        return in_array($path, ['login', 'register'], true);
+    }
+
+    private function resolveTenantFromAuthEmail(Request $request): ?Tenant
+    {
+        $email = $request->input('email');
+
+        if (! is_string($email) || $email === '') {
             return null;
         }
 
-        $id = $request->segment(2);
+        $tenantUser = TenantUser::findForLogin($email);
 
-        if (! $id || ! Str::isUuid($id)) {
+        if (! $tenantUser) {
             return null;
         }
 
-        return Tenant::query()->find($id);
+        return Tenant::query()->find($tenantUser->tenant_id);
     }
 
     private function forgetSessionInstances(): void
