@@ -37,18 +37,23 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ConfigureApplicationRuntime::class,
         );
 
-        // Tenancy only on tenant path routes (not platform / global web).
-        // auth was running before appended web middleware; enforce tenancy init first on tenant routes.
-        $middleware->appendToPriorityList(
+        // Stage 5B: tenancy init + dynamic session connection before StartSession.
+        $middleware->prependToPriorityList(
+            \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\InitializeTenancyByPathWhenApplicable::class,
+        );
+        $middleware->prependToPriorityList(
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\InitializeTenancyFromSession::class,
         );
+        $middleware->prependToPriorityList(
+            \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\ConfigureTenantSessionConnection::class,
+        );
+
+        // Inertia before auth on tenant routes (global priority).
         $middleware->appendToPriorityList(
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            \App\Http\Middleware\InitializeTenancyByPathWhenApplicable::class,
-        );
-        $middleware->appendToPriorityList(
-            \App\Http\Middleware\InitializeTenancyByPathWhenApplicable::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
         );
         $middleware->appendToPriorityList(

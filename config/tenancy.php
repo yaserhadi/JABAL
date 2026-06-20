@@ -28,8 +28,7 @@ return [
      * To configure their behavior, see the config keys below.
      */
     'bootstrappers' => [
-        // DatabaseTenancyBootstrapper omitted: JABAL Tenant model has no HasDatabase / TenantWithDatabase;
-        // tenant data uses explicit `tenant` connection (jabal_tenant_shared). See PROJECT_MANIFEST TENANCY-DUAL-DB.
+        App\Support\Tenancy\Bootstrappers\TenantDatabaseTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\CacheTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\FilesystemTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper::class,

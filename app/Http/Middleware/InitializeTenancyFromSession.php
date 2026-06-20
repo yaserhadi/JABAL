@@ -16,7 +16,12 @@ class InitializeTenancyFromSession
     {
         // Path routes must resolve tenant from URL, not a possibly stale session value.
         $isTenantPath = $request->segment(1) === 't';
-        if (! $isTenantPath && ! tenancy()->initialized && $request->hasSession()) {
+        if (
+            ! $isTenantPath
+            && ! tenancy()->initialized
+            && $request->hasSession()
+            && $request->session()->isStarted()
+        ) {
             $tenantId = $request->session()->get('tenant_id');
 
             if ($tenantId) {
