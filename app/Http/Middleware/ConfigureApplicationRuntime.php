@@ -39,9 +39,8 @@ class ConfigureApplicationRuntime
             'session.cookie' => $config['cookie'],
         ]);
 
-        if (! $deferConnection) {
-            config(['session.connection' => $config['connection']]);
-        }
+        // Always reset to profile baseline; dedicated binding happens in ConfigureTenantSessionConnection when deferred.
+        config(['session.connection' => $config['connection']]);
 
         $this->forgetSessionInstances();
 
