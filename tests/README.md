@@ -22,6 +22,24 @@ psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_central_testing"'
 psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_tenant_shared_testing"'
 ```
 
+### Stage 5B — dedicated tenant session attestation DBs (T-S5B-08)
+
+`DatabasePerTenantSessionIsolationTest` requires two additional physical PostgreSQL databases (`_testing` suffix):
+
+```text
+jabal_tenant_dedicated_a_testing
+jabal_tenant_dedicated_b_testing
+```
+
+One-time setup (outside PHPUnit transactions):
+
+```bash
+php tests/Support/ensure_dedicated_test_databases.php
+```
+
+The helper creates the databases (if missing) and ensures a `sessions` table exists on each dedicated connection. If the databases are absent, the test class skips with a message pointing to this script.
+
+
 ### Verifying isolation is still in place
 
 A test run should never modify dev data. To prove it, snapshot a value in your dev DB

@@ -1,8 +1,6 @@
 <?php
 
 use App\Http\Middleware\EnsureUserBelongsToTenant;
-use App\Http\Middleware\InitializeTenancyByPathWhenApplicable;
-use App\Http\Middleware\InitializeTenancyFromSession;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
@@ -39,8 +37,6 @@ Route::prefix('t/{tenant}')
     ->middleware([
         'web',
         'auth',
-        InitializeTenancyFromSession::class,
-        InitializeTenancyByPathWhenApplicable::class,
         EnsureUserBelongsToTenant::class,
     ])
     ->group(function () {
@@ -54,8 +50,6 @@ Route::prefix('t/{tenant}')
     ->middleware([
         'web',
         'auth',
-        InitializeTenancyFromSession::class,
-        InitializeTenancyByPathWhenApplicable::class,
         EnsureUserBelongsToTenant::class,
         EnsureMfaVerified::class,
     ])

@@ -57,6 +57,11 @@ class Tenant extends Model implements TenantContract
         return $this->hasOne(TenantSetting::class, 'tenant_id');
     }
 
+    public function databaseConfig(): HasOne
+    {
+        return $this->hasOne(TenantDatabaseConfig::class, 'tenant_id');
+    }
+
     /**
      * Scope: personal tenants only.
      */

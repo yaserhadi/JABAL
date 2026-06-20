@@ -112,6 +112,12 @@ class TenancyBootstrapTest extends TestCase
             $bootstrappers,
             'QueueTenancyBootstrapper must be enabled for tenant-aware queues'
         );
+
+        $this->assertContains(
+            \App\Support\Tenancy\Bootstrappers\TenantDatabaseTenancyBootstrapper::class,
+            $bootstrappers,
+            'TenantDatabaseTenancyBootstrapper must be enabled for Decision B database routing'
+        );
     }
 
     /**

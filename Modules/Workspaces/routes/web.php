@@ -1,8 +1,6 @@
 <?php
 
 use App\Http\Middleware\EnsureUserBelongsToTenant;
-use App\Http\Middleware\InitializeTenancyByPathWhenApplicable;
-use App\Http\Middleware\InitializeTenancyFromSession;
 use Illuminate\Support\Facades\Route;
 use Modules\Workspaces\Http\Controllers\WorkspacesController;
 
@@ -21,8 +19,6 @@ Route::prefix('t/{tenant}')
     ->middleware([
         'web',
         'auth',
-        InitializeTenancyFromSession::class,
-        InitializeTenancyByPathWhenApplicable::class,
         EnsureUserBelongsToTenant::class,
     ])
     ->group(function () {

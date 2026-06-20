@@ -32,18 +32,61 @@ class DefaultTenantStorageResolver implements TenantStorageResolver
 
     public function effectiveIsolationLevel(Tenant $tenant): string
     {
-        $tenantLevel = $tenant->isolation_level;
-
         return match ($this->mode()) {
             'shared_db' => 'shared',
-            'database_per_tenant' => $tenantLevel === 'database' && $this->allowsDatabasePerTenant()
-                ? 'database'
-                : 'shared',
-            'schema_per_tenant' => $tenantLevel === 'schema' && $this->allowsSchemaPerTenant()
-                ? 'schema'
-                : ($tenantLevel === 'database' && $this->allowsDatabasePerTenant() ? 'database' : 'shared'),
-            default => $tenantLevel ?? (string) config('tenancy_storage.default_isolation_level', 'shared'),
+            'database_per_tenant' => $this->resolveDatabasePerTenantLevel($tenant),
+            'schema_per_tenant' => $this->resolveSchemaPerTenantLevel($tenant),
+            default => $tenant->isolation_level ?? (string) config('tenancy_storage.default_isolation_level', 'shared'),
         };
+    }
+
+    protected function resolveDatabasePerTenantLevel(Tenant $tenant): string
+    {
+        if (! $this->allowsDatabasePerTenant()) {
+            return 'shared';
+        }
+
+        $config = $this->databaseConfigFor($tenant);
+
+        if (! $config || $config->provisioning_status !== 'active') {
+            return 'shared';
+        }
+
+        if ($config->isolation_level === 'database') {
+            return 'database';
+        }
+
+        return 'shared';
+    }
+
+    protected function resolveSchemaPerTenantLevel(Tenant $tenant): string
+    {
+        if ($tenant->isolation_level === 'database' && $this->allowsDatabasePerTenant()) {
+            $config = $this->databaseConfigFor($tenant);
+
+            if ($config && $config->provisioning_status === 'active' && $config->isolation_level === 'database') {
+                return 'database';
+            }
+        }
+
+        if ($tenant->isolation_level === 'schema' && $this->allowsSchemaPerTenant()) {
+            $config = $this->databaseConfigFor($tenant);
+
+            if ($config && $config->provisioning_status === 'active' && $config->isolation_level === 'schema') {
+                return 'schema';
+            }
+        }
+
+        return 'shared';
+    }
+
+    protected function databaseConfigFor(Tenant $tenant): ?\Modules\Tenancy\Models\TenantDatabaseConfig
+    {
+        if ($tenant->relationLoaded('databaseConfig')) {
+            return $tenant->databaseConfig;
+        }
+
+        return $tenant->databaseConfig()->first();
     }
 
     protected function allowsDatabasePerTenant(): bool
@@ -58,14 +101,6 @@ class DefaultTenantStorageResolver implements TenantStorageResolver
 
     protected function databaseConnectionName(Tenant $tenant): string
     {
-        $name = $tenant->tenancy_db_name ?? null;
-
-        if (! $name) {
-            throw new InvalidArgumentException(
-                'Tenant ['.$tenant->id.'] has isolation_level=database but no tenancy_db_name configured.'
-            );
-        }
-
-        return (string) $name;
+        return 'tenant_db_'.$tenant->getTenantKey();
     }
 }
