@@ -2,10 +2,11 @@
 
 namespace Modules\Identity\Services;
 
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\Rbac\TenantRole as Role;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Tenant Application user operations (ADR-0007).
@@ -19,9 +20,9 @@ class UserService
     }
 
     /**
-     * @return Collection<int, Tenant>
+     * @return \Illuminate\Database\Eloquent\Collection<int, Tenant>
      */
-    public function getTenants(TenantUser $user): Collection
+    public function getTenants(TenantUser $user): \Illuminate\Database\Eloquent\Collection
     {
         $tenantIds = Membership::query()
             ->withoutGlobalScope('tenant')
@@ -36,10 +37,10 @@ class UserService
         if ($user->tenant_id) {
             $home = Tenant::query()->find($user->tenant_id);
 
-            return $home ? new Collection([$home]) : new Collection;
+            return $home ? new \Illuminate\Database\Eloquent\Collection([$home]) : new \Illuminate\Database\Eloquent\Collection;
         }
 
-        return new Collection;
+        return new \Illuminate\Database\Eloquent\Collection;
     }
 
     public function createPersonalTenant(TenantUser $user): Tenant
@@ -68,10 +69,18 @@ class UserService
 
     public function removeUserFromTenant(TenantUser $user, Tenant $tenant): bool
     {
-        return Membership::query()
+        $membership = Membership::query()
             ->withoutGlobalScope('tenant')
             ->where('user_id', $user->id)
             ->where('tenant_id', $tenant->id)
-            ->delete() > 0;
+            ->first();
+
+        if (! $membership) {
+            return false;
+        }
+
+        app(MembershipService::class)->remove($membership, $tenant);
+
+        return true;
     }
 }

@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureUserBelongsToTenant;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 
@@ -18,12 +19,21 @@ use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 |
 */
 
+// Invitation accept (guest or authenticated)
+Route::get('invitations/{token}', [InvitationAcceptController::class, 'show'])->name('invitations.show');
+
 // Central routes (guest)
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('login', [AuthController::class, 'login']);
     Route::get('register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('register', [AuthController::class, 'register']);
+
+    Route::post('invitations/{token}/register', [InvitationAcceptController::class, 'registerAndAccept'])->name('invitations.register');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('invitations/{token}/accept', [InvitationAcceptController::class, 'accept'])->name('invitations.accept');
 });
 
 // Central routes (auth, no tenant context)
@@ -80,4 +90,12 @@ Route::prefix('t/{tenant}')
         Route::post('/members/{user}/activate', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'activate'])
             ->middleware('permission:member.suspend')
             ->name('members.activate');
+        Route::post('/members/invite', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'invite'])
+            ->middleware('permission:member.invite')
+            ->name('members.invite');
+        Route::delete('/members/{user}', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'remove'])
+            ->middleware('permission:member.remove')
+            ->name('members.remove');
+        Route::post('/members/{user}/transfer-ownership', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'transferOwnership'])
+            ->name('members.transfer-ownership');
     });

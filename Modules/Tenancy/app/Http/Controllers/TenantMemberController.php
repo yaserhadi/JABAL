@@ -11,17 +11,24 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use InvalidArgumentException;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Models\Membership;
+use Modules\Identity\Services\MembershipService;
+use Modules\Identity\Services\TenantInvitationService;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * Phase 3C: Tenant member management (list, role assignment, suspend/activate).
- * Scope: existing tenant members only. No invite, remove, transfer ownership.
+ * Tenant member management: list, roles, suspend/activate, invite, remove, transfer ownership.
  */
 class TenantMemberController extends Controller
 {
     protected const ALLOWED_ROLES = ['tenant-admin', 'member'];
+
+    public function __construct(
+        private TenantInvitationService $invitationService,
+        private MembershipService $membershipService
+    ) {}
 
     public function index(Request $request): InertiaResponse|JsonResponse
     {
@@ -56,8 +63,22 @@ class TenantMemberController extends Controller
         });
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
+        $pendingInvitations = $this->invitationService->pendingForTenant($tenant)->map(fn ($inv) => [
+            'id' => $inv->id,
+            'email' => $inv->email,
+            'role' => $inv->role,
+            'expires_at' => $inv->expires_at?->toIso8601String(),
+            'created_at' => $inv->created_at?->toIso8601String(),
+        ]);
+
+        $actorMembership = $this->actorMembership($tenant);
+
         if ($request->expectsJson()) {
-            return ApiResponse::success($members->toArray());
+            return ApiResponse::success([
+                'members' => $members->toArray(),
+                'pending_invitations' => $pendingInvitations->toArray(),
+                'actor_is_owner' => $actorMembership?->isOwner() ?? false,
+            ]);
         }
 
         $tenantData = ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug];
@@ -65,7 +86,126 @@ class TenantMemberController extends Controller
         return Inertia::render('Members/Index', [
             'tenant' => $tenantData,
             'members' => $members,
+            'pendingInvitations' => $pendingInvitations,
+            'actorIsOwner' => $actorMembership?->isOwner() ?? false,
         ]);
+    }
+
+    public function invite(Request $request, string $tenant): JsonResponse|RedirectResponse
+    {
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'role' => ['sometimes', 'string', 'in:'.implode(',', TenantInvitationService::ALLOWED_ROLES)],
+        ]);
+
+        try {
+            $result = $this->invitationService->createInvitation(
+                $tenantModel,
+                $validated['email'],
+                auth()->user(),
+                $validated['role'] ?? 'member'
+            );
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['email' => [$e->getMessage()]]);
+        }
+
+        $payload = [
+            'invitation_id' => $result['invitation']->id,
+            'email' => $result['invitation']->email,
+            'accept_url' => $result['acceptUrl'],
+            'expires_at' => $result['invitation']->expires_at->toIso8601String(),
+        ];
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success($payload);
+        }
+
+        return back()->with([
+            'success' => 'Invitation created.',
+            'inviteUrl' => $result['acceptUrl'],
+        ]);
+    }
+
+    public function remove(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    {
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $targetUser = $this->resolveApplicationUser($user);
+        $membership = Membership::query()
+            ->where('tenant_id', $tenantModel->id)
+            ->where('user_id', $targetUser->id)
+            ->first();
+
+        if (! $membership) {
+            abort(404);
+        }
+
+        try {
+            $membershipId = $membership->id;
+            $this->membershipService->remove($membership, $tenantModel);
+
+            app(AuditLoggerInterface::class)->log('tenant_member.removed', [
+                'auditable_type' => Membership::class,
+                'auditable_id' => $membershipId,
+                'old_values' => [
+                    'user_id' => $targetUser->id,
+                    'tenant_id' => $tenantModel->id,
+                ],
+            ]);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['user' => [$e->getMessage()]]);
+        }
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success(['removed' => true]);
+        }
+
+        return back()->with('success', 'Member removed successfully.');
+    }
+
+    public function transferOwnership(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    {
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $actorMembership = $this->actorMembership($tenantModel);
+        if (! $actorMembership?->isOwner()) {
+            abort(403, 'Only the tenant owner may transfer ownership.');
+        }
+
+        $fromUser = auth()->user();
+        $toUser = $this->resolveApplicationUser($user);
+
+        try {
+            $this->membershipService->transferOwnership($tenantModel, $fromUser, $toUser);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['user' => [$e->getMessage()]]);
+        }
+
+        app(AuditLoggerInterface::class)->log('tenant_member.ownership_transferred', [
+            'auditable_type' => Membership::class,
+            'new_values' => [
+                'from_user_id' => $fromUser->id,
+                'to_user_id' => $toUser->id,
+                'tenant_id' => $tenantModel->id,
+            ],
+        ]);
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success(['transferred' => true]);
+        }
+
+        return back()->with('success', 'Ownership transferred successfully.');
     }
 
     public function updateRole(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
@@ -172,10 +312,14 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Member status updated successfully.');
     }
 
-    /**
-     * Ensure we do not leave the tenant without an effective owner.
-     * Uses membership_type = owner (authoritative), not Spatie role.
-     */
+    protected function actorMembership(\Modules\Tenancy\Models\Tenant $tenant): ?Membership
+    {
+        return Membership::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('user_id', auth()->id())
+            ->first();
+    }
+
     protected function ensureLastOwnerProtection(
         \Modules\Tenancy\Models\Tenant $tenant,
         Membership $membership,

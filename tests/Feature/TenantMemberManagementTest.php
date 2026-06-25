@@ -44,7 +44,7 @@ class TenantMemberManagementTest extends TestCase
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $guard = config('auth.defaults.guard');
-        foreach (['member.view', 'member.assign-role', 'member.suspend', 'dashboard.view'] as $name) {
+        foreach (['member.view', 'member.assign-role', 'member.suspend', 'member.invite', 'member.remove', 'dashboard.view'] as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => $guard], ['name' => $name, 'guard_name' => $guard]);
         }
     }
