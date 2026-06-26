@@ -12,7 +12,6 @@ use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Services\TenantRbacProvisioner;
 use Spatie\Permission\PermissionRegistrar;
 
 class TenantInvitationService

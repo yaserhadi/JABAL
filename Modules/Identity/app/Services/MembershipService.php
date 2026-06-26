@@ -2,8 +2,8 @@
 
 namespace Modules\Identity\Services;
 
-use App\Support\Contracts\Billing\TenantSeatLimitResolver;
 use App\Models\User;
+use App\Support\Contracts\Billing\TenantSeatLimitResolver;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Identity\Models\Membership;
@@ -222,6 +222,7 @@ class MembershipService
 
     /**
      * @template T
+     *
      * @param  callable(): T  $callback
      * @return T
      */

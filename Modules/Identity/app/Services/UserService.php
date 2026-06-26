@@ -2,11 +2,9 @@
 
 namespace Modules\Identity\Services;
 
-use App\Models\Rbac\TenantRole as Role;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Tenant Application user operations (ADR-0007).
