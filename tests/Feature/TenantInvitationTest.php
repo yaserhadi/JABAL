@@ -294,4 +294,67 @@ class TenantInvitationTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_non_owner_tenant_admin_cannot_invite_as_tenant_admin(): void
+    {
+        $admin = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Admin Not Owner',
+            'email' => 'admin-invite-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $this->createMembership($admin, $this->tenant, 'admin', 'active');
+        $this->assignAdminPermissions($admin, $this->tenant);
+
+        $response = $this->actingAsTenantUser($admin, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'email' => 'target-'.uniqid().'@example.com',
+                'role' => 'tenant-admin',
+            ]);
+
+        $response->assertSessionHasErrors('role');
+    }
+
+    public function test_invalid_token_is_rejected(): void
+    {
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        app(TenantInvitationService::class)->acceptInvitation(
+            str_repeat('a', 64),
+            $this->owner
+        );
+    }
+
+    public function test_expired_token_is_rejected(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'expired-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        tenancy()->initialize($this->tenant);
+        TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->where('id', $result['invitation']->id)
+            ->update(['expires_at' => now()->subDay()]);
+        tenancy()->end();
+
+        $existing = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Expired Target',
+            'email' => $email,
+            'password' => 'password',
+        ]);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $existing);
+    }
 }

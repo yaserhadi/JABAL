@@ -138,7 +138,9 @@ class TenantInvitationService
         tenancy()->initialize($tenant);
 
         try {
-            return $this->completeInvitation($invitation, $tenant, $acceptingUser);
+            return DB::connection('tenant')->transaction(function () use ($invitation, $tenant, $acceptingUser) {
+                return $this->completeInvitation($invitation, $tenant, $acceptingUser);
+            });
         } finally {
             tenancy()->end();
         }

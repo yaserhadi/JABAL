@@ -3,8 +3,8 @@
 namespace Modules\Identity\Services;
 
 use App\Support\Contracts\Billing\TenantSeatLimitResolver;
-use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
@@ -160,37 +160,39 @@ class MembershipService
     public function transferOwnership(Tenant $tenant, TenantUser $fromUser, TenantUser $toUser): void
     {
         $this->withTenantContext($tenant->id, function () use ($tenant, $fromUser, $toUser) {
-            $actorMembership = Membership::query()
-                ->withoutGlobalScope('tenant')
-                ->where('tenant_id', $tenant->id)
-                ->where('user_id', $fromUser->id)
-                ->first();
+            DB::connection('tenant')->transaction(function () use ($tenant, $fromUser, $toUser) {
+                $actorMembership = Membership::query()
+                    ->withoutGlobalScope('tenant')
+                    ->where('tenant_id', $tenant->id)
+                    ->where('user_id', $fromUser->id)
+                    ->first();
 
-            $targetMembership = Membership::query()
-                ->withoutGlobalScope('tenant')
-                ->where('tenant_id', $tenant->id)
-                ->where('user_id', $toUser->id)
-                ->first();
+                $targetMembership = Membership::query()
+                    ->withoutGlobalScope('tenant')
+                    ->where('tenant_id', $tenant->id)
+                    ->where('user_id', $toUser->id)
+                    ->first();
 
-            if (! $actorMembership?->isOwner() || $actorMembership->status !== 'active') {
-                throw new InvalidArgumentException('Only an active owner may transfer ownership.');
-            }
+                if (! $actorMembership?->isOwner() || $actorMembership->status !== 'active') {
+                    throw new InvalidArgumentException('Only an active owner may transfer ownership.');
+                }
 
-            if (! $targetMembership || $targetMembership->status !== 'active' || $targetMembership->isOwner()) {
-                throw new InvalidArgumentException('Target must be an active non-owner member.');
-            }
+                if (! $targetMembership || $targetMembership->status !== 'active' || $targetMembership->isOwner()) {
+                    throw new InvalidArgumentException('Target must be an active non-owner member.');
+                }
 
-            $actorMembership->update(['membership_type' => 'member']);
-            $targetMembership->update(['membership_type' => 'owner']);
+                $actorMembership->update(['membership_type' => 'member']);
+                $targetMembership->update(['membership_type' => 'owner']);
 
-            app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
-            try {
-                $fromUser->syncRoles(['member']);
-                $toUser->syncRoles(['tenant-admin']);
-                app(TenantRbacProvisioner::class)->assignTenantAdminRole($toUser, $tenant);
-            } finally {
-                app(PermissionRegistrar::class)->setPermissionsTeamId(null);
-            }
+                app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+                try {
+                    $fromUser->syncRoles(['member']);
+                    $toUser->syncRoles(['tenant-admin']);
+                    app(TenantRbacProvisioner::class)->assignTenantAdminRole($toUser, $tenant);
+                } finally {
+                    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+                }
+            });
         });
     }
 

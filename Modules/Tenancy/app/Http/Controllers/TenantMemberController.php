@@ -103,12 +103,22 @@ class TenantMemberController extends Controller
             'role' => ['sometimes', 'string', 'in:'.implode(',', TenantInvitationService::ALLOWED_ROLES)],
         ]);
 
+        $role = $validated['role'] ?? 'member';
+        if ($role === 'tenant-admin') {
+            $actorMembership = $this->actorMembership($tenantModel);
+            if (! $actorMembership?->isOwner()) {
+                throw ValidationException::withMessages([
+                    'role' => ['Only the tenant owner may promote members to tenant-admin.'],
+                ]);
+            }
+        }
+
         try {
             $result = $this->invitationService->createInvitation(
                 $tenantModel,
                 $validated['email'],
                 auth()->user(),
-                $validated['role'] ?? 'member'
+                $role
             );
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['email' => [$e->getMessage()]]);
