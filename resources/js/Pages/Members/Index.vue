@@ -19,7 +19,7 @@
                             {{ flash.success }}
                         </v-alert>
                         <v-alert v-if="flash?.inviteUrl" type="info" variant="tonal" class="mb-4">
-                            <div class="mb-2">Share this invitation link (one-time):</div>
+                            <div class="mb-2">You can also share this invitation link manually:</div>
                             <div class="d-flex align-center ga-2">
                                 <code class="flex-grow-1 text-truncate">{{ flash.inviteUrl }}</code>
                                 <v-btn size="small" variant="outlined" @click="copyUrl(flash.inviteUrl)">Copy</v-btn>
@@ -42,7 +42,14 @@
                                         <td>{{ inv.email }}</td>
                                         <td>{{ inv.role }}</td>
                                         <td>{{ inv.expires_at }}</td>
-                                        <td>
+                                        <td class="d-flex flex-wrap ga-1">
+                                            <v-btn
+                                                variant="text"
+                                                size="small"
+                                                @click="openResend(inv)"
+                                            >
+                                                Resend
+                                            </v-btn>
                                             <v-btn
                                                 variant="text"
                                                 size="small"
@@ -217,6 +224,14 @@ const openRevoke = (invitation) => {
     if (!confirm(`Revoke invitation for ${invitation.email}?`)) return;
     if (!props.tenant) return;
     router.delete(route('members.revoke-invitation', { tenant: props.tenant.id, invitation: invitation.id }), {
+        preserveScroll: true,
+    });
+};
+
+const openResend = (invitation) => {
+    if (!confirm(`Resend invitation email to ${invitation.email}? The previous link will stop working.`)) return;
+    if (!props.tenant) return;
+    router.post(route('members.resend-invitation', { tenant: props.tenant.id, invitation: invitation.id }), {}, {
         preserveScroll: true,
     });
 };
