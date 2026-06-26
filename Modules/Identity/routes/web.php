@@ -101,6 +101,9 @@ Route::prefix('t/{tenant}')
         Route::post('/members/invite', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'invite'])
             ->middleware('permission:member.invite')
             ->name('members.invite');
+        Route::post('/members/invitations/{invitation}/resend', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'resendInvitation'])
+            ->middleware('permission:member.invite')
+            ->name('members.resend-invitation');
         Route::delete('/members/invitations/{invitation}', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'revokeInvitation'])
             ->middleware('permission:member.invite')
             ->name('members.revoke-invitation');

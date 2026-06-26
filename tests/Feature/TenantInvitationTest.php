@@ -7,10 +7,12 @@ use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Modules\Billing\Models\Plan;
 use Modules\Billing\Models\Subscription;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
+use Modules\Identity\Mail\TenantInvitationMail;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Services\TenantInvitationService;
@@ -29,6 +31,7 @@ class TenantInvitationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Mail::fake();
         $this->seedMemberRbac();
         $this->owner = User::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
@@ -523,5 +526,213 @@ class TenantInvitationTest extends TestCase
         ]);
 
         $this->assertContains($response->status(), [401, 403]);
+    }
+
+    public function test_invite_sends_email(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'mail-invite-'.uniqid().'@example.com';
+
+        $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'email' => $email,
+                'role' => 'member',
+            ]);
+
+        Mail::assertSent(TenantInvitationMail::class, function (TenantInvitationMail $mail) use ($email) {
+            return $mail->hasTo($email);
+        });
+    }
+
+    public function test_invite_email_contains_accept_url(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'mail-url-'.uniqid().'@example.com';
+
+        $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'email' => $email,
+            ]);
+
+        Mail::assertSent(TenantInvitationMail::class, function (TenantInvitationMail $mail) {
+            return str_contains($mail->acceptUrl, '/invitations/');
+        });
+    }
+
+    public function test_invite_mail_failure_rolls_back_invitation(): void
+    {
+        $email = 'mail-fail-'.uniqid().'@example.com';
+        $mock = \Mockery::mock(\Illuminate\Contracts\Mail\Factory::class);
+        $mailer = \Mockery::mock(\Illuminate\Contracts\Mail\Mailer::class);
+        $mock->shouldReceive('to')->andReturn($mailer);
+        $mailer->shouldReceive('send')->andThrow(new \RuntimeException('Mail delivery failed'));
+        Mail::swap($mock);
+
+        try {
+            app(TenantInvitationService::class)->createInvitation(
+                $this->tenant,
+                $email,
+                $this->owner,
+                'member'
+            );
+            $this->fail('Expected mail delivery failure.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Mail delivery failed', $e->getMessage());
+        }
+
+        tenancy()->initialize($this->tenant);
+        $this->assertSame(
+            0,
+            TenantInvitation::query()->withoutGlobalScope('tenant')->where('email', $email)->count()
+        );
+        tenancy()->end();
+    }
+
+    public function test_resend_rotates_token_and_sends_email(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'resend-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+        $oldToken = $result['plainToken'];
+        $oldHash = $result['invitation']->token_hash;
+
+        $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/invitations/'.$result['invitation']->id.'/resend');
+
+        Mail::assertSent(TenantInvitationMail::class, 2);
+
+        tenancy()->initialize($this->tenant);
+        $invitation = TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->find($result['invitation']->id);
+        $this->assertNotSame($oldHash, $invitation->token_hash);
+        $this->assertNull(app(TenantInvitationService::class)->findValidByToken($oldToken));
+        tenancy()->end();
+    }
+
+    public function test_resend_mail_failure_preserves_old_token(): void
+    {
+        $email = 'resend-fail-'.uniqid().'@example.com';
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+        $oldHash = $result['invitation']->token_hash;
+        $oldToken = $result['plainToken'];
+
+        $mock = \Mockery::mock(\Illuminate\Contracts\Mail\Factory::class);
+        $mailer = \Mockery::mock(\Illuminate\Contracts\Mail\Mailer::class);
+        $mock->shouldReceive('to')->andReturn($mailer);
+        $mailer->shouldReceive('send')->andThrow(new \RuntimeException('Mail delivery failed'));
+        Mail::swap($mock);
+
+        try {
+            app(TenantInvitationService::class)->reissueInvitation($result['invitation'], $this->owner);
+            $this->fail('Expected mail delivery failure.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Mail delivery failed', $e->getMessage());
+        }
+
+        tenancy()->initialize($this->tenant);
+        $invitation = TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->find($result['invitation']->id);
+        $this->assertSame($oldHash, $invitation->token_hash);
+        $this->assertNotNull(app(TenantInvitationService::class)->findValidByToken($oldToken));
+        tenancy()->end();
+    }
+
+    public function test_resend_rejects_non_pending(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'resend-revoked-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        app(TenantInvitationService::class)->revokeInvitation($result['invitation']);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        app(TenantInvitationService::class)->reissueInvitation(
+            $result['invitation']->fresh(),
+            $this->owner
+        );
+    }
+
+    public function test_resend_requires_member_invite_permission(): void
+    {
+        $viewer = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Viewer',
+            'email' => 'viewer-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $this->createMembership($viewer, $this->tenant, 'member', 'active');
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->tenant->getTenantKey());
+        $role = Role::firstOrCreate(
+            ['name' => 'viewer-only', 'guard_name' => config('auth.defaults.guard'), 'tenant_id' => $this->tenant->id],
+            ['name' => 'viewer-only', 'guard_name' => config('auth.defaults.guard'), 'tenant_id' => $this->tenant->id]
+        );
+        $viewPerm = Permission::findByName('member.view', config('auth.defaults.guard'));
+        if ($viewPerm && ! $role->hasPermissionTo($viewPerm)) {
+            $role->givePermissionTo($viewPerm);
+        }
+        $viewer->syncRoles([$role]);
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'resend-forbidden-'.uniqid().'@example.com';
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        $response = $this->actingAsTenantUser($viewer, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/invitations/'.$result['invitation']->id.'/resend');
+
+        $response->assertStatus(403);
+    }
+
+    public function test_api_resend_returns_success_json(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'api-resend-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        $token = $this->owner->createToken('test', ['tenant:'.$this->tenant->id])->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-Id' => $this->tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/tenants/current/members/invitations/'.$result['invitation']->id.'/resend');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.email', $email);
+
+        Mail::assertSent(TenantInvitationMail::class);
     }
 }

@@ -5,9 +5,11 @@ namespace Modules\Identity\Services;
 use App\Models\User;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use Modules\Identity\Mail\TenantInvitationMail;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Models\TenantUser;
@@ -85,17 +87,30 @@ class TenantInvitationService
 
             $plainToken = Str::random(64);
             $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
-
-            $invitation = TenantInvitation::query()->create([
-                'tenant_id' => $tenant->id,
-                'email' => $email,
-                'invited_by_user_id' => $invitedBy->id,
-                'token_hash' => hash('sha256', $plainToken),
-                'role' => $role,
-                'expires_at' => $expiresAt,
-            ]);
-
             $acceptUrl = url('/invitations/'.$plainToken);
+
+            $invitation = DB::connection('tenant')->transaction(function () use (
+                $tenant,
+                $email,
+                $invitedBy,
+                $role,
+                $plainToken,
+                $expiresAt,
+                $acceptUrl
+            ) {
+                $record = TenantInvitation::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'email' => $email,
+                    'invited_by_user_id' => $invitedBy->id,
+                    'token_hash' => hash('sha256', $plainToken),
+                    'role' => $role,
+                    'expires_at' => $expiresAt,
+                ]);
+
+                $this->sendInvitationEmail($tenant, $invitedBy, $email, $role, $acceptUrl, $expiresAt);
+
+                return $record;
+            });
 
             app(AuditLoggerInterface::class)->log('tenant_member.invited', [
                 'auditable_type' => TenantInvitation::class,
@@ -214,6 +229,86 @@ class TenantInvitationService
         }
     }
 
+    public function reissueInvitation(TenantInvitation $invitation, TenantUser $actor): array
+    {
+        if ($invitation->accepted_at !== null || $invitation->revoked_at !== null) {
+            throw ValidationException::withMessages([
+                'invitation' => ['Only pending invitations can be resent.'],
+            ]);
+        }
+
+        if ($invitation->expires_at !== null && $invitation->expires_at->isPast()) {
+            throw ValidationException::withMessages([
+                'invitation' => ['This invitation has expired.'],
+            ]);
+        }
+
+        $tenant = Tenant::query()->findOrFail($invitation->tenant_id);
+        $wasInitialized = tenancy()->initialized;
+
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            $plainToken = Str::random(64);
+            $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
+            $acceptUrl = url('/invitations/'.$plainToken);
+            $previousTokenHash = $invitation->token_hash;
+
+            $invitation = DB::connection('tenant')->transaction(function () use (
+                $invitation,
+                $tenant,
+                $actor,
+                $plainToken,
+                $expiresAt,
+                $acceptUrl
+            ) {
+                $invitation->refresh();
+
+                $invitation->update([
+                    'token_hash' => hash('sha256', $plainToken),
+                    'expires_at' => $expiresAt,
+                ]);
+
+                $this->sendInvitationEmail(
+                    $tenant,
+                    $actor,
+                    $invitation->email,
+                    $invitation->role,
+                    $acceptUrl,
+                    $expiresAt
+                );
+
+                return $invitation->fresh();
+            });
+
+            app(AuditLoggerInterface::class)->log('tenant_member.invitation_reissued', [
+                'auditable_type' => TenantInvitation::class,
+                'auditable_id' => $invitation->id,
+                'old_values' => [
+                    'token_hash' => $previousTokenHash,
+                ],
+                'new_values' => [
+                    'email' => $invitation->email,
+                    'tenant_id' => $tenant->id,
+                    'reissued_by_user_id' => $actor->id,
+                    'expires_at' => $expiresAt->toIso8601String(),
+                ],
+            ]);
+
+            return [
+                'invitation' => $invitation,
+                'plainToken' => $plainToken,
+                'acceptUrl' => $acceptUrl,
+            ];
+        } finally {
+            if (! $wasInitialized) {
+                tenancy()->end();
+            }
+        }
+    }
+
     public function revokeInvitation(TenantInvitation $invitation): void
     {
         if ($invitation->accepted_at !== null) {
@@ -246,6 +341,24 @@ class TenantInvitationService
                 tenancy()->end();
             }
         }
+    }
+
+    protected function sendInvitationEmail(
+        Tenant $tenant,
+        TenantUser $invitedBy,
+        string $email,
+        string $role,
+        string $acceptUrl,
+        \DateTimeInterface $expiresAt
+    ): void {
+        Mail::to($email)->send(new TenantInvitationMail(
+            tenant: $tenant,
+            inviterName: $invitedBy->name,
+            inviteeEmail: $email,
+            role: $role,
+            acceptUrl: $acceptUrl,
+            expiresAt: $expiresAt,
+        ));
     }
 
     protected function completeInvitation(

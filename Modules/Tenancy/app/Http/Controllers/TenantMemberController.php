@@ -137,9 +137,48 @@ class TenantMemberController extends Controller
         }
 
         return back()->with([
-            'success' => 'Invitation created.',
+            'success' => 'Invitation sent — email delivered; you can also copy the link below.',
             'inviteUrl' => $result['acceptUrl'],
         ]);
+    }
+
+    public function resendInvitation(Request $request, string $invitation): JsonResponse|RedirectResponse
+    {
+        $invitation = (string) $request->route('invitation');
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $invitationModel = TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenantModel->id)
+            ->where('id', $invitation)
+            ->pending()
+            ->first();
+
+        if (! $invitationModel) {
+            abort(404);
+        }
+
+        try {
+            $result = $this->invitationService->reissueInvitation($invitationModel, auth()->user());
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['invitation' => [$e->getMessage()]]);
+        }
+
+        $payload = [
+            'invitation_id' => $result['invitation']->id,
+            'email' => $result['invitation']->email,
+            'accept_url' => $result['acceptUrl'],
+            'expires_at' => $result['invitation']->expires_at->toIso8601String(),
+        ];
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success($payload);
+        }
+
+        return back()->with('success', 'Invitation email resent.');
     }
 
     public function remove(Request $request, string $user): JsonResponse|RedirectResponse
