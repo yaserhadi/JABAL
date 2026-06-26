@@ -11,9 +11,12 @@ use App\Support\Context\ExecutionContext;
 use App\Support\Context\RequestContext;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Tenancy\DefaultTenantStorageResolver;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
@@ -67,6 +70,15 @@ class AppServiceProvider extends ServiceProvider
 
         // Phase 3B: Set Spatie permissions team context during tenancy initialization
         Event::subscribe(SetSpatiePermissionsTeamId::class);
+
+        RateLimiter::for('invitations', function (Request $request) {
+            $config = config('tenancy.invitation_rate_limit', ['max_attempts' => 10, 'decay_minutes' => 1]);
+
+            return Limit::perMinutes(
+                (int) ($config['decay_minutes'] ?? 1),
+                (int) ($config['max_attempts'] ?? 10)
+            )->by($request->ip());
+        });
 
         // API pipeline: ValidateTenantToken before Sanctum on tenant API routes only.
         // Do NOT prepend Authenticate globally — it runs before StartSession and breaks web session guards.

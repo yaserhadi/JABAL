@@ -28,6 +28,8 @@ class TenantRbacProvisioner
         'member.view',
         'member.assign-role',
         'member.suspend',
+        'member.invite',
+        'member.remove',
         'tenant.settings.view',
         'tenant.settings.update',
     ];
@@ -43,6 +45,8 @@ class TenantRbacProvisioner
             'member.view',
             'member.assign-role',
             'member.suspend',
+            'member.invite',
+            'member.remove',
             'tenant.settings.view',
             'tenant.settings.update',
         ],

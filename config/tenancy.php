@@ -169,4 +169,14 @@ return [
         '--class' => 'DatabaseSeeder', // root seeder class
         // '--force' => true, // This needs to be true to seed tenant databases in production
     ],
+
+    /**
+     * CAP-022: Pending invitation lifetime (days) and public accept rate limits.
+     */
+    'invitation_ttl_days' => (int) env('TENANCY_INVITATION_TTL_DAYS', 7),
+
+    'invitation_rate_limit' => [
+        'max_attempts' => (int) env('TENANCY_INVITATION_RATE_LIMIT', 10),
+        'decay_minutes' => (int) env('TENANCY_INVITATION_RATE_DECAY', 1),
+    ],
 ];

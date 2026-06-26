@@ -4,8 +4,10 @@ use App\Http\Middleware\EnsureUserBelongsToTenant;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
+use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,6 +19,22 @@ use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 | - Dashboard moved to /t/{tenant}/dashboard with tenant context
 |
 */
+
+// Invitation accept (guest or authenticated) — token in URL only on bootstrap, then session
+Route::middleware(['throttle:invitations', InvitationSecurityHeaders::class])->group(function () {
+    Route::get('invitations/accept', [InvitationAcceptController::class, 'show'])->name('invitations.show');
+    Route::get('invitations/{token}', [InvitationAcceptController::class, 'bootstrap'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->name('invitations.bootstrap');
+
+    Route::middleware('guest')->group(function () {
+        Route::post('invitations/register', [InvitationAcceptController::class, 'registerAndAccept'])->name('invitations.register');
+    });
+
+    Route::middleware('auth')->group(function () {
+        Route::post('invitations/accept', [InvitationAcceptController::class, 'accept'])->name('invitations.accept');
+    });
+});
 
 // Central routes (guest)
 Route::middleware('guest')->group(function () {
@@ -80,4 +98,15 @@ Route::prefix('t/{tenant}')
         Route::post('/members/{user}/activate', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'activate'])
             ->middleware('permission:member.suspend')
             ->name('members.activate');
+        Route::post('/members/invite', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'invite'])
+            ->middleware('permission:member.invite')
+            ->name('members.invite');
+        Route::delete('/members/invitations/{invitation}', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'revokeInvitation'])
+            ->middleware('permission:member.invite')
+            ->name('members.revoke-invitation');
+        Route::delete('/members/{user}', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'remove'])
+            ->middleware('permission:member.remove')
+            ->name('members.remove');
+        Route::post('/members/{user}/transfer-ownership', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'transferOwnership'])
+            ->name('members.transfer-ownership');
     });
