@@ -132,28 +132,30 @@ class MembershipService
     public function remove(Membership $membership, Tenant $tenant): void
     {
         $this->withTenantContext($tenant->id, function () use ($membership, $tenant) {
-            $ownerCount = Membership::query()
-                ->withoutGlobalScope('tenant')
-                ->where('tenant_id', $tenant->id)
-                ->where('membership_type', 'owner')
-                ->where('status', 'active')
-                ->count();
+            DB::connection('tenant')->transaction(function () use ($membership, $tenant) {
+                $ownerCount = Membership::query()
+                    ->withoutGlobalScope('tenant')
+                    ->where('tenant_id', $tenant->id)
+                    ->where('membership_type', 'owner')
+                    ->where('status', 'active')
+                    ->count();
 
-            if ($ownerCount <= 1 && $membership->isOwner() && $membership->status === 'active') {
-                throw new InvalidArgumentException('Cannot remove the last owner of the tenant.');
-            }
-
-            $user = User::withoutGlobalScope('tenant')->find($membership->user_id);
-            if ($user) {
-                app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
-                try {
-                    $user->syncRoles([]);
-                } finally {
-                    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+                if ($ownerCount <= 1 && $membership->isOwner() && $membership->status === 'active') {
+                    throw new InvalidArgumentException('Cannot remove the last owner of the tenant.');
                 }
-            }
 
-            $membership->delete();
+                $user = User::withoutGlobalScope('tenant')->find($membership->user_id);
+                if ($user) {
+                    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+                    try {
+                        $user->syncRoles([]);
+                    } finally {
+                        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+                    }
+                }
+
+                $membership->delete();
+            });
         });
     }
 

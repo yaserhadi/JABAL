@@ -38,6 +38,20 @@ class TenantInvitationService
         }
 
         try {
+            if ($role === 'tenant-admin') {
+                $inviterMembership = Membership::query()
+                    ->withoutGlobalScope('tenant')
+                    ->where('tenant_id', $tenant->id)
+                    ->where('user_id', $invitedBy->id)
+                    ->first();
+
+                if (! $inviterMembership?->isOwner()) {
+                    throw ValidationException::withMessages([
+                        'role' => ['Only the tenant owner may promote members to tenant-admin.'],
+                    ]);
+                }
+            }
+
             app(MembershipService::class)->assertSeatCapacityForInvitation($tenant->id);
 
             $userIds = TenantUser::withoutGlobalScope('tenant')
@@ -71,7 +85,7 @@ class TenantInvitationService
             }
 
             $plainToken = Str::random(64);
-            $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days', 7));
+            $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
 
             $invitation = TenantInvitation::query()->create([
                 'tenant_id' => $tenant->id,
@@ -127,6 +141,11 @@ class TenantInvitationService
             ]);
         }
 
+        return $this->acceptInvitationRecord($invitation, $acceptingUser);
+    }
+
+    public function acceptInvitationRecord(TenantInvitation $invitation, TenantUser $acceptingUser): Membership
+    {
         if (strtolower($acceptingUser->email) !== strtolower($invitation->email)) {
             throw ValidationException::withMessages([
                 'email' => ['Your account email does not match this invitation.'],
@@ -155,6 +174,11 @@ class TenantInvitationService
             ]);
         }
 
+        return $this->registerAndAcceptInvitation($invitation, $name, $password);
+    }
+
+    public function registerAndAcceptInvitation(TenantInvitation $invitation, string $name, string $password): array
+    {
         $existing = TenantUser::withoutGlobalScope('tenant')
             ->where('email', $invitation->email)
             ->exists();

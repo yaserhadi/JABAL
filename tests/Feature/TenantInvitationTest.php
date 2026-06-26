@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Modules\Billing\Models\Plan;
 use Modules\Billing\Models\Subscription;
+use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Services\TenantInvitationService;
@@ -356,5 +357,171 @@ class TenantInvitationTest extends TestCase
         $this->expectException(\Illuminate\Validation\ValidationException::class);
 
         app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $existing);
+    }
+
+    public function test_revoked_token_is_rejected(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'revoked-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        app(TenantInvitationService::class)->revokeInvitation($result['invitation']);
+
+        $existing = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Revoked Target',
+            'email' => $email,
+            'password' => 'password',
+        ]);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $existing);
+    }
+
+    public function test_owner_can_revoke_pending_invitation(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'revoke-web-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->delete('/t/'.$this->tenant->id.'/members/invitations/'.$result['invitation']->id);
+
+        $response->assertSessionHasNoErrors();
+
+        tenancy()->initialize($this->tenant);
+        $invitation = TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->find($result['invitation']->id);
+        $this->assertNotNull($invitation->revoked_at);
+        tenancy()->end();
+    }
+
+    public function test_invitation_bootstrap_redirects_to_tokenless_url(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'bootstrap-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        $response = $this->get('/invitations/'.$result['plainToken']);
+
+        $response->assertRedirect(route('invitations.show'));
+        $response->assertSessionHas(
+            InvitationAcceptController::SESSION_INVITATION_ID_KEY,
+            $result['invitation']->id
+        );
+        $session = $response->baseResponse->getSession()->all();
+        $this->assertArrayHasKey(InvitationAcceptController::SESSION_INVITATION_ID_KEY, $session);
+        $this->assertNotSame($result['plainToken'], $session[InvitationAcceptController::SESSION_INVITATION_ID_KEY]);
+    }
+
+    public function test_accept_routes_are_tokenless(): void
+    {
+        $this->assertStringNotContainsString('{token}', route('invitations.show', [], false));
+        $this->assertStringNotContainsString('{token}', route('invitations.accept', [], false));
+        $this->assertStringNotContainsString('{token}', route('invitations.register', [], false));
+    }
+
+    public function test_api_invite_creates_pending_invitation(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'api-invite-'.uniqid().'@example.com';
+        $token = $this->owner->createToken('test', ['tenant:'.$this->tenant->id])->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-Id' => $this->tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/tenants/current/members/invite', [
+            'email' => $email,
+            'role' => 'member',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.email', $email);
+
+        tenancy()->initialize($this->tenant);
+        $this->assertSame(1, TenantInvitation::query()->withoutGlobalScope('tenant')->where('email', $email)->pending()->count());
+        tenancy()->end();
+    }
+
+    public function test_api_non_owner_cannot_invite_as_tenant_admin(): void
+    {
+        $admin = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'API Admin',
+            'email' => 'api-admin-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $this->createMembership($admin, $this->tenant, 'admin', 'active');
+        $this->assignAdminPermissions($admin, $this->tenant);
+
+        $token = $admin->createToken('test', ['tenant:'.$this->tenant->id])->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-Id' => $this->tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/tenants/current/members/invite', [
+            'email' => 'api-target-'.uniqid().'@example.com',
+            'role' => 'tenant-admin',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['role']);
+    }
+
+    public function test_cross_tenant_web_invite_returns_403(): void
+    {
+        $otherUser = User::factory()->create();
+        $otherTenant = $this->createPersonalTenant($otherUser);
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$otherTenant->id.'/members/invite', [
+                'email' => 'cross-'.uniqid().'@example.com',
+            ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_cross_tenant_api_invite_returns_401_or_403(): void
+    {
+        $otherUser = User::factory()->create();
+        $otherTenant = $this->createPersonalTenant($otherUser);
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $token = $this->owner->createToken('test', ['tenant:'.$this->tenant->id])->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-Id' => $otherTenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/tenants/current/members/invite', [
+            'email' => 'api-cross-'.uniqid().'@example.com',
+        ]);
+
+        $this->assertContains($response->status(), [401, 403]);
     }
 }

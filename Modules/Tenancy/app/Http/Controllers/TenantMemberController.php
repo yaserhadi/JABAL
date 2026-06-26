@@ -14,6 +14,7 @@ use Inertia\Response as InertiaResponse;
 use InvalidArgumentException;
 use Modules\Api\Http\ApiResponse;
 use Modules\Identity\Models\Membership;
+use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Services\MembershipService;
 use Modules\Identity\Services\TenantInvitationService;
 use Spatie\Permission\PermissionRegistrar;
@@ -91,7 +92,7 @@ class TenantMemberController extends Controller
         ]);
     }
 
-    public function invite(Request $request, string $tenant): JsonResponse|RedirectResponse
+    public function invite(Request $request): JsonResponse|RedirectResponse
     {
         $tenantModel = tenancy()->tenant;
         if (! $tenantModel) {
@@ -141,8 +142,9 @@ class TenantMemberController extends Controller
         ]);
     }
 
-    public function remove(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    public function remove(Request $request, string $user): JsonResponse|RedirectResponse
     {
+        $user = (string) $request->route('user');
         $tenantModel = tenancy()->tenant;
         if (! $tenantModel) {
             abort(404);
@@ -181,8 +183,50 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Member removed successfully.');
     }
 
-    public function transferOwnership(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    public function revokeInvitation(Request $request, string $invitation): JsonResponse|RedirectResponse
     {
+        $invitation = (string) $request->route('invitation');
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $invitationModel = TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenantModel->id)
+            ->where('id', $invitation)
+            ->pending()
+            ->first();
+
+        if (! $invitationModel) {
+            abort(404);
+        }
+
+        try {
+            $this->invitationService->revokeInvitation($invitationModel);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['invitation' => [$e->getMessage()]]);
+        }
+
+        app(AuditLoggerInterface::class)->log('tenant_member.invitation_revoked', [
+            'auditable_type' => TenantInvitation::class,
+            'auditable_id' => $invitationModel->id,
+            'old_values' => [
+                'email' => $invitationModel->email,
+                'tenant_id' => $tenantModel->id,
+            ],
+        ]);
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success(['revoked' => true]);
+        }
+
+        return back()->with('success', 'Invitation revoked.');
+    }
+
+    public function transferOwnership(Request $request, string $user): JsonResponse|RedirectResponse
+    {
+        $user = (string) $request->route('user');
         $tenantModel = tenancy()->tenant;
         if (! $tenantModel) {
             abort(404);
@@ -218,8 +262,9 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Ownership transferred successfully.');
     }
 
-    public function updateRole(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    public function updateRole(Request $request, string $user): JsonResponse|RedirectResponse
     {
+        $user = (string) $request->route('user');
         $tenant = tenancy()->tenant;
         if (! $tenant) {
             abort(404);
@@ -275,13 +320,17 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Role updated successfully.');
     }
 
-    public function suspend(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    public function suspend(Request $request, string $user): JsonResponse|RedirectResponse
     {
+        $user = (string) $request->route('user');
+
         return $this->setStatus($request, $user, 'suspended', 'tenant_member.suspended');
     }
 
-    public function activate(Request $request, string $tenant, string $user): JsonResponse|RedirectResponse
+    public function activate(Request $request, string $user): JsonResponse|RedirectResponse
     {
+        $user = (string) $request->route('user');
+
         return $this->setStatus($request, $user, 'active', 'tenant_member.activated');
     }
 

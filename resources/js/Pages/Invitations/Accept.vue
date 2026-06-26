@@ -50,7 +50,6 @@ import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 const props = defineProps({
-    token: String,
     email: String,
     tenant: Object,
     isAuthenticated: Boolean,
@@ -66,10 +65,10 @@ const registerForm = useForm({
 });
 
 const acceptInvite = () => {
-    acceptForm.post(route('invitations.accept', { token: props.token }));
+    acceptForm.post(route('invitations.accept'));
 };
 
 const registerAndAccept = () => {
-    registerForm.post(route('invitations.register', { token: props.token }));
+    registerForm.post(route('invitations.register'));
 };
 </script>

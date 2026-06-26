@@ -34,6 +34,7 @@
                                         <th>Email</th>
                                         <th>Role</th>
                                         <th>Expires</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -41,6 +42,16 @@
                                         <td>{{ inv.email }}</td>
                                         <td>{{ inv.role }}</td>
                                         <td>{{ inv.expires_at }}</td>
+                                        <td>
+                                            <v-btn
+                                                variant="text"
+                                                size="small"
+                                                color="error"
+                                                @click="openRevoke(inv)"
+                                            >
+                                                Revoke
+                                            </v-btn>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </v-table>
@@ -200,5 +211,13 @@ const openTransfer = (member) => {
     if (!confirm(`Transfer ownership to ${member.user?.name}? You will become a member.`)) return;
     if (!props.tenant) return;
     router.post(route('members.transfer-ownership', { tenant: props.tenant.id, user: member.user_id }));
+};
+
+const openRevoke = (invitation) => {
+    if (!confirm(`Revoke invitation for ${invitation.email}?`)) return;
+    if (!props.tenant) return;
+    router.delete(route('members.revoke-invitation', { tenant: props.tenant.id, invitation: invitation.id }), {
+        preserveScroll: true,
+    });
 };
 </script>

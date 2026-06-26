@@ -9,18 +9,36 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Services\TenantInvitationService;
 use Modules\Tenancy\Models\Tenant;
 
 class InvitationAcceptController extends Controller
 {
+    public const SESSION_INVITATION_ID_KEY = 'tenant_invitation_id';
+
     public function __construct(
         private TenantInvitationService $invitationService
     ) {}
 
-    public function show(string $token): InertiaResponse|RedirectResponse
+    /**
+     * Entry point from shared invite links; stores invitation id in session and redirects to tokenless URL.
+     */
+    public function bootstrap(string $token): RedirectResponse
     {
         $invitation = $this->invitationService->findValidByToken($token);
+        if (! $invitation) {
+            abort(404, 'This invitation is invalid or has expired.');
+        }
+
+        session([self::SESSION_INVITATION_ID_KEY => $invitation->id]);
+
+        return redirect()->route('invitations.show');
+    }
+
+    public function show(Request $request): InertiaResponse|RedirectResponse
+    {
+        $invitation = $this->resolveSessionInvitation($request);
         if (! $invitation) {
             abort(404, 'This invitation is invalid or has expired.');
         }
@@ -30,7 +48,6 @@ class InvitationAcceptController extends Controller
         $emailMatches = $user && strtolower($user->email) === strtolower($invitation->email);
 
         return Inertia::render('Invitations/Accept', [
-            'token' => $token,
             'email' => $invitation->email,
             'tenant' => $tenant ? [
                 'id' => $tenant->id,
@@ -41,18 +58,25 @@ class InvitationAcceptController extends Controller
         ]);
     }
 
-    public function accept(Request $request, string $token): RedirectResponse
+    public function accept(Request $request): RedirectResponse
     {
+        $invitation = $this->resolveSessionInvitation($request);
+        if (! $invitation) {
+            abort(404, 'This invitation is invalid or has expired.');
+        }
+
         $user = auth()->user();
         if (! $user) {
-            return redirect()->route('login')->with('url.intended', url('/invitations/'.$token));
+            return redirect()->route('login')->with('url.intended', route('invitations.show'));
         }
 
         try {
-            $membership = $this->invitationService->acceptInvitation($token, $user);
+            $membership = $this->invitationService->acceptInvitationRecord($invitation, $user);
         } catch (ValidationException $e) {
             throw $e;
         }
+
+        $this->forgetSessionInvitation($request);
 
         $tenant = Tenant::query()->findOrFail($membership->tenant_id);
 
@@ -60,10 +84,15 @@ class InvitationAcceptController extends Controller
             ->with('success', 'You have joined the workspace.');
     }
 
-    public function registerAndAccept(Request $request, string $token): RedirectResponse
+    public function registerAndAccept(Request $request): RedirectResponse
     {
         if (auth()->check()) {
-            return redirect()->route('invitations.show', ['token' => $token]);
+            return redirect()->route('invitations.show');
+        }
+
+        $invitation = $this->resolveSessionInvitation($request);
+        if (! $invitation) {
+            abort(404, 'This invitation is invalid or has expired.');
         }
 
         $validated = $request->validate([
@@ -72,14 +101,16 @@ class InvitationAcceptController extends Controller
         ]);
 
         try {
-            $result = $this->invitationService->registerAndAccept(
-                $token,
+            $result = $this->invitationService->registerAndAcceptInvitation(
+                $invitation,
                 $validated['name'],
                 $validated['password']
             );
         } catch (ValidationException $e) {
             throw $e;
         }
+
+        $this->forgetSessionInvitation($request);
 
         $tenant = $result['tenant'];
         $user = $result['user'];
@@ -102,5 +133,24 @@ class InvitationAcceptController extends Controller
 
         return redirect('/t/'.$tenant->id.'/dashboard')
             ->with('success', 'Account created and invitation accepted.');
+    }
+
+    protected function resolveSessionInvitation(Request $request): ?TenantInvitation
+    {
+        $id = $request->session()->get(self::SESSION_INVITATION_ID_KEY);
+        if (! is_string($id) || $id === '') {
+            return null;
+        }
+
+        return TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->where('id', $id)
+            ->pending()
+            ->first();
+    }
+
+    protected function forgetSessionInvitation(Request $request): void
+    {
+        $request->session()->forget(self::SESSION_INVITATION_ID_KEY);
     }
 }
