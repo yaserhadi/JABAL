@@ -26,6 +26,7 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->mapApiRoutes();
         $this->mapWebRoutes();
+        $this->mapTenantWebRoutes();
     }
 
     /**
@@ -36,6 +37,11 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapWebRoutes(): void
     {
         Route::middleware('web')->group(module_path($this->name, '/routes/web.php'));
+    }
+
+    protected function mapTenantWebRoutes(): void
+    {
+        Route::middleware('web')->group(module_path($this->name, '/routes/tenant_web.php'));
     }
 
     /**

@@ -113,6 +113,7 @@ class TenantInvitationService
             });
 
             app(AuditLoggerInterface::class)->log('tenant_member.invited', [
+                'tenant_id' => $tenant->id,
                 'auditable_type' => TenantInvitation::class,
                 'auditable_id' => $invitation->id,
                 'new_values' => [
@@ -284,6 +285,7 @@ class TenantInvitationService
             });
 
             app(AuditLoggerInterface::class)->log('tenant_member.invitation_reissued', [
+                'tenant_id' => $tenant->id,
                 'auditable_type' => TenantInvitation::class,
                 'auditable_id' => $invitation->id,
                 'old_values' => [
@@ -398,6 +400,7 @@ class TenantInvitationService
         $invitation->update(['accepted_at' => now()]);
 
         app(AuditLoggerInterface::class)->log('tenant_member.invitation_accepted', [
+            'tenant_id' => $tenant->id,
             'auditable_type' => TenantInvitation::class,
             'auditable_id' => $invitation->id,
             'new_values' => [

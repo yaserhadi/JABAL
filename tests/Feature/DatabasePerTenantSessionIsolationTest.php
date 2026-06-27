@@ -114,6 +114,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         foreach ($response->headers->getCookies() as $cookie) {
             $cookies[$cookie->getName()] = $cookie->getValue();
         }
+
         return $cookies;
     }
 
@@ -141,6 +142,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         } finally {
             tenancy()->end();
         }
+
         return [$tenant->fresh(['databaseConfig']), $resolvedUser];
     }
 

@@ -46,7 +46,20 @@
                                 <v-card color="accent">
                                     <v-card-text>
                                         <div class="text-h6">Audit logs</div>
-                                        <div class="text-body-2 mt-2">Coming in a later phase</div>
+                                        <div class="text-body-2 mt-2">
+                                            <template v-if="tenant_ui_permissions?.canViewTenantAudit && tenant">
+                                                <v-btn
+                                                    variant="text"
+                                                    class="pa-0 text-decoration-underline"
+                                                    :to="route('tenant.audit.index', { tenant: tenant.id })"
+                                                >
+                                                    View activity timeline
+                                                </v-btn>
+                                            </template>
+                                            <template v-else>
+                                                Tenant admins can review membership activity here.
+                                            </template>
+                                        </div>
                                     </v-card-text>
                                 </v-card>
                             </v-col>

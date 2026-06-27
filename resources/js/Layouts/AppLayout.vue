@@ -58,12 +58,11 @@
                     title="Tenant settings"
                     @click="visitTenantRoute('tenant.settings.index')"
                 />
-                <!-- Intentional: tenant shell nav does not link to platform /admin/audit yet (Settings/Audit modules).
-                     Enable only with platform-admin gating + correct route, not tenant Ziggy names. -->
                 <v-list-item
+                    v-if="tenant_ui_permissions?.canViewTenantAudit && tenant"
                     prepend-icon="mdi-clipboard-text"
-                    title="Audit Logs"
-                    disabled
+                    title="Audit logs"
+                    @click="visitTenantRoute('tenant.audit.index')"
                 />
             </v-list>
         </v-navigation-drawer>
