@@ -146,7 +146,7 @@ class TenantAuditTest extends TestCase
         $this->assertDatabaseHas('audit_logs', [
             'tenant_id' => $this->tenant->id,
             'event' => 'tenant_member.invited',
-        ]);
+        ], 'central');
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->get('/t/'.$this->tenant->id.'/audit?event=tenant_member.invited');

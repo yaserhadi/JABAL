@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Http\Middleware\ConfigureApplicationRuntime;
 use App\Http\Middleware\ConfigureTenantSessionConnection;
 use App\Http\Middleware\InitializeTenancyByPathWhenApplicable;
-use App\Models\User;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
