@@ -6,6 +6,8 @@ use Closure;
 use Illuminate\Http\Request;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser as TenantApplicationUser;
+use Modules\Tenancy\Services\TenantRbacProvisioner;
+use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -64,6 +66,12 @@ class EnsureUserBelongsToTenant
         if (! $belongsInTenantStore) {
             abort(403, 'Tenant application user not found in this tenant');
         }
+
+        $provisioner = app(TenantRbacProvisioner::class);
+        $provisioner->ensureGlobalPermissions();
+        $provisioner->ensureRolesForTenant($tenant);
+        // ensureRolesForTenant clears team id in finally — restore for permission middleware.
+        app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
 
         return $next($request);
     }
