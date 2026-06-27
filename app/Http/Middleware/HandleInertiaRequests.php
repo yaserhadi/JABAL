@@ -64,11 +64,15 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool}
+     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool}
      */
     protected function sharedTenantUiPermissions(Request $request): array
     {
-        $default = ['canViewTenantSettings' => false, 'canUpdateTenantSettings' => false];
+        $default = [
+            'canViewTenantSettings' => false,
+            'canUpdateTenantSettings' => false,
+            'canViewTenantAudit' => false,
+        ];
         $user = $request->user();
         if (! $user || ! function_exists('tenancy') || ! tenancy()->initialized) {
             return $default;
@@ -84,6 +88,7 @@ class HandleInertiaRequests extends Middleware
             return [
                 'canViewTenantSettings' => $user->can('tenant.settings.view'),
                 'canUpdateTenantSettings' => $user->can('tenant.settings.update'),
+                'canViewTenantAudit' => $user->can('tenant.audit.view'),
             ];
         } finally {
             $registrar->setPermissionsTeamId($previousTeamId);

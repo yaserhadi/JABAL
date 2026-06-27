@@ -32,6 +32,7 @@ class TenantRbacProvisioner
         'member.remove',
         'tenant.settings.view',
         'tenant.settings.update',
+        'tenant.audit.view',
     ];
 
     /** @var array<string, array<int, string>> */
@@ -49,6 +50,7 @@ class TenantRbacProvisioner
             'member.remove',
             'tenant.settings.view',
             'tenant.settings.update',
+            'tenant.audit.view',
         ],
         'member' => ['workspace.view', 'dashboard.view'],
     ];

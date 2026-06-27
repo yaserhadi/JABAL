@@ -79,7 +79,14 @@ class AuditLogger implements AuditLoggerInterface
     private function currentTenantId(): ?string
     {
         $tenant = \App\Support\Context\TenantContext::getInstance()->get();
+        if ($tenant?->id) {
+            return $tenant->id;
+        }
 
-        return $tenant?->id;
+        if (function_exists('tenancy') && tenancy()->initialized) {
+            return tenancy()->tenant?->id;
+        }
+
+        return null;
     }
 }
