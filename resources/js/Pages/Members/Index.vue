@@ -26,103 +26,123 @@
                             </div>
                         </v-alert>
 
-                        <v-card v-if="pendingInvitations?.length" variant="outlined" class="mb-4">
-                            <v-card-title class="text-subtitle-1">Pending invitations</v-card-title>
-                            <v-table density="compact">
-                                <thead>
-                                    <tr>
-                                        <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Expires</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="inv in pendingInvitations" :key="inv.id">
-                                        <td>{{ inv.email }}</td>
-                                        <td>{{ inv.role }}</td>
-                                        <td>{{ inv.expires_at }}</td>
-                                        <td class="d-flex flex-wrap ga-1">
-                                            <v-btn
-                                                variant="text"
-                                                size="small"
-                                                @click="openResend(inv)"
-                                            >
-                                                Resend
-                                            </v-btn>
-                                            <v-btn
-                                                variant="text"
-                                                size="small"
-                                                color="error"
-                                                @click="openRevoke(inv)"
-                                            >
-                                                Revoke
-                                            </v-btn>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </v-table>
-                        </v-card>
+                        <v-tabs v-model="activeTab" class="mb-4">
+                            <v-tab value="active">Active members</v-tab>
+                            <v-tab value="pending">
+                                <span>Pending invitations</span>
+                                <v-badge
+                                    v-if="pendingCount > 0"
+                                    :content="pendingCount"
+                                    color="primary"
+                                    inline
+                                    class="ms-2"
+                                />
+                            </v-tab>
+                        </v-tabs>
 
-                        <v-table v-if="members?.length">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Membership</th>
-                                    <th>Status</th>
-                                    <th>Roles</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="m in members" :key="m.id">
-                                    <td>{{ m.user?.name }}</td>
-                                    <td>{{ m.user?.email }}</td>
-                                    <td>{{ m.membership_type }}</td>
-                                    <td>{{ m.status }}</td>
-                                    <td>{{ m.roles?.join(', ') || '-' }}</td>
-                                    <td class="d-flex flex-wrap ga-1">
-                                        <v-btn
-                                            v-if="tenant && m.status === 'active' && m.user_id !== currentUserId"
-                                            variant="text"
-                                            size="small"
-                                            @click="openSuspend(m)"
-                                        >
-                                            Suspend
-                                        </v-btn>
-                                        <v-btn
-                                            v-else-if="tenant && m.status === 'suspended'"
-                                            variant="text"
-                                            size="small"
-                                            @click="openActivate(m)"
-                                        >
-                                            Activate
-                                        </v-btn>
-                                        <v-btn
-                                            v-if="tenant && m.user_id !== currentUserId && !(actorIsOwner && m.membership_type === 'owner' && m.status === 'active')"
-                                            variant="text"
-                                            size="small"
-                                            color="error"
-                                            @click="openRemove(m)"
-                                        >
-                                            Remove
-                                        </v-btn>
-                                        <v-btn
-                                            v-if="actorIsOwner && m.status === 'active' && !m.membership_type?.includes('owner') && m.user_id !== currentUserId"
-                                            variant="text"
-                                            size="small"
-                                            @click="openTransfer(m)"
-                                        >
-                                            Transfer ownership
-                                        </v-btn>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </v-table>
-                        <v-alert v-else type="info" variant="tonal">
-                            No members found.
-                        </v-alert>
+                        <v-window v-model="activeTab">
+                            <v-window-item value="active">
+                                <v-table v-if="members?.length">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Membership</th>
+                                            <th>Status</th>
+                                            <th>Roles</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="m in members" :key="m.id">
+                                            <td>{{ m.user?.name }}</td>
+                                            <td>{{ m.user?.email }}</td>
+                                            <td>{{ m.membership_type }}</td>
+                                            <td>{{ m.status }}</td>
+                                            <td>{{ m.roles?.join(', ') || '-' }}</td>
+                                            <td class="d-flex flex-wrap ga-1">
+                                                <v-btn
+                                                    v-if="tenant && m.status === 'active' && m.user_id !== currentUserId"
+                                                    variant="text"
+                                                    size="small"
+                                                    @click="openSuspend(m)"
+                                                >
+                                                    Suspend
+                                                </v-btn>
+                                                <v-btn
+                                                    v-else-if="tenant && m.status === 'suspended'"
+                                                    variant="text"
+                                                    size="small"
+                                                    @click="openActivate(m)"
+                                                >
+                                                    Activate
+                                                </v-btn>
+                                                <v-btn
+                                                    v-if="tenant && m.user_id !== currentUserId && !(actorIsOwner && m.membership_type === 'owner' && m.status === 'active')"
+                                                    variant="text"
+                                                    size="small"
+                                                    color="error"
+                                                    @click="openRemove(m)"
+                                                >
+                                                    Remove
+                                                </v-btn>
+                                                <v-btn
+                                                    v-if="actorIsOwner && m.status === 'active' && !m.membership_type?.includes('owner') && m.user_id !== currentUserId"
+                                                    variant="text"
+                                                    size="small"
+                                                    @click="openTransfer(m)"
+                                                >
+                                                    Transfer ownership
+                                                </v-btn>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </v-table>
+                                <v-alert v-else type="info" variant="tonal">
+                                    No members found.
+                                </v-alert>
+                            </v-window-item>
+
+                            <v-window-item value="pending">
+                                <v-table v-if="pendingInvitations?.length" density="compact">
+                                    <thead>
+                                        <tr>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Expires</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="inv in pendingInvitations" :key="inv.id">
+                                            <td>{{ inv.email }}</td>
+                                            <td>{{ inv.role }}</td>
+                                            <td>{{ inv.expires_at }}</td>
+                                            <td class="d-flex flex-wrap ga-1">
+                                                <v-btn
+                                                    variant="text"
+                                                    size="small"
+                                                    @click="openResend(inv)"
+                                                >
+                                                    Resend
+                                                </v-btn>
+                                                <v-btn
+                                                    variant="text"
+                                                    size="small"
+                                                    color="error"
+                                                    @click="openRevoke(inv)"
+                                                >
+                                                    Revoke
+                                                </v-btn>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </v-table>
+                                <v-alert v-else type="info" variant="tonal">
+                                    No pending invitations.
+                                </v-alert>
+                            </v-window-item>
+                        </v-window>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -168,7 +188,9 @@ const props = defineProps({
 
 const page = usePage();
 const currentUserId = computed(() => page.props.auth?.user?.id);
+const pendingCount = computed(() => props.pendingInvitations?.length ?? 0);
 
+const activeTab = ref('active');
 const inviteDialog = ref(false);
 const copySnackbar = ref(false);
 const inviteForm = useForm({
