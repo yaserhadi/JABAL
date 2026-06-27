@@ -151,13 +151,35 @@
         <v-dialog v-model="inviteDialog" max-width="480">
             <v-card title="Invite member">
                 <v-card-text>
-                    <v-text-field v-model="inviteForm.email" label="Email" type="email" />
+                    <v-alert
+                        v-if="suspendedMemberForInviteShortcut"
+                        type="warning"
+                        variant="tonal"
+                        class="mb-4"
+                    >
+                        This email belongs to a suspended member. Activate them to restore access.
+                        <v-btn
+                            class="mt-2"
+                            size="small"
+                            variant="outlined"
+                            @click="activateSuspendedFromInvite"
+                        >
+                            Activate member
+                        </v-btn>
+                    </v-alert>
+                    <v-text-field
+                        v-model="inviteForm.email"
+                        label="Email"
+                        type="email"
+                        :error-messages="inviteForm.errors.email"
+                    />
                     <v-select
                         v-model="inviteForm.role"
                         :items="roleOptions"
                         label="Role"
                         item-title="label"
                         item-value="value"
+                        :error-messages="inviteForm.errors.role"
                     />
                 </v-card-text>
                 <v-card-actions>
@@ -202,6 +224,30 @@ const roleOptions = [
     { label: 'Member', value: 'member' },
     { label: 'Tenant admin', value: 'tenant-admin' },
 ];
+
+const suspendedMemberForInviteShortcut = computed(() => {
+    if (!inviteForm.errors.email || !inviteForm.email) {
+        return null;
+    }
+
+    const normalized = inviteForm.email.trim().toLowerCase();
+
+    return props.members?.find(
+        (member) =>
+            member.status === 'suspended' &&
+            (member.user?.email ?? '').trim().toLowerCase() === normalized,
+    ) ?? null;
+});
+
+const activateSuspendedFromInvite = () => {
+    const member = suspendedMemberForInviteShortcut.value;
+    if (!member) {
+        return;
+    }
+
+    inviteDialog.value = false;
+    openActivate(member);
+};
 
 const copyUrl = async (url) => {
     await navigator.clipboard.writeText(url);

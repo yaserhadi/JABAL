@@ -53,37 +53,9 @@ class TenantInvitationService
                 }
             }
 
+            $this->assertInvitableEmail($tenant, $email);
+
             app(MembershipService::class)->assertSeatCapacityForInvitation($tenant->id);
-
-            $userIds = TenantUser::withoutGlobalScope('tenant')
-                ->where('email', $email)
-                ->pluck('id');
-
-            $existingMember = $userIds->isNotEmpty() && Membership::query()
-                ->withoutGlobalScope('tenant')
-                ->where('tenant_id', $tenant->id)
-                ->whereIn('user_id', $userIds)
-                ->where('status', 'active')
-                ->exists();
-
-            if ($existingMember) {
-                throw ValidationException::withMessages([
-                    'email' => ['This user is already an active member of the tenant.'],
-                ]);
-            }
-
-            $duplicatePending = TenantInvitation::query()
-                ->withoutGlobalScope('tenant')
-                ->where('tenant_id', $tenant->id)
-                ->where('email', $email)
-                ->pending()
-                ->exists();
-
-            if ($duplicatePending) {
-                throw ValidationException::withMessages([
-                    'email' => ['A pending invitation already exists for this email.'],
-                ]);
-            }
 
             $plainToken = Str::random(64);
             $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
@@ -252,6 +224,8 @@ class TenantInvitationService
         }
 
         try {
+            $this->assertResendEligible($tenant, $invitation);
+
             $plainToken = Str::random(64);
             $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
             $acceptUrl = url('/invitations/'.$plainToken);
@@ -361,6 +335,82 @@ class TenantInvitationService
             acceptUrl: $acceptUrl,
             expiresAt: $expiresAt,
         ));
+    }
+
+    protected function assertInvitableEmail(Tenant $tenant, string $email): void
+    {
+        $duplicatePending = TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenant->id)
+            ->where('email', $email)
+            ->pending()
+            ->exists();
+
+        if ($duplicatePending) {
+            throw ValidationException::withMessages([
+                'email' => ['A pending invitation already exists for this email.'],
+            ]);
+        }
+
+        $membership = $this->findMembershipForEmail($tenant, $email);
+
+        if (! $membership) {
+            return;
+        }
+
+        if ($membership->status === 'active') {
+            throw ValidationException::withMessages([
+                'email' => ['This user is already an active member of the tenant.'],
+            ]);
+        }
+
+        if ($membership->status === 'suspended') {
+            throw ValidationException::withMessages([
+                'email' => ['This email already belongs to a suspended member. Use Activate from the Active members tab to restore access.'],
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => ['This email is already associated with a membership record. Manage the member from the Active members tab.'],
+        ]);
+    }
+
+    protected function assertResendEligible(Tenant $tenant, TenantInvitation $invitation): void
+    {
+        $membership = $this->findMembershipForEmail($tenant, strtolower(trim($invitation->email)));
+
+        if (! $membership) {
+            return;
+        }
+
+        if ($membership->status === 'active') {
+            throw ValidationException::withMessages([
+                'email' => ['This user is already an active member of the tenant.'],
+            ]);
+        }
+
+        if ($membership->status === 'suspended') {
+            throw ValidationException::withMessages([
+                'email' => ['This email already belongs to a suspended member. Use Activate from the Active members tab to restore access.'],
+            ]);
+        }
+    }
+
+    protected function findMembershipForEmail(Tenant $tenant, string $email): ?Membership
+    {
+        $userIds = TenantUser::withoutGlobalScope('tenant')
+            ->where('email', $email)
+            ->pluck('id');
+
+        if ($userIds->isEmpty()) {
+            return null;
+        }
+
+        return Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('user_id', $userIds)
+            ->first();
     }
 
     protected function completeInvitation(

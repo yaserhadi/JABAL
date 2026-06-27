@@ -9,12 +9,14 @@ use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Modules\Billing\Models\Plan;
 use Modules\Billing\Models\Subscription;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Mail\TenantInvitationMail;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
+use Modules\Identity\Services\MembershipService;
 use Modules\Identity\Services\TenantInvitationService;
 use Modules\Tenancy\Models\Tenant;
 use Spatie\Permission\PermissionRegistrar;
@@ -734,5 +736,293 @@ class TenantInvitationTest extends TestCase
             ->assertJsonPath('data.email', $email);
 
         Mail::assertSent(TenantInvitationMail::class);
+    }
+
+    protected function pendingInvitationCountForEmail(string $email): int
+    {
+        $wasInitialized = tenancy()->initialized;
+        if (! $wasInitialized) {
+            tenancy()->initialize($this->tenant);
+        }
+
+        try {
+            return TenantInvitation::query()
+                ->withoutGlobalScope('tenant')
+                ->where('tenant_id', $this->tenant->id)
+                ->where('email', strtolower(trim($email)))
+                ->pending()
+                ->count();
+        } finally {
+            if (! $wasInitialized) {
+                tenancy()->end();
+            }
+        }
+    }
+
+    public function test_cannot_invite_active_member(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Active Member',
+            'email' => 'active-guard-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $this->createMembership($member, $this->tenant, 'member', 'active');
+
+        $email = strtolower($member->email);
+        $countBefore = $this->pendingInvitationCountForEmail($email);
+
+        try {
+            app(TenantInvitationService::class)->createInvitation(
+                $this->tenant,
+                $email,
+                $this->owner,
+                'member'
+            );
+            $this->fail('Expected ValidationException for active member invite.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('email', $e->errors());
+        }
+
+        Mail::assertNothingSent();
+        $this->assertSame($countBefore, $this->pendingInvitationCountForEmail($email));
+    }
+
+    public function test_cannot_invite_duplicate_pending(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'dup-pending-'.uniqid().'@example.com';
+
+        app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        Mail::assertSent(TenantInvitationMail::class, 1);
+
+        try {
+            app(TenantInvitationService::class)->createInvitation(
+                $this->tenant,
+                $email,
+                $this->owner,
+                'member'
+            );
+            $this->fail('Expected ValidationException for duplicate pending invite.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('email', $e->errors());
+        }
+
+        Mail::assertSent(TenantInvitationMail::class, 1);
+        $this->assertSame(1, $this->pendingInvitationCountForEmail($email));
+    }
+
+    public function test_cannot_invite_suspended_member(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Suspended Member',
+            'email' => 'suspended-guard-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $this->createMembership($member, $this->tenant, 'member', 'suspended');
+
+        $email = strtolower($member->email);
+        $countBefore = $this->pendingInvitationCountForEmail($email);
+
+        try {
+            app(TenantInvitationService::class)->createInvitation(
+                $this->tenant,
+                $email,
+                $this->owner,
+                'member'
+            );
+            $this->fail('Expected ValidationException for suspended member invite.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('Activate', $e->errors()['email'][0]);
+        }
+
+        Mail::assertNothingSent();
+        $this->assertSame($countBefore, $this->pendingInvitationCountForEmail($email));
+    }
+
+    public function test_cannot_invite_suspended_member_via_web(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Suspended Web',
+            'email' => 'suspended-web-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $this->createMembership($member, $this->tenant, 'member', 'suspended');
+
+        $response = $this->actingAsTenantUser($this->owner, $this->tenant)
+            ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'email' => $member->email,
+                'role' => 'member',
+            ]);
+
+        $response->assertSessionHasErrors('email');
+        Mail::assertNothingSent();
+        $this->assertSame(0, $this->pendingInvitationCountForEmail($member->email));
+    }
+
+    public function test_can_invite_after_member_removed(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Removed Member',
+            'email' => 'removed-guard-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $membership = $this->createMembership($member, $this->tenant, 'member', 'active');
+
+        app(MembershipService::class)->remove($membership, $this->tenant);
+
+        $sentBefore = count(Mail::sent(TenantInvitationMail::class));
+
+        app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $member->email,
+            $this->owner,
+            'member'
+        );
+
+        $this->assertSame($sentBefore + 1, count(Mail::sent(TenantInvitationMail::class)));
+        $this->assertSame(1, $this->pendingInvitationCountForEmail($member->email));
+    }
+
+    public function test_suspended_member_can_be_reinvited_after_removal(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Suspended Removed',
+            'email' => 'susp-removed-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $membership = $this->createMembership($member, $this->tenant, 'member', 'suspended');
+
+        app(MembershipService::class)->remove($membership, $this->tenant);
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $member->email,
+            $this->owner,
+            'member'
+        );
+
+        $accepted = app(TenantInvitationService::class)->acceptInvitation(
+            $result['plainToken'],
+            $member
+        );
+
+        $this->assertSame('active', $accepted->status);
+        $this->assertSame($member->id, $accepted->user_id);
+    }
+
+    public function test_removed_member_reinvite_accept_flow(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Reinvite Flow',
+            'email' => 'reinvite-flow-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        $membership = $this->createMembership($member, $this->tenant, 'member', 'active');
+
+        app(MembershipService::class)->remove($membership, $this->tenant);
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $member->email,
+            $this->owner,
+            'member'
+        );
+
+        $accepted = app(TenantInvitationService::class)->acceptInvitation(
+            $result['plainToken'],
+            $member
+        );
+
+        $this->assertSame('active', $accepted->status);
+        tenancy()->initialize($this->tenant);
+        $this->assertSame(1, Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->tenant->id)
+            ->where('user_id', $member->id)
+            ->where('status', 'active')
+            ->count());
+        tenancy()->end();
+    }
+
+    public function test_resend_still_works_for_valid_pending_invite(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'resend-valid-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        Mail::assertSent(TenantInvitationMail::class, 1);
+
+        app(TenantInvitationService::class)->reissueInvitation(
+            $result['invitation']->fresh(),
+            $this->owner
+        );
+
+        Mail::assertSent(TenantInvitationMail::class, 2);
+        $this->assertSame(1, $this->pendingInvitationCountForEmail($email));
+    }
+
+    public function test_resend_blocked_when_email_now_active_member(): void
+    {
+        $this->assignAdminPermissions($this->owner, $this->tenant);
+        $email = 'resend-blocked-'.uniqid().'@example.com';
+
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $email,
+            $this->owner,
+            'member'
+        );
+
+        $member = User::withoutGlobalScope('tenant')->create([
+            'id' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Joined While Pending',
+            'email' => $email,
+            'password' => 'password',
+        ]);
+        $this->createMembership($member, $this->tenant, 'member', 'active');
+
+        $this->expectException(ValidationException::class);
+
+        app(TenantInvitationService::class)->reissueInvitation(
+            $result['invitation']->fresh(),
+            $this->owner
+        );
     }
 }
