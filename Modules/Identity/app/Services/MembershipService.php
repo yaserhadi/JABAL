@@ -11,6 +11,7 @@ use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
+use Modules\Tenancy\Services\TenantSettingsService;
 use Spatie\Permission\PermissionRegistrar;
 
 class MembershipService
@@ -129,31 +130,80 @@ class MembershipService
         });
     }
 
-    public function remove(Membership $membership, Tenant $tenant): void
+    /**
+     * @return string Removal mode applied: permanent|reversible
+     */
+    public function remove(Membership $membership, Tenant $tenant): string
     {
-        $this->withTenantContext($tenant->id, function () use ($membership, $tenant) {
-            DB::connection('tenant')->transaction(function () use ($membership, $tenant) {
-                $ownerCount = Membership::query()
-                    ->withoutGlobalScope('tenant')
-                    ->where('tenant_id', $tenant->id)
-                    ->where('membership_type', 'owner')
-                    ->where('status', 'active')
-                    ->count();
+        $mode = app(TenantSettingsService::class)->memberRemovalMode($tenant);
 
-                if ($ownerCount <= 1 && $membership->isOwner() && $membership->status === 'active') {
-                    throw new InvalidArgumentException('Cannot remove the last owner of the tenant.');
+        $this->withTenantContext($tenant->id, function () use ($membership, $tenant, $mode) {
+            DB::connection('tenant')->transaction(function () use ($membership, $tenant, $mode) {
+                $membership->refresh();
+                $this->assertNotLastActiveOwner($membership, $tenant);
+                $this->clearMemberRoles($membership, $tenant);
+
+                if ($mode === TenantSettingsService::REMOVAL_MODE_REVERSIBLE) {
+                    $membership->update([
+                        'status' => 'removed',
+                        'removed_at' => $membership->removed_at ?? now(),
+                    ]);
+
+                    return;
                 }
+
+                $membership->delete();
+            });
+        });
+
+        return $mode;
+    }
+
+    public function restore(Membership $membership, Tenant $tenant): void
+    {
+        if ($membership->status !== 'removed') {
+            throw new InvalidArgumentException('Member is not in removed status.');
+        }
+
+        $this->withTenantContext($tenant->id, function () use ($membership, $tenant) {
+            $this->assertSeatCapacity($tenant->id);
+
+            DB::connection('tenant')->transaction(function () use ($membership, $tenant) {
+                $membership->refresh();
+
+                if ($membership->status !== 'removed') {
+                    throw new InvalidArgumentException('Member is not in removed status.');
+                }
+
+                $membership->update([
+                    'status' => 'active',
+                    'removed_at' => null,
+                    'joined_at' => $membership->joined_at ?? now(),
+                ]);
 
                 $user = User::withoutGlobalScope('tenant')->find($membership->user_id);
                 if ($user) {
                     app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
                     try {
-                        $user->syncRoles([]);
+                        $user->syncRoles(['member']);
                     } finally {
                         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
                     }
                 }
+            });
+        });
+    }
 
+    public function deleteForever(Membership $membership, Tenant $tenant): void
+    {
+        if ($membership->status !== 'removed') {
+            throw new InvalidArgumentException('Member is not in removed status.');
+        }
+
+        $this->withTenantContext($tenant->id, function () use ($membership, $tenant) {
+            DB::connection('tenant')->transaction(function () use ($membership, $tenant) {
+                $membership->refresh();
+                $this->assertCanPermanentlyDeleteRemovedOwner($membership, $tenant);
                 $membership->delete();
             });
         });
@@ -217,6 +267,58 @@ class MembershipService
 
         if ($used >= $limit) {
             throw new InvalidArgumentException('Seat limit reached for this tenant.');
+        }
+    }
+
+    protected function assertNotLastActiveOwner(Membership $membership, Tenant $tenant): void
+    {
+        if ($membership->status !== 'active' || ! $membership->isOwner()) {
+            return;
+        }
+
+        $ownerCount = Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenant->id)
+            ->where('membership_type', 'owner')
+            ->where('status', 'active')
+            ->count();
+
+        if ($ownerCount <= 1) {
+            throw new InvalidArgumentException('Cannot remove the last owner of the tenant.');
+        }
+    }
+
+    protected function assertCanPermanentlyDeleteRemovedOwner(Membership $membership, Tenant $tenant): void
+    {
+        if (! $membership->isOwner()) {
+            return;
+        }
+
+        $hasOtherActiveOwner = Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenant->id)
+            ->where('membership_type', 'owner')
+            ->where('status', 'active')
+            ->where('user_id', '!=', $membership->user_id)
+            ->exists();
+
+        if (! $hasOtherActiveOwner) {
+            throw new InvalidArgumentException('Cannot remove the last owner of the tenant.');
+        }
+    }
+
+    protected function clearMemberRoles(Membership $membership, Tenant $tenant): void
+    {
+        $user = User::withoutGlobalScope('tenant')->find($membership->user_id);
+        if (! $user) {
+            return;
+        }
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+        try {
+            $user->syncRoles([]);
+        } finally {
+            app(PermissionRegistrar::class)->setPermissionsTeamId(null);
         }
     }
 

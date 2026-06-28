@@ -78,6 +78,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::delete('members/{user}', [TenantMemberController::class, 'remove'])
                 ->middleware('permission:member.remove')
                 ->name('members.remove');
+            Route::post('members/{user}/restore', [TenantMemberController::class, 'restore'])
+                ->middleware('permission:member.remove')
+                ->name('members.restore');
+            Route::delete('members/{user}/permanent', [TenantMemberController::class, 'deleteForever'])
+                ->middleware('permission:member.remove')
+                ->name('members.delete-forever');
             Route::post('members/{user}/transfer-ownership', [TenantMemberController::class, 'transferOwnership'])
                 ->name('members.transfer');
 

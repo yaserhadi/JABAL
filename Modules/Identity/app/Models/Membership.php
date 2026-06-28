@@ -38,10 +38,12 @@ class Membership extends Model
         'membership_type',
         'status',
         'joined_at',
+        'removed_at',
     ];
 
     protected $casts = [
         'joined_at' => 'datetime',
+        'removed_at' => 'datetime',
     ];
 
     public function tenant(): BelongsTo
@@ -59,6 +61,16 @@ class Membership extends Model
         return $query->where('status', 'active');
     }
 
+    public function scopeVisible($query)
+    {
+        return $query->where('status', '!=', 'removed');
+    }
+
+    public function scopeRemoved($query)
+    {
+        return $query->where('status', 'removed');
+    }
+
     public function scopeOwners($query)
     {
         return $query->where('membership_type', 'owner');
@@ -72,5 +84,10 @@ class Membership extends Model
     public function isAdmin(): bool
     {
         return $this->membership_type === 'admin';
+    }
+
+    public function isRemoved(): bool
+    {
+        return $this->status === 'removed';
     }
 }

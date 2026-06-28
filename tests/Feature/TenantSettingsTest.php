@@ -230,4 +230,33 @@ class TenantSettingsTest extends TestCase
 
         $patch->assertStatus(200)->assertJsonPath('data.display_name', 'API Tenant');
     }
+
+    public function test_member_removal_mode_can_be_updated(): void
+    {
+        $this->assignTenantAdmin($this->owner, $this->tenant);
+        $this->actingAs($this->owner);
+        tenancy()->initialize($this->tenant);
+
+        $response = $this->patch('/t/'.$this->tenant->id.'/settings', [
+            'member_removal_mode' => 'reversible',
+            'timezone' => 'UTC',
+            'locale' => 'en',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame('reversible', app(\Modules\Tenancy\Services\TenantSettingsService::class)->memberRemovalMode($this->tenant));
+    }
+
+    public function test_invalid_member_removal_mode_rejected(): void
+    {
+        $this->assignTenantAdmin($this->owner, $this->tenant);
+        $this->actingAs($this->owner);
+        tenancy()->initialize($this->tenant);
+
+        $response = $this->patchJson('/t/'.$this->tenant->id.'/settings', [
+            'member_removal_mode' => 'soft_delete',
+        ]);
+
+        $response->assertStatus(422);
+    }
 }
