@@ -110,6 +110,12 @@ Route::prefix('t/{tenant}')
         Route::delete('/members/{user}', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'remove'])
             ->middleware('permission:member.remove')
             ->name('members.remove');
+        Route::post('/members/{user}/restore', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'restore'])
+            ->middleware('permission:member.remove')
+            ->name('members.restore');
+        Route::delete('/members/{user}/permanent', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'deleteForever'])
+            ->middleware('permission:member.remove')
+            ->name('members.delete-forever');
         Route::post('/members/{user}/transfer-ownership', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'transferOwnership'])
             ->name('members.transfer-ownership');
     });

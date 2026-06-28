@@ -38,6 +38,16 @@
                                     class="ms-2"
                                 />
                             </v-tab>
+                            <v-tab value="removed">
+                                <span>Removed members</span>
+                                <v-badge
+                                    v-if="removedCount > 0"
+                                    :content="removedCount"
+                                    color="error"
+                                    inline
+                                    class="ms-2"
+                                />
+                            </v-tab>
                         </v-tabs>
 
                         <v-window v-model="activeTab">
@@ -142,6 +152,47 @@
                                     No pending invitations.
                                 </v-alert>
                             </v-window-item>
+
+                            <v-window-item value="removed">
+                                <v-table v-if="removedMembers?.length" density="compact">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Removed at</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="m in removedMembers" :key="m.id">
+                                            <td>{{ m.user?.name }}</td>
+                                            <td>{{ m.user?.email }}</td>
+                                            <td>{{ m.removed_at || '-' }}</td>
+                                            <td class="d-flex flex-wrap ga-1">
+                                                <v-btn
+                                                    variant="text"
+                                                    size="small"
+                                                    color="primary"
+                                                    @click="openRestore(m)"
+                                                >
+                                                    Restore
+                                                </v-btn>
+                                                <v-btn
+                                                    variant="text"
+                                                    size="small"
+                                                    color="error"
+                                                    @click="openDeleteForever(m)"
+                                                >
+                                                    Delete forever
+                                                </v-btn>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </v-table>
+                                <v-alert v-else type="info" variant="tonal">
+                                    No removed members.
+                                </v-alert>
+                            </v-window-item>
                         </v-window>
                     </v-card-text>
                 </v-card>
@@ -203,6 +254,8 @@ import { route } from 'ziggy-js';
 const props = defineProps({
     tenant: Object,
     members: Array,
+    removedMembers: Array,
+    memberRemovalMode: String,
     pendingInvitations: Array,
     actorIsOwner: Boolean,
     flash: Object,
@@ -211,6 +264,7 @@ const props = defineProps({
 const page = usePage();
 const currentUserId = computed(() => page.props.auth?.user?.id);
 const pendingCount = computed(() => props.pendingInvitations?.length ?? 0);
+const removedCount = computed(() => props.removedMembers?.length ?? 0);
 
 const activeTab = ref('active');
 const inviteDialog = ref(false);
@@ -277,9 +331,28 @@ const openActivate = (member) => {
 };
 
 const openRemove = (member) => {
-    if (!confirm(`Remove ${member.user?.name} from this tenant?`)) return;
+    const modeHint = props.memberRemovalMode === 'reversible'
+        ? ' They will appear on the Removed members tab and can be restored.'
+        : ' This permanently removes their membership.';
+    if (!confirm(`Remove ${member.user?.name} from this tenant?${modeHint}`)) return;
     if (!props.tenant) return;
     router.delete(route('members.remove', { tenant: props.tenant.id, user: member.user_id }));
+};
+
+const openRestore = (member) => {
+    if (!confirm(`Restore ${member.user?.name} as a standard member? Previous roles will not be restored.`)) return;
+    if (!props.tenant) return;
+    router.post(route('members.restore', { tenant: props.tenant.id, user: member.user_id }), {}, {
+        preserveScroll: true,
+    });
+};
+
+const openDeleteForever = (member) => {
+    if (!confirm(`Permanently delete ${member.user?.name}? This cannot be undone.`)) return;
+    if (!props.tenant) return;
+    router.delete(route('members.delete-forever', { tenant: props.tenant.id, user: member.user_id }), {
+        preserveScroll: true,
+    });
 };
 
 const openTransfer = (member) => {

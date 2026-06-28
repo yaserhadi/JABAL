@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $timezone
  * @property string|null $locale
  * @property string|null $branding_logo_url
+ * @property string|null $member_removal_mode
  */
 class TenantSetting extends Model
 {
@@ -30,6 +31,7 @@ class TenantSetting extends Model
         'timezone',
         'locale',
         'branding_logo_url',
+        'member_removal_mode',
     ];
 
     public function tenant(): BelongsTo

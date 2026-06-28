@@ -370,6 +370,12 @@ class TenantInvitationService
             ]);
         }
 
+        if ($membership->status === 'removed') {
+            throw ValidationException::withMessages([
+                'email' => ['This email belongs to a removed member. Restore them from the Removed members tab, or delete the record permanently to invite again.'],
+            ]);
+        }
+
         throw ValidationException::withMessages([
             'email' => ['This email is already associated with a membership record. Manage the member from the Active members tab.'],
         ]);
@@ -392,6 +398,12 @@ class TenantInvitationService
         if ($membership->status === 'suspended') {
             throw ValidationException::withMessages([
                 'email' => ['This email already belongs to a suspended member. Use Activate from the Active members tab to restore access.'],
+            ]);
+        }
+
+        if ($membership->status === 'removed') {
+            throw ValidationException::withMessages([
+                'email' => ['This email belongs to a removed member. Restore them from the Removed members tab, or delete the record permanently to invite again.'],
             ]);
         }
     }

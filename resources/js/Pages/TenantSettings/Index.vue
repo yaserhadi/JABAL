@@ -38,6 +38,16 @@
                                 label="Logo URL"
                                 hint="HTTPS URL to an image"
                                 persistent-hint
+                                class="mb-2"
+                            />
+                            <v-select
+                                v-model="form.member_removal_mode"
+                                :items="removalModeOptions"
+                                label="Removal Mode"
+                                hint="How future Remove actions behave for members"
+                                persistent-hint
+                                item-title="label"
+                                item-value="value"
                                 class="mb-4"
                             />
 
@@ -83,7 +93,13 @@ const form = useForm({
     timezone: props.settings.timezone ?? 'UTC',
     locale: props.settings.locale ?? 'en',
     branding_logo_url: props.settings.branding_logo_url ?? '',
+    member_removal_mode: props.settings.member_removal_mode ?? 'permanent',
 });
+
+const removalModeOptions = [
+    { label: 'Permanent', value: 'permanent' },
+    { label: 'Reversible', value: 'reversible' },
+];
 
 function submit() {
     if (!tenant_ui_permissions.value?.canUpdateTenantSettings) {

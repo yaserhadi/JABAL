@@ -26,6 +26,7 @@ class UpdateTenantSettingsRequest extends FormRequest
             'timezone' => ['sometimes', 'nullable', 'string', Rule::in($identifiers)],
             'locale' => ['sometimes', 'nullable', 'string', Rule::in($locales)],
             'branding_logo_url' => ['sometimes', 'nullable', 'string', 'url', 'max:2048'],
+            'member_removal_mode' => ['sometimes', 'nullable', 'string', Rule::in(['permanent', 'reversible'])],
         ];
     }
 }

@@ -148,6 +148,8 @@ const humanizeEvent = (event) => {
         'tenant_member.invitation_accepted': 'Invitation accepted',
         'tenant_member.invitation_revoked': 'Invitation revoked',
         'tenant_member.removed': 'Member removed',
+        'tenant_member.restored': 'Member restored',
+        'tenant_member.permanently_deleted': 'Member permanently deleted',
         'tenant_member.role_changed': 'Role changed',
         'tenant_member.suspended': 'Member suspended',
         'tenant_member.activated': 'Member activated',

@@ -17,6 +17,7 @@ use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
 use Modules\Identity\Services\MembershipService;
 use Modules\Identity\Services\TenantInvitationService;
+use Modules\Tenancy\Services\TenantSettingsService;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -39,6 +40,13 @@ class TenantMemberController extends Controller
         }
 
         $memberships = Membership::query()
+            ->visible()
+            ->where('tenant_id', $tenant->id)
+            ->with('user')
+            ->get();
+
+        $removedMemberships = Membership::query()
+            ->removed()
             ->where('tenant_id', $tenant->id)
             ->with('user')
             ->get();
@@ -64,6 +72,25 @@ class TenantMemberController extends Controller
         });
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
+        $removedMembers = $removedMemberships->map(function (Membership $membership) {
+            $user = $membership->user;
+
+            return [
+                'id' => $membership->id,
+                'user_id' => $membership->user_id,
+                'membership_type' => $membership->membership_type,
+                'status' => $membership->status,
+                'removed_at' => $membership->removed_at?->toIso8601String(),
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ] : null,
+            ];
+        });
+
+        $memberRemovalMode = app(TenantSettingsService::class)->memberRemovalMode($tenant);
+
         $pendingInvitations = $this->invitationService->pendingForTenant($tenant)->map(fn ($inv) => [
             'id' => $inv->id,
             'email' => $inv->email,
@@ -77,6 +104,8 @@ class TenantMemberController extends Controller
         if ($request->expectsJson()) {
             return ApiResponse::success([
                 'members' => $members->toArray(),
+                'removed_members' => $removedMembers->toArray(),
+                'member_removal_mode' => $memberRemovalMode,
                 'pending_invitations' => $pendingInvitations->toArray(),
                 'actor_is_owner' => $actorMembership?->isOwner() ?? false,
             ]);
@@ -87,6 +116,8 @@ class TenantMemberController extends Controller
         return Inertia::render('Members/Index', [
             'tenant' => $tenantData,
             'members' => $members,
+            'removedMembers' => $removedMembers,
+            'memberRemovalMode' => $memberRemovalMode,
             'pendingInvitations' => $pendingInvitations,
             'actorIsOwner' => $actorMembership?->isOwner() ?? false,
         ]);
@@ -201,7 +232,7 @@ class TenantMemberController extends Controller
 
         try {
             $membershipId = $membership->id;
-            $this->membershipService->remove($membership, $tenantModel);
+            $removalMode = $this->membershipService->remove($membership, $tenantModel);
 
             app(AuditLoggerInterface::class)->log('tenant_member.removed', [
                 'auditable_type' => Membership::class,
@@ -209,6 +240,11 @@ class TenantMemberController extends Controller
                 'old_values' => [
                     'user_id' => $targetUser->id,
                     'tenant_id' => $tenantModel->id,
+                ],
+                'new_values' => [
+                    'user_id' => $targetUser->id,
+                    'tenant_id' => $tenantModel->id,
+                    'removal_mode' => $removalMode,
                 ],
             ]);
         } catch (InvalidArgumentException $e) {
@@ -220,6 +256,94 @@ class TenantMemberController extends Controller
         }
 
         return back()->with('success', 'Member removed successfully.');
+    }
+
+    public function restore(Request $request, string $user): JsonResponse|RedirectResponse
+    {
+        $user = (string) $request->route('user');
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $targetUser = $this->resolveApplicationUser($user);
+        $membership = Membership::query()
+            ->removed()
+            ->where('tenant_id', $tenantModel->id)
+            ->where('user_id', $targetUser->id)
+            ->first();
+
+        if (! $membership) {
+            abort(404);
+        }
+
+        $previousRemovedAt = $membership->removed_at?->toIso8601String();
+
+        try {
+            $this->membershipService->restore($membership, $tenantModel);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['user' => [$e->getMessage()]]);
+        }
+
+        app(AuditLoggerInterface::class)->log('tenant_member.restored', [
+            'auditable_type' => Membership::class,
+            'auditable_id' => $membership->id,
+            'new_values' => [
+                'user_id' => $targetUser->id,
+                'tenant_id' => $tenantModel->id,
+                'restored_by' => auth()->id(),
+                'previous_removed_at' => $previousRemovedAt,
+            ],
+        ]);
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success(['restored' => true]);
+        }
+
+        return back()->with('success', 'Member restored successfully.');
+    }
+
+    public function deleteForever(Request $request, string $user): JsonResponse|RedirectResponse
+    {
+        $user = (string) $request->route('user');
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $targetUser = $this->resolveApplicationUser($user);
+        $membership = Membership::query()
+            ->removed()
+            ->where('tenant_id', $tenantModel->id)
+            ->where('user_id', $targetUser->id)
+            ->first();
+
+        if (! $membership) {
+            abort(404);
+        }
+
+        $membershipId = $membership->id;
+
+        try {
+            $this->membershipService->deleteForever($membership, $tenantModel);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['user' => [$e->getMessage()]]);
+        }
+
+        app(AuditLoggerInterface::class)->log('tenant_member.permanently_deleted', [
+            'auditable_type' => Membership::class,
+            'auditable_id' => $membershipId,
+            'old_values' => [
+                'user_id' => $targetUser->id,
+                'tenant_id' => $tenantModel->id,
+            ],
+        ]);
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success(['deleted' => true]);
+        }
+
+        return back()->with('success', 'Member permanently deleted.');
     }
 
     public function revokeInvitation(Request $request, string $invitation): JsonResponse|RedirectResponse
