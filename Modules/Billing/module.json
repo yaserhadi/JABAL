@@ -1,7 +1,7 @@
 {
     "name": "Billing",
     "alias": "billing",
-    "description": "Platform billing, plans, subscriptions, entitlements (ADR-0004)",
+    "description": "Platform billing, plans, subscriptions, entitlements (DEC-0004)",
     "keywords": [],
     "priority": 0,
     "providers": [
