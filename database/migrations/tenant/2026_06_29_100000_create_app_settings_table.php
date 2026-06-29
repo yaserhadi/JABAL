@@ -4,33 +4,33 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * BK-028 / DEC-0011: Tenant-owned operational settings on tenant data layer.
+ *
+ * @see Modules\Tenancy\Models\AppSetting
+ */
 return new class extends Migration
 {
-    /**
-     * Phase 3D: Central tenant settings (1:1 with tenants).
-     *
-     * BK-028 / DEC-0011: Operational columns deprecated — runtime uses tenant `app_settings`.
-     * Retained for backfill source and rollback; do not drop in BK-028.
-     *
-     * @see Phase 3D plan — scope lock on columns.
-     */
+    protected $connection = 'tenant';
+
     public function up(): void
     {
-        Schema::connection('central')->create('tenant_settings', function (Blueprint $table) {
+        Schema::connection('tenant')->create('app_settings', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('tenant_id')->unique();
             $table->string('display_name')->nullable();
             $table->string('timezone')->nullable();
             $table->string('locale', 32)->nullable();
             $table->string('branding_logo_url', 2048)->nullable();
+            $table->string('member_removal_mode', 32)->nullable();
             $table->timestamps();
 
-            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            $table->index('tenant_id');
         });
     }
 
     public function down(): void
     {
-        Schema::connection('central')->dropIfExists('tenant_settings');
+        Schema::connection('tenant')->dropIfExists('app_settings');
     }
 };

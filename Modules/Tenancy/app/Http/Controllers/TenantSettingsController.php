@@ -13,7 +13,7 @@ use Modules\Tenancy\Http\Requests\UpdateTenantSettingsRequest;
 use Modules\Tenancy\Services\TenantSettingsService;
 
 /**
- * Phase 3D: Tenant-admin settings (central tenant_settings).
+ * Phase 3D / BK-028: Tenant-admin settings (tenant app_settings per DEC-0011).
  */
 class TenantSettingsController extends Controller
 {

@@ -2,13 +2,12 @@
 
 namespace Modules\Tenancy\Models;
 
+use App\Support\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * @deprecated BK-028 — Legacy central operational settings. Source for one-time backfill only.
- *             Runtime reads/writes use {@see AppSetting} via {@see TenantSettingsService}.
+ * BK-028 / DEC-0011: Tenant-owned operational settings (tenant data layer).
  *
  * @property string $id
  * @property string $tenant_id
@@ -18,13 +17,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $branding_logo_url
  * @property string|null $member_removal_mode
  */
-class TenantSetting extends Model
+class AppSetting extends Model
 {
+    use BelongsToTenant;
     use HasUuids;
 
-    protected $connection = 'central';
+    protected $connection = 'tenant';
 
-    protected $table = 'tenant_settings';
+    protected $table = 'app_settings';
 
     protected $fillable = [
         'tenant_id',
@@ -34,9 +34,4 @@ class TenantSetting extends Model
         'branding_logo_url',
         'member_removal_mode',
     ];
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class, 'tenant_id');
-    }
 }

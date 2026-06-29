@@ -46,7 +46,9 @@ class TenancyServiceProvider extends ServiceProvider
      */
     protected function registerCommands(): void
     {
-        // $this->commands([]);
+        $this->commands([
+            \Modules\Tenancy\Console\BackfillAppSettingsCommand::class,
+        ]);
     }
 
     /**

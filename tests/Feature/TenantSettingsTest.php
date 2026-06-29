@@ -7,13 +7,13 @@ use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Audit\Models\AuditLog;
+use Modules\Tenancy\Models\AppSetting;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantSetting;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
- * Phase 3D: Tenant settings (central tenant_settings, RBAC, API, audit).
+ * BK-028 / DEC-0011: Tenant settings (tenant app_settings, RBAC, API, audit).
  */
 class TenantSettingsTest extends TestCase
 {
@@ -134,7 +134,8 @@ class TenantSettingsTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $row = TenantSetting::query()->where('tenant_id', $this->tenant->id)->first();
+        tenancy()->initialize($this->tenant);
+        $row = AppSetting::query()->where('tenant_id', $this->tenant->id)->first();
         $this->assertNotNull($row);
         $this->assertSame('Acme Corp', $row->display_name);
         $this->assertSame('UTC', $row->timezone);
