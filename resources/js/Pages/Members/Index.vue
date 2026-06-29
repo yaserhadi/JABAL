@@ -38,7 +38,7 @@
                                     class="ms-2"
                                 />
                             </v-tab>
-                            <v-tab value="removed">
+                            <v-tab v-if="showRemovedTab" value="removed">
                                 <span>Removed members</span>
                                 <v-badge
                                     v-if="removedCount > 0"
@@ -153,7 +153,7 @@
                                 </v-alert>
                             </v-window-item>
 
-                            <v-window-item value="removed">
+                            <v-window-item v-if="showRemovedTab" value="removed">
                                 <v-table v-if="removedMembers?.length" density="compact">
                                     <thead>
                                         <tr>
@@ -248,7 +248,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { route } from 'ziggy-js';
 
 const props = defineProps({
@@ -265,8 +265,17 @@ const page = usePage();
 const currentUserId = computed(() => page.props.auth?.user?.id);
 const pendingCount = computed(() => props.pendingInvitations?.length ?? 0);
 const removedCount = computed(() => props.removedMembers?.length ?? 0);
+const showRemovedTab = computed(
+    () => props.memberRemovalMode === 'reversible' || removedCount.value > 0,
+);
 
 const activeTab = ref('active');
+
+watch(showRemovedTab, (visible) => {
+    if (!visible && activeTab.value === 'removed') {
+        activeTab.value = 'active';
+    }
+});
 const inviteDialog = ref(false);
 const copySnackbar = ref(false);
 const inviteForm = useForm({
