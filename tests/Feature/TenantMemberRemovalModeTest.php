@@ -14,8 +14,8 @@ use Modules\Billing\Models\Subscription;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Services\MembershipService;
 use Modules\Identity\Services\TenantInvitationService;
+use Modules\Tenancy\Models\AppSetting;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantSetting;
 use Modules\Tenancy\Services\TenantSettingsService;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -83,7 +83,8 @@ class TenantMemberRemovalModeTest extends TestCase
 
     protected function setRemovalMode(Tenant $tenant, string $mode): void
     {
-        TenantSetting::query()->updateOrCreate(
+        tenancy()->initialize($tenant);
+        AppSetting::query()->updateOrCreate(
             ['tenant_id' => $tenant->id],
             ['member_removal_mode' => $mode]
         );
@@ -104,7 +105,8 @@ class TenantMemberRemovalModeTest extends TestCase
 
     public function test_member_removal_mode_null_falls_back_to_permanent(): void
     {
-        TenantSetting::query()->create([
+        tenancy()->initialize($this->tenant);
+        AppSetting::query()->create([
             'tenant_id' => $this->tenant->id,
             'member_removal_mode' => null,
         ]);
@@ -114,7 +116,8 @@ class TenantMemberRemovalModeTest extends TestCase
 
     public function test_member_removal_mode_invalid_falls_back_to_permanent(): void
     {
-        TenantSetting::query()->create([
+        tenancy()->initialize($this->tenant);
+        AppSetting::query()->create([
             'tenant_id' => $this->tenant->id,
             'member_removal_mode' => 'legacy_soft_delete',
         ]);

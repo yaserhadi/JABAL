@@ -50,7 +50,7 @@ class Tenant extends Model implements TenantContract
     ];
 
     /**
-     * Tenant settings (central metadata on tenant registry).
+     * @deprecated BK-028 — use AppSetting on tenant DB via TenantSettingsService.
      */
     public function tenantSettings(): HasOne
     {
