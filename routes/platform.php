@@ -6,6 +6,7 @@ use App\Http\Middleware\RedirectIfPlatformAuthenticated;
 use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
 use Modules\Settings\Http\Controllers\SettingsController;
+use Modules\Tenancy\Http\Controllers\PlatformTenantOnboardingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,5 +31,7 @@ Route::middleware([EnsureNoTenancy::class])->prefix('platform')->name('platform.
 
         Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
         Route::get('audit/{id}', [AuditController::class, 'show'])->name('audit.show');
+
+        Route::post('tenants', [PlatformTenantOnboardingController::class, 'store'])->name('tenants.store');
     });
 });

@@ -48,6 +48,8 @@ class TenancyServiceProvider extends ServiceProvider
     {
         $this->commands([
             \Modules\Tenancy\Console\BackfillAppSettingsCommand::class,
+            \Modules\Tenancy\Console\OnboardOrganizationTenantCommand::class,
+            \Modules\Tenancy\Console\ProvisionTenantStorageCommand::class,
         ]);
     }
 
