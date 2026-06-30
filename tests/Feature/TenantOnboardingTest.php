@@ -3,14 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\PlatformUser;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Data\TenantOnboardingInput;
 use Modules\Tenancy\Data\TenantProvisioningResult;
 use Modules\Tenancy\Models\Tenant;
-use Modules\Tenancy\Models\TenantDatabaseConfig;
 use Modules\Tenancy\Services\TenantOnboardingService;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;

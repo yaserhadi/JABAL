@@ -2,12 +2,15 @@
 
 namespace Modules\Identity\Models;
 
+use App\Support\Traits\ResolvesTenantStorageConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Tenant-layer MFA record (ADR-0007 — Wave 3 4B-1 rewrite). */
 class UserMfa extends Model
 {
+    use ResolvesTenantStorageConnection;
+
     protected $connection = 'tenant';
 
     protected $table = 'user_mfa';

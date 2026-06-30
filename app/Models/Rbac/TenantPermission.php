@@ -2,6 +2,7 @@
 
 namespace App\Models\Rbac;
 
+use App\Support\Traits\ResolvesTenantStorageConnection;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -9,5 +10,7 @@ use Spatie\Permission\Models\Permission;
  */
 class TenantPermission extends Permission
 {
+    use ResolvesTenantStorageConnection;
+
     protected $connection = 'tenant';
 }

@@ -3,7 +3,9 @@
 namespace Modules\Identity\Models;
 
 use App\Support\Audit\Auditable;
+use App\Support\Tenancy\TenantAuthLookup;
 use App\Support\Traits\BelongsToTenant;
+use App\Support\Traits\ResolvesTenantStorageConnection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +26,7 @@ class TenantUser extends Authenticatable
     use BelongsToTenant;
     use HasApiTokens;
     use HasFactory;
+    use ResolvesTenantStorageConnection;
 
     protected static function newFactory(): \Database\Factories\UserFactory
     {
@@ -96,7 +99,7 @@ class TenantUser extends Authenticatable
      */
     public static function findForLogin(string $email): ?self
     {
-        return static::withoutGlobalScope('tenant')->where('email', $email)->first();
+        return app(TenantAuthLookup::class)->findUserByEmail($email);
     }
 
     public function scopeForTenant(Builder $query, string $tenantId): Builder

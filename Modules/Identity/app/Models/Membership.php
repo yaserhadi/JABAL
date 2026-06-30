@@ -3,6 +3,7 @@
 namespace Modules\Identity\Models;
 
 use App\Support\Traits\BelongsToTenant;
+use App\Support\Traits\ResolvesTenantStorageConnection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ class Membership extends Model
     use BelongsToTenant;
     use HasFactory;
     use HasUuids;
+    use ResolvesTenantStorageConnection;
 
     protected static function newFactory(): \Database\Factories\MembershipFactory
     {

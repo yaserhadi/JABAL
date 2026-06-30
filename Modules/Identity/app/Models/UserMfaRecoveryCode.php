@@ -2,12 +2,14 @@
 
 namespace Modules\Identity\Models;
 
+use App\Support\Traits\ResolvesTenantStorageConnection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 class UserMfaRecoveryCode extends Model
 {
     use HasUuids;
+    use ResolvesTenantStorageConnection;
 
     protected $connection = 'tenant';
 

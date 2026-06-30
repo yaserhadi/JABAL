@@ -3,7 +3,6 @@
 namespace App\Support\Tenancy;
 
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantDatabaseConfig;
@@ -16,7 +15,8 @@ class TenantDatabaseProvisioner
 {
     public function __construct(
         private readonly TenantStorageResolver $resolver,
-        private readonly TenantConnectionRegistry $connectionRegistry
+        private readonly TenantConnectionRegistry $connectionRegistry,
+        private readonly TenantLayerMigrationRunner $migrationRunner,
     ) {}
 
     public function provision(Tenant $tenant): void
@@ -80,11 +80,7 @@ class TenantDatabaseProvisioner
 
             $this->connectionRegistry->register($tenant);
 
-            Artisan::call('migrate', [
-                '--database' => $this->resolver->connectionFor($tenant),
-                '--path' => 'database/migrations/tenant',
-                '--force' => true,
-            ]);
+            $this->migrationRunner->runMigrations($databaseName);
 
             $config->update(['provisioning_status' => 'active']);
         } catch (Throwable $e) {
