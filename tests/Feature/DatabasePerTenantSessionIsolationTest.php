@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\Tenancy\TenantLayerMigrationRunner;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,8 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         config(['tenancy_storage.mode' => 'database_per_tenant']);
         $this->requirePhysicalDatabase(self::DB_A);
         $this->requirePhysicalDatabase(self::DB_B);
+        app(TenantLayerMigrationRunner::class)->ensureMigrated(self::DB_A);
+        app(TenantLayerMigrationRunner::class)->ensureMigrated(self::DB_B);
         $this->registerPhysicalConnection(self::CONN_A, self::DB_A);
         $this->registerPhysicalConnection(self::CONN_B, self::DB_B);
         $this->truncateSessions(self::CONN_A);

@@ -38,4 +38,61 @@ class CrossDatabaseAuthDependencyTest extends TestCase
 
         $this->assertDatabaseMissing('platform_users', ['email' => $email], 'central');
     }
+
+    public function test_dedicated_tenant_user_not_stored_on_shared_connection_when_fixture_uses_database_isolation(): void
+    {
+        config(['tenancy_storage.mode' => 'database_per_tenant']);
+        $databaseName = 'jabal_tenant_dedicated_a_testing';
+        $exists = \Illuminate\Support\Facades\DB::connection('central')->selectOne(
+            'SELECT 1 FROM pg_database WHERE datname = ?',
+            [$databaseName]
+        );
+        if (! $exists) {
+            $this->markTestSkipped('Dedicated test database missing.');
+        }
+
+        $tenantId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+        $email = 'f8-ded-'.uniqid().'@example.com';
+        $tenant = \Modules\Tenancy\Models\Tenant::query()->find($tenantId) ?? new \Modules\Tenancy\Models\Tenant;
+        if (! $tenant->exists) {
+            $tenant->id = $tenantId;
+            $tenant->forceFill([
+                'name' => 'F8 Dedicated',
+                'slug' => 'f8-ded',
+                'type' => 'organization',
+                'isolation_level' => 'database',
+                'status' => 'active',
+            ])->save();
+        }
+
+        \Modules\Tenancy\Models\TenantDatabaseConfig::query()->updateOrCreate(
+            ['tenant_id' => $tenant->id],
+            ['isolation_level' => 'database', 'database_name' => $databaseName, 'provisioning_status' => 'active']
+        );
+
+        $connection = 'tenant_db_'.$tenant->id;
+        \Illuminate\Support\Facades\Config::set('database.connections.'.$connection, array_merge(
+            config('database.connections.tenant'),
+            ['database' => $databaseName]
+        ));
+
+        tenancy()->initialize($tenant->fresh(['databaseConfig']));
+        try {
+            $user = \App\Models\User::create([
+                'tenant_id' => $tenant->id,
+                'name' => 'F8 Dedicated User',
+                'email' => $email,
+                'password' => 'password',
+            ]);
+        } finally {
+            tenancy()->end();
+        }
+
+        $this->assertTrue(
+            \Illuminate\Support\Facades\DB::connection($connection)->table('users')->where('id', $user->id)->exists()
+        );
+        $this->assertFalse(
+            \Illuminate\Support\Facades\DB::connection('tenant')->table('users')->where('email', $email)->exists()
+        );
+    }
 }

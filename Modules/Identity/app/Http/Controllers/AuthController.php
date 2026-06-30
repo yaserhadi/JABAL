@@ -27,9 +27,7 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $tenantUser = TenantUser::withoutGlobalScope('tenant')
-            ->where('email', $request->input('email'))
-            ->first();
+        $tenantUser = TenantUser::findForLogin($request->input('email'));
 
         if (! $tenantUser) {
             throw ValidationException::withMessages([
