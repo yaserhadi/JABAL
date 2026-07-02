@@ -33,14 +33,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     })->name('health');
 
     // Authentication routes (public, no tenant context)
-    Route::post('/auth/token', [TokenController::class, 'store'])->name('auth.token.store');
+    Route::post('/auth/token', [TokenController::class, 'store'])
+        ->middleware('throttle:api-token-grant')
+        ->name('auth.token.store');
 
     Route::middleware([
         ValidateTenantToken::class,
         'auth:sanctum',
         InitializeTenancyByRequestData::class,
     ])->group(function () {
+        Route::get('/auth/tokens', [TokenController::class, 'index'])->name('auth.tokens.index');
         Route::delete('/auth/token', [TokenController::class, 'destroy'])->name('auth.token.destroy');
+        Route::delete('/auth/tokens/{tokenId}', [TokenController::class, 'destroyById'])->name('auth.tokens.destroy');
     });
 
     // Tenant-scoped protected routes (require auth + tenant context + RBAC)
