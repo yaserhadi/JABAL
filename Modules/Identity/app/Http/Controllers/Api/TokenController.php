@@ -6,112 +6,88 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Modules\Api\Http\ApiResponse;
-use Modules\Identity\Services\MembershipService;
-use Modules\Identity\Services\UserService;
-use Modules\Tenancy\Models\Tenant;
+use Modules\Identity\Exceptions\ApiTokenException;
+use Modules\Identity\Http\Requests\StoreApiTokenRequest;
+use Modules\Identity\Services\ApiTokenService;
 
-/**
- * TokenController handles API authentication token generation.
- *
- * This controller implements the API authentication endpoint that generates
- * Sanctum tokens with tenant-specific abilities.
- */
 class TokenController extends Controller
 {
-    protected UserService $userService;
+    public function __construct(
+        protected ApiTokenService $apiTokenService,
+    ) {}
 
-    public function __construct(UserService $userService)
+    public function store(StoreApiTokenRequest $request): JsonResponse
     {
-        $this->userService = $userService;
+        $request->ensureIsNotRateLimited();
+
+        try {
+            $expiresAt = $request->filled('expires_at')
+                ? $request->date('expires_at')
+                : null;
+
+            $result = $this->apiTokenService->issueToken(
+                email: $request->string('email')->toString(),
+                password: $request->string('password')->toString(),
+                tenantId: $request->input('tenant_id'),
+                name: $request->input('name'),
+                mfaCode: $request->input('mfa_code'),
+                expiresAt: $expiresAt,
+            );
+
+            $request->clearRateLimit();
+
+            return ApiResponse::success($result, 'Token generated successfully');
+        } catch (ValidationException $e) {
+            $request->recordFailedAttempt();
+            throw $e;
+        } catch (ApiTokenException $e) {
+            $request->recordFailedAttempt();
+
+            return ApiResponse::error($e->errorCode, $e->getMessage(), $e->details, $e->httpStatus);
+        }
     }
 
-    /**
-     * Generate an API token for the user.
-     *
-     * POST /api/v1/auth/token
-     *
-     * Accepts: email, password, optional tenant_id
-     * Returns: Sanctum token with tenant:{uuid} ability
-     *
-     * @throws ValidationException
-     */
-    public function store(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-            'tenant_id' => 'sometimes|uuid',
-        ]);
+        /** @var User $user */
+        $user = $request->user();
+        $tenantId = (string) $request->header('X-Tenant-Id');
 
-        $user = User::withoutGlobalScope('tenant')
-            ->where('email', $request->email)
-            ->get()
-            ->first(fn (User $candidate) => Hash::check($request->password, $candidate->password));
-
-        if (! $user) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
-        }
-
-        // Determine tenant
-        $tenantId = $request->input('tenant_id');
-        if ($tenantId) {
-            $hasAccess = app(MembershipService::class)->hasActiveMembership($user->id, $tenantId);
-
-            $tenant = $hasAccess ? Tenant::query()->find($tenantId) : null;
-
-            if (! $tenant) {
-                return ApiResponse::error(
-                    'TENANT_ACCESS_DENIED',
-                    'You do not have access to the specified tenant.',
-                    [],
-                    403
-                );
-            }
-        } else {
-            $tenant = $this->userService->getPersonalTenant($user)
-                ?? $this->userService->getTenants($user)->first();
-            if (! $tenant) {
-                return ApiResponse::error(
-                    'PERSONAL_TENANT_NOT_FOUND',
-                    'No active tenant membership found for user.',
-                    [],
-                    404
-                );
-            }
-            $tenantId = $tenant->id;
-        }
-
-        // Generate token with tenant ability
-        $token = $user->createToken(
-            'api-token',
-            ["tenant:{$tenantId}"]
-        )->plainTextToken;
+        $tokens = $this->apiTokenService->listTokensForTenant($user, $tenantId);
 
         return ApiResponse::success([
-            'token' => $token,
-            'token_type' => 'Bearer',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-            'tenant_id' => $tenantId,
-        ], 'Token generated successfully');
+            'tokens' => $this->apiTokenService->formatTokenList($tokens),
+        ]);
     }
 
-    /**
-     * Revoke the current access token.
-     *
-     * DELETE /api/v1/auth/token
-     */
     public function destroy(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        /** @var User $user */
+        $user = $request->user();
+        $tenantId = (string) $request->header('X-Tenant-Id');
+
+        try {
+            $this->apiTokenService->revokeCurrentToken($user, $tenantId);
+        } catch (ApiTokenException $e) {
+            return ApiResponse::error($e->errorCode, $e->getMessage(), $e->details, $e->httpStatus);
+        }
+
+        return ApiResponse::success(null, 'Token revoked successfully');
+    }
+
+    public function destroyById(Request $request, int|string $tokenId): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $tenantId = (string) $request->header('X-Tenant-Id');
+
+        try {
+            $this->apiTokenService->revokeTokenById($user, $tenantId, $tokenId);
+        } catch (ApiTokenException $e) {
+            return ApiResponse::error($e->errorCode, $e->getMessage(), $e->details, $e->httpStatus);
+        }
 
         return ApiResponse::success(null, 'Token revoked successfully');
     }

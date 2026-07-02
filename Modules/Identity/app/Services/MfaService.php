@@ -118,6 +118,21 @@ class MfaService
         return $this->consumeRecoveryCode($user, $code, $stepUpPurpose);
     }
 
+    /** Stateless MFA verification for API token grant (DEC-0014). No session side effects. */
+    public function verifyCodeForGrant(User $user, string $code): bool
+    {
+        $record = UserMfa::query()->where('user_id', $user->id)->first();
+        if (! $record || ! $record->isConfirmed()) {
+            return false;
+        }
+
+        if ($this->google2fa->verifyKey($record->secret, $code)) {
+            return true;
+        }
+
+        return $this->consumeRecoveryCodeForGrant($user, $code);
+    }
+
     public function resetForUser(User $user): void
     {
         UserMfaRecoveryCode::query()->where('user_id', $user->id)->delete();
@@ -177,6 +192,25 @@ class MfaService
                 $row->save();
                 session(['mfa_verified_at' => now()->toIso8601String()]);
                 MfaVerificationContext::markVerified($stepUpPurpose);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function consumeRecoveryCodeForGrant(User $user, string $code): bool
+    {
+        $codes = UserMfaRecoveryCode::query()
+            ->where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->get();
+
+        foreach ($codes as $row) {
+            if (Hash::check($code, $row->code_hash)) {
+                $row->used_at = now();
+                $row->save();
 
                 return true;
             }
