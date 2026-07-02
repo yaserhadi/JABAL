@@ -2,6 +2,7 @@
 
 namespace Modules\Tenancy\Services;
 
+use App\Support\Contracts\Billing\TenantSubscriptionProvisioner;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Tenancy\TenantDatabaseProvisioner;
 use Illuminate\Support\Str;
@@ -22,6 +23,7 @@ class TenantOnboardingService
         private readonly TenantStorageResolver $storageResolver,
         private readonly TenantDatabaseProvisioner $databaseProvisioner,
         private readonly TenantRbacProvisioner $rbacProvisioner,
+        private readonly TenantSubscriptionProvisioner $subscriptionProvisioner,
     ) {}
 
     public function onboardOrganizationTenant(TenantOnboardingInput $input): TenantProvisioningResult
@@ -29,6 +31,8 @@ class TenantOnboardingService
         $this->assertValidOnboardingInput($input);
 
         $tenant = $this->satisfyR1Registry($input);
+
+        $this->subscriptionProvisioner->ensureDefaultSubscription($tenant->id);
 
         $r2 = $this->satisfyR2Storage($tenant);
 

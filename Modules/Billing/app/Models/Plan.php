@@ -10,6 +10,8 @@ class Plan extends Model
 {
     use HasUuids;
 
+    public const DEFAULT_CODE = 'standard';
+
     protected $connection = 'central';
 
     protected $fillable = ['code', 'name', 'description', 'is_active', 'seat_limit'];

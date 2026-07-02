@@ -5,6 +5,8 @@ use App\Http\Middleware\EnsureNoTenancy;
 use App\Http\Middleware\RedirectIfPlatformAuthenticated;
 use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
+use Modules\Billing\Http\Controllers\Platform\PlatformPlanController;
+use Modules\Billing\Http\Controllers\Platform\PlatformSubscriptionController;
 use Modules\Settings\Http\Controllers\SettingsController;
 use Modules\Tenancy\Http\Controllers\PlatformTenantOnboardingController;
 
@@ -33,5 +35,35 @@ Route::middleware([EnsureNoTenancy::class])->prefix('platform')->name('platform.
         Route::get('audit/{id}', [AuditController::class, 'show'])->name('audit.show');
 
         Route::post('tenants', [PlatformTenantOnboardingController::class, 'store'])->name('tenants.store');
+
+        Route::prefix('billing')->name('billing.')->group(function () {
+            Route::get('plans', [PlatformPlanController::class, 'index'])
+                ->middleware('platform.permission:platform.billing.view')
+                ->name('plans.index');
+
+            Route::get('tenants/{tenant}/subscription', [PlatformSubscriptionController::class, 'show'])
+                ->middleware('platform.permission:platform.billing.view')
+                ->name('tenants.subscription.show');
+
+            Route::patch('tenants/{tenant}/subscription/plan', [PlatformSubscriptionController::class, 'changePlan'])
+                ->middleware('platform.permission:platform.billing.manage')
+                ->name('tenants.subscription.change-plan');
+
+            Route::patch('tenants/{tenant}/subscription/seat-limit', [PlatformSubscriptionController::class, 'updateSeatLimit'])
+                ->middleware('platform.permission:platform.billing.manage')
+                ->name('tenants.subscription.seat-limit');
+
+            Route::post('tenants/{tenant}/subscription/suspend', [PlatformSubscriptionController::class, 'suspend'])
+                ->middleware('platform.permission:platform.billing.manage')
+                ->name('tenants.subscription.suspend');
+
+            Route::post('tenants/{tenant}/subscription/reactivate', [PlatformSubscriptionController::class, 'reactivate'])
+                ->middleware('platform.permission:platform.billing.manage')
+                ->name('tenants.subscription.reactivate');
+
+            Route::post('tenants/{tenant}/subscription/cancel', [PlatformSubscriptionController::class, 'cancel'])
+                ->middleware('platform.permission:platform.billing.manage')
+                ->name('tenants.subscription.cancel');
+        });
     });
 });

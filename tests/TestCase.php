@@ -54,6 +54,7 @@ abstract class TestCase extends BaseTestCase
         $this->seed(\Database\Seeders\PlatformRbacSeeder::class);
         $this->seed(\Database\Seeders\TenantContactRoleSeeder::class);
         $this->seed(\Database\Seeders\RbacCatalogSeeder::class);
+        $this->seed(\Database\Seeders\BillingCatalogSeeder::class);
     }
 
     protected function grantPlatformAccess(\App\Models\PlatformUser $user): void
