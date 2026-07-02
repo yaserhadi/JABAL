@@ -83,6 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'platform.admin' => \App\Http\Middleware\EnsurePlatformAdmin::class,
+            'platform.permission' => \App\Http\Middleware\EnsurePlatformPermission::class,
             'platform.no_tenancy' => \App\Http\Middleware\EnsureNoTenancy::class,
             // Phase 3B: Spatie RBAC (runs after tenancy + membership)
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,

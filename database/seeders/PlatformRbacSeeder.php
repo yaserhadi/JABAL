@@ -17,6 +17,8 @@ class PlatformRbacSeeder extends Seeder
         'platform.audit.view',
         'platform.users.create',
         'platform.roles.assign',
+        'platform.billing.view',
+        'platform.billing.manage',
     ];
 
     public function run(): void

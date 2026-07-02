@@ -10,6 +10,12 @@ class Subscription extends Model
 {
     use HasUuids;
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
+    public const STATUS_CANCELED = 'canceled';
+
     protected $connection = 'central';
 
     protected $fillable = [
