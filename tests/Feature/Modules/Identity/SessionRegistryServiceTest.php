@@ -262,4 +262,86 @@ class SessionRegistryServiceTest extends TestCase
         $record = UserSession::where('session_id', 'touch-session')->first();
         $this->assertTrue($record->last_activity_at->isAfter($past));
     }
+
+    public function test_list_for_current_tenant_user_scopes_by_tenant(): void
+    {
+        $user1 = $this->registerTenantUser('Tenant1 User', 'sess-ctx1-'.uniqid().'@example.com');
+        $tenant1 = $user1->personalTenant();
+
+        $user2 = $this->registerTenantUser('Tenant2 User', 'sess-ctx2-'.uniqid().'@example.com');
+        $tenant2 = $user2->personalTenant();
+        $this->createMembership($user1, $tenant2, 'member', 'active');
+
+        $this->actingAsTenant($tenant1);
+        UserSession::create([
+            'tenant_id' => $tenant1->id,
+            'user_id' => $user1->id,
+            'session_id' => 'tenant1-only',
+            'last_activity_at' => now(),
+            'logged_in_at' => now(),
+        ]);
+
+        $this->actingAsTenant($tenant2);
+        UserSession::create([
+            'tenant_id' => $tenant2->id,
+            'user_id' => $user1->id,
+            'session_id' => 'tenant2-only',
+            'last_activity_at' => now(),
+            'logged_in_at' => now(),
+        ]);
+
+        $list = $this->service->listForCurrentTenantUser($user1, $tenant2);
+
+        $this->assertCount(1, $list);
+        $this->assertEquals('tenant2-only', $list->first()->session_id);
+    }
+
+    public function test_revoke_for_current_tenant_user_enforces_ownership(): void
+    {
+        $owner = $this->registerTenantUser('Owner', 'sess-own-'.uniqid().'@example.com');
+        $tenant = $owner->personalTenant();
+        $other = $this->registerTenantUser('Intruder', 'sess-intr-'.uniqid().'@example.com');
+        $this->createMembership($other, $tenant, 'member', 'active');
+
+        $this->actingAsTenant($tenant);
+        $record = UserSession::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $owner->id,
+            'session_id' => 'owner-session',
+            'last_activity_at' => now(),
+            'logged_in_at' => now(),
+        ]);
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->service->revokeForCurrentTenantUser($other, $tenant, $record->id);
+    }
+
+    public function test_revoke_other_sessions_for_current_tenant_user_uses_laravel_session_id(): void
+    {
+        $user = $this->registerTenantUser('RevokeOther', 'sess-ro-'.uniqid().'@example.com');
+        $tenant = $user->personalTenant();
+        $this->actingAsTenant($tenant);
+
+        UserSession::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'session_id' => 'keep-this',
+            'last_activity_at' => now(),
+            'logged_in_at' => now(),
+        ]);
+
+        $other = UserSession::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'session_id' => 'revoke-this',
+            'last_activity_at' => now(),
+            'logged_in_at' => now(),
+        ]);
+
+        $count = $this->service->revokeOtherSessionsForCurrentTenantUser($user, $tenant, 'keep-this');
+
+        $this->assertEquals(1, $count);
+        $this->assertNull(UserSession::where('session_id', 'keep-this')->first()->revoked_at);
+        $this->assertNotNull($other->refresh()->revoked_at);
+    }
 }
