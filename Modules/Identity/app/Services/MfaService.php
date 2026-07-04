@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Modules\Identity\Models\TenantSecurityPolicy;
 use Modules\Identity\Models\UserMfa;
 use Modules\Identity\Models\UserMfaRecoveryCode;
 use Modules\Identity\Support\MfaVerificationContext;
@@ -19,7 +18,8 @@ class MfaService
 {
     public function __construct(
         protected SecurityFeatureGate $featureGate,
-        protected Google2FA $google2fa
+        protected Google2FA $google2fa,
+        protected SecurityPolicyService $securityPolicyService
     ) {}
 
     public function isMfaAvailable(Tenant $tenant): bool
@@ -37,9 +37,7 @@ class MfaService
             return true;
         }
 
-        $policy = TenantSecurityPolicy::query()->where('tenant_id', $tenant->id)->first();
-
-        return (bool) ($policy?->mfa_required ?? false);
+        return $this->securityPolicyService->isMfaRequired($tenant);
     }
 
     public function userHasConfirmedMfa(User $user): bool
@@ -145,18 +143,6 @@ class MfaService
             'auditable_type' => UserMfa::class,
             'auditable_id' => $user->id,
         ]);
-    }
-
-    public function setTenantMfaRequired(Tenant $tenant, bool $required): TenantSecurityPolicy
-    {
-        if ($required && ! $this->isMfaAvailable($tenant)) {
-            abort(403, 'MFA is not available for this tenant plan.');
-        }
-
-        return TenantSecurityPolicy::query()->updateOrCreate(
-            ['tenant_id' => $tenant->id],
-            ['mfa_required' => $required]
-        );
     }
 
     /**

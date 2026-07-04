@@ -33,6 +33,8 @@ class TenantRbacProvisioner
         'tenant.settings.view',
         'tenant.settings.update',
         'tenant.audit.view',
+        'tenant.security-policy.view',
+        'tenant.security-policy.update',
     ];
 
     /** @var array<string, array<int, string>> */
@@ -51,6 +53,8 @@ class TenantRbacProvisioner
             'tenant.settings.view',
             'tenant.settings.update',
             'tenant.audit.view',
+            'tenant.security-policy.view',
+            'tenant.security-policy.update',
         ],
         'member' => ['workspace.view', 'dashboard.view'],
     ];

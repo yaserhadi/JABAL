@@ -7,8 +7,8 @@ use Modules\Audit\Models\AuditLog;
 use Modules\Billing\Models\Entitlement;
 use Modules\Billing\Models\Plan;
 use Modules\Billing\Models\Subscription;
-use Modules\Identity\Models\TenantSecurityPolicy;
 use Modules\Identity\Services\MfaService;
+use Modules\Identity\Services\SecurityPolicyService;
 use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
 use PragmaRX\Google2FA\Google2FA;
@@ -231,12 +231,7 @@ class ApiTokenManagementTest extends TestCase
         );
 
         if ($required) {
-            tenancy()->initialize($tenant);
-            TenantSecurityPolicy::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id],
-                ['mfa_required' => true]
-            );
-            tenancy()->end();
+            app(SecurityPolicyService::class)->update($tenant, ['mfa_required' => true]);
         }
     }
 }

@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
+use Modules\Identity\Http\Controllers\SecurityPolicyController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
 
@@ -118,4 +119,10 @@ Route::prefix('t/{tenant}')
             ->name('members.delete-forever');
         Route::post('/members/{user}/transfer-ownership', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'transferOwnership'])
             ->name('members.transfer-ownership');
+
+        // BK-043: Tenant security policies API
+        Route::get('/security/policies', [SecurityPolicyController::class, 'show'])
+            ->name('identity.security-policies.show');
+        Route::patch('/security/policies', [SecurityPolicyController::class, 'update'])
+            ->name('identity.security-policies.update');
     });

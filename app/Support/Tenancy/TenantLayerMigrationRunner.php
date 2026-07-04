@@ -45,6 +45,7 @@ class TenantLayerMigrationRunner
                 ! Schema::connection($sharedConnection)->hasTable('users')
                 || ! Schema::connection($sharedConnection)->hasTable('permissions')
                 || ! Schema::connection($sharedConnection)->hasTable('user_sessions')
+                || ! Schema::connection($sharedConnection)->hasTable('tenant_security_policies')
             ) {
                 $this->migrateFresh($physicalDatabaseName);
             }
