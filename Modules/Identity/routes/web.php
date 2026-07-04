@@ -7,6 +7,7 @@ use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Controllers\SecurityPolicyController;
+use Modules\Identity\Http\Controllers\SecuritySettingsController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
 
@@ -125,4 +126,15 @@ Route::prefix('t/{tenant}')
             ->name('identity.security-policies.show');
         Route::patch('/security/policies', [SecurityPolicyController::class, 'update'])
             ->name('identity.security-policies.update');
+
+        // BK-035: Tenant security settings UI hub
+        Route::get('/security/settings', [SecuritySettingsController::class, 'show'])
+            ->name('identity.security-settings.show');
+        Route::patch('/security/settings/policies', [SecuritySettingsController::class, 'updatePolicies'])
+            ->middleware('permission:tenant.security-policy.update')
+            ->name('identity.security-settings.update-policies');
+        Route::delete('/security/settings/sessions/{session}', [SecuritySettingsController::class, 'revokeSession'])
+            ->name('identity.security-settings.revoke-session');
+        Route::delete('/security/settings/sessions', [SecuritySettingsController::class, 'revokeOtherSessions'])
+            ->name('identity.security-settings.revoke-other-sessions');
     });

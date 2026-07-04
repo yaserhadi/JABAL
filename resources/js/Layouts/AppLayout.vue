@@ -59,6 +59,12 @@
                     @click="visitTenantRoute('tenant.settings.index')"
                 />
                 <v-list-item
+                    v-if="tenant"
+                    prepend-icon="mdi-shield-lock"
+                    title="Security"
+                    @click="visitTenantRoute('identity.security-settings.show')"
+                />
+                <v-list-item
                     v-if="tenant_ui_permissions?.canViewTenantAudit && tenant"
                     prepend-icon="mdi-clipboard-text"
                     title="Audit logs"

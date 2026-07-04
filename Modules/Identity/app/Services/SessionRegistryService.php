@@ -4,9 +4,9 @@ namespace Modules\Identity\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Carbon;
 use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\UserSession;
+use Modules\Tenancy\Models\Tenant;
 
 class SessionRegistryService
 {
@@ -55,6 +55,49 @@ class SessionRegistryService
             ->active()
             ->orderByDesc('last_activity_at')
             ->get();
+    }
+
+    public function listForCurrentTenantUser(TenantUser $user, Tenant $tenant): Collection
+    {
+        return UserSession::forUser($user->id)
+            ->where('tenant_id', $tenant->id)
+            ->active()
+            ->orderByDesc('last_activity_at')
+            ->get();
+    }
+
+    public function revokeForCurrentTenantUser(TenantUser $user, Tenant $tenant, string $userSessionId): void
+    {
+        $record = UserSession::forUser($user->id)
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $userSessionId)
+            ->active()
+            ->first();
+
+        if (! $record) {
+            abort(404);
+        }
+
+        $record->update(['revoked_at' => now()]);
+    }
+
+    public function revokeOtherSessionsForCurrentTenantUser(TenantUser $user, Tenant $tenant, string $currentLaravelSessionId): int
+    {
+        $query = UserSession::forUser($user->id)
+            ->where('tenant_id', $tenant->id)
+            ->active();
+
+        $currentRecord = (clone $query)
+            ->where('session_id', $currentLaravelSessionId)
+            ->first();
+
+        if ($currentRecord) {
+            $query->where('id', '!=', $currentRecord->id);
+        } else {
+            $query->where('session_id', '!=', $currentLaravelSessionId);
+        }
+
+        return $query->update(['revoked_at' => now()]);
     }
 
     public function cleanup(int $olderThanDays): int
