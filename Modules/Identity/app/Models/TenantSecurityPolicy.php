@@ -2,26 +2,46 @@
 
 namespace Modules\Identity\Models;
 
+use App\Support\Traits\BelongsToTenant;
+use App\Support\Traits\ResolvesTenantStorageConnection;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Tenancy\Models\Tenant;
 
-/** Central metadata: tenant MFA requirement override (ADR-0007). */
+/**
+ * BK-043 / DEC-0011: Tenant-owned security policies (tenant data layer).
+ *
+ * Replaces the former central-only model. Central table remains deprecated (BK-038 cleanup).
+ */
 class TenantSecurityPolicy extends Model
 {
-    protected $connection = 'central';
+    use BelongsToTenant;
+    use HasUuids;
+    use ResolvesTenantStorageConnection;
+
+    protected $connection = 'tenant';
 
     protected $table = 'tenant_security_policies';
 
-    protected $primaryKey = 'tenant_id';
+    protected $keyType = 'string';
 
     public $incrementing = false;
 
-    protected $keyType = 'string';
+    protected $fillable = [
+        'tenant_id',
+        'mfa_required',
+        'mfa_grace_period_days',
+        'password_policy',
+        'session_idle_timeout',
+    ];
 
-    protected $fillable = ['tenant_id', 'mfa_required'];
-
-    protected $casts = ['mfa_required' => 'boolean'];
+    protected $casts = [
+        'mfa_required' => 'boolean',
+        'mfa_grace_period_days' => 'integer',
+        'password_policy' => 'array',
+        'session_idle_timeout' => 'integer',
+    ];
 
     public function tenant(): BelongsTo
     {
