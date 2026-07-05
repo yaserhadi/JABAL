@@ -1,8 +1,8 @@
-# Testing Conventions
+﻿# Testing Conventions
 
 This document defines testing standards and practices for the Jabal SaaS Core Platform.
 
-## ⚠ Test database isolation (required — read this first)
+## âš  Test database isolation (required â€” read this first)
 
 Tests use `RefreshDatabase`, which calls `migrate:fresh` and **drops every table** on
 the central and tenant connections. Without isolation this destroys the dev databases.
@@ -10,7 +10,7 @@ the central and tenant connections. Without isolation this destroys the dev data
 This project enforces isolation in two independent layers:
 
 1. **`phpunit.xml`** overrides `DB_DATABASE_CENTRAL` and `DB_DATABASE_TENANT` so test runs
-   target `jabal_central_testing` and `jabal_tenant_shared_testing` only — never the dev DBs.
+   target `jabal_central_testing` and `jabal_tenant_shared_testing` only â€” never the dev DBs.
 2. **`tests/TestCase.php::setUp()`** reads the env BEFORE the framework boots and throws
    a `RuntimeException` if either name does not end with `_testing`. This catches
    accidental `phpunit.xml` regressions before any migration runs.
@@ -22,7 +22,7 @@ psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_central_testing"'
 psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_tenant_shared_testing"'
 ```
 
-### Stage 5B — dedicated tenant session attestation DBs (T-S5B-08)
+### Stage 5B â€” dedicated tenant session attestation DBs (T-S5B-08)
 
 `DatabasePerTenantSessionIsolationTest` requires two additional physical PostgreSQL databases (`_testing` suffix):
 
@@ -37,16 +37,18 @@ One-time setup (outside PHPUnit transactions):
 php tests/Support/ensure_dedicated_test_databases.php
 ```
 
-The helper creates the databases (if missing) and ensures a `sessions` table exists on each dedicated connection. If the databases are absent, the test class skips with a message pointing to this script.
+The helper creates the databases (if missing) and ensures tenant-layer migrations exist on each dedicated connection. If the databases are absent, dedicated test classes skip with a message pointing to this script.
+
+**BK-053** â€” `DedicatedStorageApiTokenTest`, `DedicatedStorageSessionRegistryTest`, `DedicatedStorageSecurityPolicyTest`, and `DedicatedStorageSecuritySettingsTest` use the same dedicated DB setup (`jabal_tenant_dedicated_a_testing` via `InteractsWithDedicatedTenantDatabase`).
 
 
 ### Verifying isolation is still in place
 
 A test run should never modify dev data. To prove it, snapshot a value in your dev DB
-before and after a test run — e.g. count of `platform_users` — and confirm it is unchanged.
+before and after a test run â€” e.g. count of `platform_users` â€” and confirm it is unchanged.
 For background on why this matters, see `.cursor/reports/TEST_DB_ISOLATION.md` (local agent workspace).
 
-### Stage 2.5 — runtime session isolation tests
+### Stage 2.5 â€” runtime session isolation tests
 
 `phpunit.xml` sets `SESSION_DRIVER=array` by default. Tests that assert session **persistence**
 in `central.platform_sessions` vs `tenant.sessions` (see `RuntimeSessionIsolationTest`) override
@@ -70,23 +72,23 @@ Tests are organized by module to maintain clear boundaries and enable module-spe
 
 ```
 tests/
-├── Feature/
-│   ├── Modules/
-│   │   ├── Tenancy/
-│   │   ├── Identity/
-│   │   ├── Settings/
-│   │   ├── Audit/
-│   │   └── Api/
-│   ├── WorkspaceCrudTest.php        # Phase 3C: workspace CRUD, binding isolation, RBAC
-│   └── TenantMemberManagementTest.php  # Phase 3C: member list, suspend, last-owner
-├── Unit/
-│   └── Modules/
-│       ├── Tenancy/
-│       ├── Identity/
-│       ├── Settings/
-│       ├── Audit/
-│       └── Api/
-└── TestCase.php
+â”œâ”€â”€ Feature/
+â”‚   â”œâ”€â”€ Modules/
+â”‚   â”‚   â”œâ”€â”€ Tenancy/
+â”‚   â”‚   â”œâ”€â”€ Identity/
+â”‚   â”‚   â”œâ”€â”€ Settings/
+â”‚   â”‚   â”œâ”€â”€ Audit/
+â”‚   â”‚   â””â”€â”€ Api/
+â”‚   â”œâ”€â”€ WorkspaceCrudTest.php        # Phase 3C: workspace CRUD, binding isolation, RBAC
+â”‚   â””â”€â”€ TenantMemberManagementTest.php  # Phase 3C: member list, suspend, last-owner
+â”œâ”€â”€ Unit/
+â”‚   â””â”€â”€ Modules/
+â”‚       â”œâ”€â”€ Tenancy/
+â”‚       â”œâ”€â”€ Identity/
+â”‚       â”œâ”€â”€ Settings/
+â”‚       â”œâ”€â”€ Audit/
+â”‚       â””â”€â”€ Api/
+â””â”€â”€ TestCase.php
 ```
 
 ### Test Types
@@ -906,3 +908,4 @@ class UserRegistrationTest extends TestCase
 - [Laravel Testing Documentation](https://laravel.com/docs/11.x/testing)
 - [PHPUnit Documentation](https://phpunit.de/documentation.html)
 - [Test-Driven Development (TDD)](https://martinfowler.com/bliki/TestDrivenDevelopment.html)
+

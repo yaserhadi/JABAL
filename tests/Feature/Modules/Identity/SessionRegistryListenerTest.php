@@ -8,7 +8,6 @@ use Illuminate\Auth\Events\Logout;
 use Modules\Identity\Listeners\DeregisterSessionOnLogout;
 use Modules\Identity\Listeners\RegisterSessionOnLogin;
 use Modules\Identity\Models\UserSession;
-use Modules\Identity\Services\SessionRegistryService;
 use Tests\TestCase;
 
 class SessionRegistryListenerTest extends TestCase
