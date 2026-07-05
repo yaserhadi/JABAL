@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 use Modules\Identity\Exceptions\ApiTokenException;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 
 /**
@@ -37,16 +38,17 @@ class ApiTokenService
         ?string $mfaCode = null,
         ?CarbonInterface $expiresAt = null,
     ): array {
-        $user = User::withoutGlobalScope('tenant')
-            ->where('email', $email)
-            ->get()
-            ->first(fn (User $candidate) => Hash::check($password, $candidate->password));
+        $tenantUser = TenantUser::findForLogin($email);
 
-        if (! $user) {
+        if (! $tenantUser || ! Hash::check($password, $tenantUser->password)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
+
+        $user = User::on($tenantUser->getConnectionName())
+            ->withoutGlobalScope('tenant')
+            ->findOrFail($tenantUser->getKey());
 
         $tenant = $this->resolveTenantForUser($user, $tenantId);
         $tenantId = $tenant->id;
