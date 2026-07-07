@@ -16,4 +16,9 @@ class SecurityFeatureGate
     {
         return $this->entitlements->tenantHasEntitlement($tenant->getTenantKey(), $feature);
     }
+
+    public function isSsoAvailable(Tenant $tenant): bool
+    {
+        return $this->featureEnabled($tenant, 'sso_available');
+    }
 }

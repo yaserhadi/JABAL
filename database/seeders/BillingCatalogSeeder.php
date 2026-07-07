@@ -25,7 +25,7 @@ class BillingCatalogSeeder extends Seeder
             ]
         );
 
-        foreach (['mfa_available', 'mfa_required'] as $code) {
+        foreach (['mfa_available', 'mfa_required', 'sso_available'] as $code) {
             Entitlement::query()->firstOrCreate(
                 ['plan_id' => $plan->id, 'code' => $code],
                 ['name' => $code, 'is_active' => true]

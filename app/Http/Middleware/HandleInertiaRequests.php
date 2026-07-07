@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Modules\Identity\Support\SecurityFeatureGate;
 use Modules\Tenancy\Services\TenantSettingsService;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -64,7 +65,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool, canViewSecurityPolicies: bool, canUpdateSecurityPolicies: bool}
+     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool, canViewSecurityPolicies: bool, canUpdateSecurityPolicies: bool, canViewSso: bool, canUpdateSso: bool, ssoEntitlementAvailable: bool}
      */
     protected function sharedTenantUiPermissions(Request $request): array
     {
@@ -74,6 +75,9 @@ class HandleInertiaRequests extends Middleware
             'canViewTenantAudit' => false,
             'canViewSecurityPolicies' => false,
             'canUpdateSecurityPolicies' => false,
+            'canViewSso' => false,
+            'canUpdateSso' => false,
+            'ssoEntitlementAvailable' => false,
         ];
         $user = $request->user();
         if (! $user || ! function_exists('tenancy') || ! tenancy()->initialized) {
@@ -87,12 +91,17 @@ class HandleInertiaRequests extends Middleware
         $previousTeamId = $registrar->getPermissionsTeamId();
         $registrar->setPermissionsTeamId($tenant->getTenantKey());
         try {
+            $featureGate = app(SecurityFeatureGate::class);
+
             return [
                 'canViewTenantSettings' => $user->can('tenant.settings.view'),
                 'canUpdateTenantSettings' => $user->can('tenant.settings.update'),
                 'canViewTenantAudit' => $user->can('tenant.audit.view'),
                 'canViewSecurityPolicies' => $user->can('tenant.security-policy.view'),
                 'canUpdateSecurityPolicies' => $user->can('tenant.security-policy.update'),
+                'canViewSso' => $user->can('tenant.sso.view'),
+                'canUpdateSso' => $user->can('tenant.sso.update'),
+                'ssoEntitlementAvailable' => $featureGate->isSsoAvailable($tenant),
             ];
         } finally {
             $registrar->setPermissionsTeamId($previousTeamId);

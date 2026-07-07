@@ -1,0 +1,117 @@
+<template>
+    <v-app>
+        <v-main>
+            <v-container fluid class="fill-height">
+                <v-row align="center" justify="center">
+                    <v-col cols="12" sm="8" md="4">
+                        <v-card>
+                            <v-card-title class="text-h5 text-center pa-4">
+                                {{ tenant.name }}
+                            </v-card-title>
+                            <v-card-subtitle class="text-center pb-2">
+                                Sign in to your organization
+                            </v-card-subtitle>
+                            <v-card-text>
+                                <v-alert
+                                    v-if="$page.props.errors?.email"
+                                    type="error"
+                                    variant="tonal"
+                                    class="mb-4"
+                                >
+                                    {{ $page.props.errors.email }}
+                                </v-alert>
+
+                                <v-btn
+                                    v-if="ssoOperational"
+                                    color="primary"
+                                    block
+                                    class="mb-4"
+                                    :href="ssoRedirectUrl"
+                                >
+                                    Sign in with SSO
+                                </v-btn>
+
+                                <v-divider v-if="ssoOperational" class="my-4" />
+
+                                <v-form @submit.prevent="submit">
+                                    <v-text-field
+                                        v-model="form.email"
+                                        label="Email"
+                                        type="email"
+                                        :error-messages="form.errors.email"
+                                        required
+                                        prepend-inner-icon="mdi-email"
+                                    />
+                                    <v-text-field
+                                        v-model="form.password"
+                                        label="Password"
+                                        type="password"
+                                        :error-messages="form.errors.password"
+                                        required
+                                        prepend-inner-icon="mdi-lock"
+                                    />
+                                    <v-checkbox
+                                        v-model="form.remember"
+                                        label="Remember me"
+                                    />
+                                    <v-btn
+                                        type="submit"
+                                        color="primary"
+                                        variant="outlined"
+                                        block
+                                        :loading="form.processing"
+                                        class="mt-2"
+                                    >
+                                        Sign in with password
+                                    </v-btn>
+                                </v-form>
+                            </v-card-text>
+                            <v-card-actions class="justify-center">
+                                <v-btn
+                                    text
+                                    :href="route('login')"
+                                    variant="text"
+                                >
+                                    Back to main sign in
+                                </v-btn>
+                            </v-card-actions>
+                        </v-card>
+                    </v-col>
+                </v-row>
+            </v-container>
+        </v-main>
+    </v-app>
+</template>
+
+<script setup>
+import { computed } from 'vue';
+import { useForm } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
+
+const props = defineProps({
+    tenant: {
+        type: Object,
+        required: true,
+    },
+    ssoOperational: {
+        type: Boolean,
+        default: false,
+    },
+});
+
+const form = useForm({
+    email: '',
+    password: '',
+    remember: false,
+});
+
+const ssoRedirectUrl = computed(() =>
+    route('identity.sso.redirect', { tenant: props.tenant.id })
+);
+
+const submit = () => {
+    form.post(route('login'), {
+        onFinish: () => form.reset('password'),
+    });
+};
+</script>

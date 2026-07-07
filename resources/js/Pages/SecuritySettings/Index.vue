@@ -85,6 +85,107 @@
                 </v-card>
             </v-col>
 
+            <v-col v-if="sso" cols="12" md="8" lg="6">
+                <v-card class="mb-4">
+                    <v-card-title class="text-h6 pa-4">Single sign-on (SSO)</v-card-title>
+                    <v-card-subtitle class="px-4 pb-2">
+                        Enterprise OIDC configuration for this organization.
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-alert
+                            v-if="!tenant_ui_permissions?.ssoEntitlementAvailable"
+                            type="warning"
+                            variant="tonal"
+                            class="mb-4"
+                            density="compact"
+                        >
+                            SSO is not included in this tenant plan.
+                        </v-alert>
+
+                        <v-alert
+                            v-if="sso.disabled_by_entitlement"
+                            type="warning"
+                            variant="tonal"
+                            class="mb-4"
+                            density="compact"
+                        >
+                            SSO was disabled because the plan no longer includes SSO. Configuration is preserved but sign-in cannot be re-enabled here.
+                        </v-alert>
+
+                        <v-form @submit.prevent="submitSso">
+                            <v-switch
+                                v-model="ssoForm.enabled"
+                                label="Enable SSO"
+                                color="primary"
+                                class="mb-2"
+                                :disabled="!canEditSso"
+                            />
+                            <v-text-field
+                                v-model="ssoForm.provider_label"
+                                label="Provider label"
+                                maxlength="120"
+                                class="mb-2"
+                                :readonly="!canEditSso"
+                            />
+                            <v-text-field
+                                v-model="ssoForm.issuer_url"
+                                label="Issuer URL"
+                                class="mb-2"
+                                :readonly="!canEditSso"
+                                hint="HTTPS OIDC issuer (e.g. Microsoft Entra)"
+                                persistent-hint
+                            />
+                            <v-text-field
+                                v-model="ssoForm.client_id"
+                                label="Client ID"
+                                class="mb-2"
+                                :readonly="!canEditSso"
+                            />
+                            <v-text-field
+                                v-model="ssoForm.client_secret"
+                                label="Client secret"
+                                type="password"
+                                autocomplete="new-password"
+                                class="mb-2"
+                                :readonly="!canEditSso"
+                                :placeholder="sso.has_client_secret ? 'Leave blank to keep existing secret' : 'Required when enabling SSO'"
+                                :hint="sso.has_client_secret ? 'A client secret is already configured.' : 'No client secret configured yet.'"
+                                persistent-hint
+                            />
+                            <v-text-field
+                                v-model="ssoForm.redirect_uri"
+                                label="Redirect URI (optional)"
+                                class="mb-2"
+                                :readonly="!canEditSso"
+                                hint="Defaults to the application SSO callback route when empty"
+                                persistent-hint
+                            />
+                            <v-text-field
+                                v-model="ssoForm.scopes"
+                                label="Scopes (space-separated)"
+                                class="mb-4"
+                                :readonly="!canEditSso"
+                                hint="Must include openid"
+                                persistent-hint
+                            />
+
+                            <v-btn
+                                v-if="canEditSso"
+                                color="primary"
+                                type="submit"
+                                :loading="ssoForm.processing"
+                                :disabled="ssoForm.processing"
+                            >
+                                Save SSO settings
+                            </v-btn>
+                            <v-alert v-else type="info" variant="tonal" density="compact" class="mt-2">
+                                You can view SSO settings but cannot change them.
+                            </v-alert>
+                        </v-form>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
             <v-col cols="12" md="8" lg="6">
                 <v-card class="mb-4">
                     <v-card-title class="text-h6 pa-4">Active sessions</v-card-title>
@@ -230,10 +331,19 @@ const props = defineProps({
     sessions: { type: Array, default: () => [] },
     mfa: { type: Object, required: true },
     tokens: { type: Array, default: () => [] },
+    sso: { type: Object, default: null },
 });
 
 const tenant_ui_permissions = computed(() => page.props.tenant_ui_permissions);
 const flash = computed(() => page.props.flash);
+
+const canEditSso = computed(() => {
+    return Boolean(
+        tenant_ui_permissions.value?.canUpdateSso
+        && tenant_ui_permissions.value?.ssoEntitlementAvailable
+        && !props.sso?.disabled_by_entitlement
+    );
+});
 
 const policyForm = useForm({
     mfa_required: props.policies?.mfa_required ?? false,
@@ -247,6 +357,16 @@ const policyForm = useForm({
     session_idle_timeout: props.policies?.session_idle_timeout ?? -1,
 });
 
+const ssoForm = useForm({
+    enabled: props.sso?.enabled ?? false,
+    provider_label: props.sso?.provider_label ?? '',
+    issuer_url: props.sso?.issuer_url ?? '',
+    client_id: props.sso?.client_id ?? '',
+    client_secret: '',
+    redirect_uri: props.sso?.redirect_uri ?? '',
+    scopes: (props.sso?.scopes ?? ['openid', 'profile', 'email']).join(' '),
+});
+
 const revokingSessionId = ref(null);
 const revokingOthers = ref(false);
 
@@ -256,6 +376,35 @@ function submitPolicies() {
     }
     policyForm.patch(route('identity.security-settings.update-policies', { tenant: props.tenant.id }), {
         preserveScroll: true,
+    });
+}
+
+function submitSso() {
+    if (!canEditSso.value) {
+        return;
+    }
+
+    const payload = {
+        enabled: ssoForm.enabled,
+        provider_label: ssoForm.provider_label || null,
+        issuer_url: ssoForm.issuer_url || null,
+        client_id: ssoForm.client_id || null,
+        redirect_uri: ssoForm.redirect_uri || null,
+        scopes: ssoForm.scopes
+            .split(/\s+/)
+            .map((scope) => scope.trim())
+            .filter(Boolean),
+    };
+
+    if (ssoForm.client_secret) {
+        payload.client_secret = ssoForm.client_secret;
+    }
+
+    ssoForm.transform(() => payload).patch(route('identity.sso.update', { tenant: props.tenant.id }), {
+        preserveScroll: true,
+        onSuccess: () => {
+            ssoForm.client_secret = '';
+        },
     });
 }
 

@@ -14,6 +14,7 @@ use Modules\Identity\Services\ApiTokenService;
 use Modules\Identity\Services\MfaService;
 use Modules\Identity\Services\SecurityPolicyService;
 use Modules\Identity\Services\SessionRegistryService;
+use Modules\Identity\Services\SsoConfigService;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -73,15 +74,25 @@ class SecuritySettingsController extends Controller
             ->values()
             ->all();
 
+        $sso = $this->withTenantPermissions($tenant, function () use ($tenant, $user) {
+            if ($tenant->type !== 'organization' || ! $user->can('tenant.sso.view')) {
+                return null;
+            }
+
+            return app(SsoConfigService::class)->getForTenant($tenant);
+        });
+
         return Inertia::render('SecuritySettings/Index', [
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
+                'type' => $tenant->type,
             ],
             'policies' => $policies,
             'sessions' => $sessions,
             'mfa' => $mfa,
             'tokens' => $tokens,
+            'sso' => $sso,
         ]);
     }
 

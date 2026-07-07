@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\InitializeTenancyByPathWhenApplicable::class,
             \App\Http\Middleware\InitializeTenancyFromSession::class,
             \App\Http\Middleware\InitializeTenancyFromAuthRequest::class,
+            \App\Http\Middleware\InitializeTenancyFromSsoState::class,
             \App\Http\Middleware\ConfigureTenantSessionConnection::class,
         ]);
         $middleware->prependToPriorityList(
@@ -53,6 +54,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\InitializeTenancyFromAuthRequest::class,
+        );
+        $middleware->prependToPriorityList(
+            \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\InitializeTenancyFromSsoState::class,
         );
         $middleware->prependToPriorityList(
             \Illuminate\Session\Middleware\StartSession::class,

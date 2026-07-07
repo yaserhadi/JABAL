@@ -88,7 +88,28 @@ class ConfigureApplicationRuntime
             return $this->resolveTenantFromAuthEmail($request);
         }
 
+        if ($request->is('auth/sso/callback')) {
+            return $this->resolveTenantFromSsoCallbackState($request);
+        }
+
         return null;
+    }
+
+    private function resolveTenantFromSsoCallbackState(Request $request): ?Tenant
+    {
+        $state = $request->query('state');
+
+        if (! is_string($state) || $state === '') {
+            return null;
+        }
+
+        $tenantId = \Modules\Identity\Support\Sso\SsoAuthorizationState::tenantIdFromStateParameter($state);
+
+        if ($tenantId === null) {
+            return null;
+        }
+
+        return Tenant::query()->find($tenantId);
     }
 
     private function isEligibleAuthPostForDeferral(Request $request): bool

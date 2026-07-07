@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Modules\Identity\Events\UserRegistered;
 use Modules\Identity\Models\TenantUser;
+use Modules\Identity\Services\SsoConfigService;
 use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Tenancy\Events\TenantCreated;
 use Modules\Tenancy\Models\Tenant;
@@ -18,6 +19,24 @@ class AuthController extends Controller
     public function showLogin()
     {
         return Inertia::render('Auth/Login');
+    }
+
+    public function showTenantLogin(Tenant $tenant)
+    {
+        if ($tenant->type !== 'organization' || $tenant->status !== 'active') {
+            abort(404);
+        }
+
+        $ssoOperational = app(SsoConfigService::class)->isOperationalForTenant($tenant);
+
+        return Inertia::render('Auth/TenantLogin', [
+            'tenant' => [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'type' => $tenant->type,
+            ],
+            'ssoOperational' => $ssoOperational,
+        ]);
     }
 
     public function login(Request $request)

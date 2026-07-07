@@ -146,4 +146,11 @@ trait InteractsWithDedicatedTenantDatabase
             ['database' => $databaseName]
         ));
     }
+
+    protected function restoreSharedTenantConnectionDatabase(): void
+    {
+        $connection = (string) config('tenancy_storage.shared_connection', 'tenant');
+        Config::set('database.connections.'.$connection.'.database', 'jabal_tenant_shared_testing');
+        DB::purge($connection);
+    }
 }

@@ -5,7 +5,9 @@ namespace Modules\Identity\Providers;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Modules\Billing\Events\SubscriptionPlanChanged;
 use Modules\Identity\Listeners\DeregisterSessionOnLogout;
+use Modules\Identity\Listeners\DisableSsoOnEntitlementLoss;
 use Modules\Identity\Listeners\RegisterSessionOnLogin;
 
 class EventServiceProvider extends ServiceProvider
@@ -21,6 +23,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         Logout::class => [
             DeregisterSessionOnLogout::class,
+        ],
+        SubscriptionPlanChanged::class => [
+            DisableSsoOnEntitlementLoss::class,
         ],
     ];
 

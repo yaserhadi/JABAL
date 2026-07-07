@@ -8,6 +8,8 @@ use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Controllers\SecurityPolicyController;
 use Modules\Identity\Http\Controllers\SecuritySettingsController;
+use Modules\Identity\Http\Controllers\SsoAuthController;
+use Modules\Identity\Http\Controllers\SsoConfigController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
 
@@ -44,7 +46,18 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::get('register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('register', [AuthController::class, 'register']);
+
+    Route::get('auth/sso/callback', [SsoAuthController::class, 'callback'])
+        ->name('identity.sso.callback');
 });
+
+Route::prefix('t/{tenant}')
+    ->middleware(['web', 'guest'])
+    ->group(function () {
+        Route::get('/login', [AuthController::class, 'showTenantLogin'])->name('tenant.login');
+        Route::get('/auth/sso/redirect', [SsoAuthController::class, 'redirect'])
+            ->name('identity.sso.redirect');
+    });
 
 // Central routes (auth, no tenant context)
 Route::middleware('auth')->group(function () {
@@ -126,6 +139,12 @@ Route::prefix('t/{tenant}')
             ->name('identity.security-policies.show');
         Route::patch('/security/policies', [SecurityPolicyController::class, 'update'])
             ->name('identity.security-policies.update');
+
+        // BK-008: Tenant SSO configuration admin API
+        Route::get('/security/sso', [SsoConfigController::class, 'show'])
+            ->name('identity.sso.show');
+        Route::patch('/security/sso', [SsoConfigController::class, 'update'])
+            ->name('identity.sso.update');
 
         // BK-035: Tenant security settings UI hub
         Route::get('/security/settings', [SecuritySettingsController::class, 'show'])

@@ -41,7 +41,7 @@ class PlatformBillingAdminTest extends TestCase
             ]
         );
 
-        foreach (['mfa_available', 'mfa_required'] as $code) {
+        foreach (['mfa_available', 'mfa_required', 'sso_available'] as $code) {
             Entitlement::query()->firstOrCreate(
                 ['plan_id' => $plan->id, 'code' => $code],
                 ['name' => $code, 'is_active' => true]
@@ -132,6 +132,7 @@ class PlatformBillingAdminTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.plans.0.code', Plan::DEFAULT_CODE);
         $response->assertJsonFragment(['code' => 'mfa_available']);
+        $response->assertJsonFragment(['code' => 'sso_available']);
     }
 
     public function test_change_plan_dispatches_event(): void
