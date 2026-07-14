@@ -28,29 +28,25 @@ class TenantFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name).'-'.Str::random(6),
-            'type' => 'organization',
             'isolation_level' => 'shared',
+            'status' => 'active',
         ];
     }
 
     /**
-     * Indicate that the tenant is personal type.
+     * @deprecated BK-064 — type removed; no-op alias.
      */
     public function personal(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'personal',
-        ]);
+        return $this;
     }
 
     /**
-     * Indicate that the tenant is organization type.
+     * @deprecated BK-064 — type removed; no-op alias.
      */
     public function organization(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'organization',
-        ]);
+        return $this;
     }
 
     /**

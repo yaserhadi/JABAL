@@ -4,8 +4,10 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser as TenantApplicationUser;
+use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  * PHASE 2 LOCK:
  * - Runs AFTER InitializeTenancyByPath
  * - Checks tenant context, route param match, tenant status, and membership
- * - Handles route param as both string (UUID) and Model object
+ * - Handles route param as Model, UUID, or slug (BK-064)
  */
 class EnsureUserBelongsToTenant
 {
@@ -28,12 +30,7 @@ class EnsureUserBelongsToTenant
             abort(403, 'No tenant context');
         }
 
-        $routeTenant = $request->route('tenant');
-        $routeTenantId = is_object($routeTenant) ? ($routeTenant->id ?? null) : $routeTenant;
-
-        if (! $routeTenantId && $request->segment(1) === 't') {
-            $routeTenantId = $request->segment(2);
-        }
+        $routeTenantId = $this->resolveRouteTenantId($request);
 
         if ($routeTenantId && $routeTenantId !== $tenant->id) {
             abort(403, 'Route tenant does not match tenancy context');
@@ -74,5 +71,28 @@ class EnsureUserBelongsToTenant
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
 
         return $next($request);
+    }
+
+    private function resolveRouteTenantId(Request $request): ?string
+    {
+        $routeTenant = $request->route('tenant');
+
+        if (is_object($routeTenant)) {
+            return $routeTenant->id ?? null;
+        }
+
+        $key = is_string($routeTenant) && $routeTenant !== ''
+            ? $routeTenant
+            : ($request->segment(1) === 't' ? $request->segment(2) : null);
+
+        if (! is_string($key) || $key === '') {
+            return null;
+        }
+
+        if (Str::isUuid($key)) {
+            return $key;
+        }
+
+        return Tenant::query()->where('slug', $key)->value('id');
     }
 }

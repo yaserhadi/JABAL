@@ -27,7 +27,7 @@ class LoginSessionDeferralTest extends TestCase
     public function test_login_post_defers_session_to_dedicated_connection(): void
     {
         $user = $this->registerTenantUser('Login Defer User', 'login-defer-'.uniqid().'@example.com');
-        $tenant = $user->personalTenant();
+        $tenant = $user->homeTenant();
         $this->assertNotNull($tenant);
 
         $tenant->update(['isolation_level' => 'database']);
@@ -49,10 +49,10 @@ class LoginSessionDeferralTest extends TestCase
         $this->assignDashboardViewToUser($user, $tenant);
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
-        $this->post('/login', [
+        $this->post('/t/'.$tenant->entryKey().'/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect('/t/'.$tenant->id.'/dashboard');
+        ])->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
 
         $this->assertSame('database', config('session.driver'));
         $this->assertSame($connection, config('session.connection'));

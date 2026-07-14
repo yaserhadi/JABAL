@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Run path-based tenancy init early in the web stack (before auth/Inertia).
+ * BK-064: segment 2 may be UUID (machine) or slug (human entry).
  */
 class InitializeTenancyByPathWhenApplicable
 {
@@ -42,8 +43,16 @@ class InitializeTenancyByPathWhenApplicable
             return null;
         }
 
-        $id = $request->segment(2);
+        $key = $request->segment(2);
 
-        return ($id && Str::isUuid($id)) ? $id : null;
+        if (! is_string($key) || $key === '') {
+            return null;
+        }
+
+        if (Str::isUuid($key)) {
+            return $key;
+        }
+
+        return Tenant::query()->where('slug', $key)->value('id');
     }
 }

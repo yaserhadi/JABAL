@@ -17,7 +17,7 @@ class SsoConfigServiceTest extends TestCase
     #[Test]
     public function get_for_tenant_never_exposes_client_secret(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -40,7 +40,7 @@ class SsoConfigServiceTest extends TestCase
     #[Test]
     public function update_encrypts_client_secret_write_only(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -63,7 +63,7 @@ class SsoConfigServiceTest extends TestCase
     #[Test]
     public function is_operational_requires_org_entitlement_and_enabled_config(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $service = app(SsoConfigService::class);
 
         $this->assertFalse($service->isOperationalForTenant($tenant));
@@ -84,7 +84,7 @@ class SsoConfigServiceTest extends TestCase
     #[Test]
     public function disable_for_entitlement_loss_preserves_secrets_and_disables_login(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -110,7 +110,7 @@ class SsoConfigServiceTest extends TestCase
     #[Test]
     public function clear_entitlement_disable_flag_does_not_auto_enable_sso(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -137,7 +137,7 @@ class SsoConfigServiceTest extends TestCase
     #[Test]
     public function config_audit_snapshot_excludes_raw_secrets(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
         $logged = [];
 

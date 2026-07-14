@@ -66,7 +66,7 @@ class TenantResolverMiddleware
         }
 
         if (auth()->check()) {
-            return auth()->user()->personalTenant();
+            return auth()->user()->homeTenant();
         }
 
         return null;

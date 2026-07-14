@@ -38,7 +38,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => fn () => $request->user(),
             ],
-            'personalTenant' => fn () => $request->user()?->personalTenant(),
+            'homeTenant' => fn () => $request->user()?->homeTenant(),
+            'personalTenant' => fn () => $request->user()?->homeTenant(),
             'csrf_token' => fn () => csrf_token(),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

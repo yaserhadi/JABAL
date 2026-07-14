@@ -75,20 +75,60 @@ class TenantUser extends Authenticatable
         return $this->hasMany(Membership::class, 'user_id');
     }
 
+    /**
+     * Resolve home Tenant via active Membership (owner preferred).
+     * BK-064: created_by is provenance only — not ownership/redirect SSOT.
+     */
+    public function homeTenant(): ?Tenant
+    {
+        if (tenancy()->initialized && tenancy()->tenant) {
+            $current = tenancy()->tenant;
+            $inCurrent = Membership::query()
+                ->where('user_id', $this->id)
+                ->where('tenant_id', $current->id)
+                ->where('status', 'active')
+                ->exists();
+
+            if ($inCurrent) {
+                return $current;
+            }
+        }
+
+        $membership = Membership::query()
+            ->withoutGlobalScope('tenant')
+            ->where('user_id', $this->id)
+            ->where('status', 'active')
+            ->orderByRaw("CASE WHEN membership_type = 'owner' THEN 0 ELSE 1 END")
+            ->orderBy('joined_at')
+            ->first();
+
+        if ($membership) {
+            return Tenant::query()->find($membership->tenant_id);
+        }
+
+        // Registry pointer on the user row (shared_db or dedicated). Ownership remains Membership-only;
+        // callers that require membership must assert separately (EnsureUserBelongsToTenant).
+        if ($this->tenant_id) {
+            return Tenant::query()->find($this->tenant_id);
+        }
+
+        return null;
+    }
+
+    /**
+     * @deprecated BK-064 — use homeTenant(); kept as thin alias during test migration.
+     */
     public function personalTenant(): ?Tenant
     {
-        return Tenant::query()
-            ->where('type', 'personal')
-            ->where('created_by', $this->id)
-            ->first();
+        return $this->homeTenant();
     }
 
     public function homeRedirectPath(): string
     {
-        $tenant = $this->personalTenant();
+        $tenant = $this->homeTenant();
 
         if ($tenant) {
-            return '/t/'.$tenant->id.'/dashboard';
+            return '/t/'.$tenant->entryKey().'/dashboard';
         }
 
         return route('login');

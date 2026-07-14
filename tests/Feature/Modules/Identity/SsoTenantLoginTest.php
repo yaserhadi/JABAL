@@ -17,7 +17,6 @@ class SsoTenantLoginTest extends TestCase
     public function tenant_login_renders_for_active_organization(): void
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
 
@@ -35,7 +34,6 @@ class SsoTenantLoginTest extends TestCase
     public function tenant_login_shows_sso_when_operational(): void
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAvailable($tenant);
@@ -62,7 +60,6 @@ class SsoTenantLoginTest extends TestCase
     public function tenant_login_does_not_expose_secrets(): void
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAvailable($tenant);
@@ -82,19 +79,19 @@ class SsoTenantLoginTest extends TestCase
     }
 
     #[Test]
-    public function personal_tenant_login_is_not_found(): void
+    public function registered_tenant_login_is_available(): void
     {
-        $user = $this->registerTenantUser('Personal', 'personal-login-'.uniqid().'@example.com');
-        $tenant = $user->personalTenant();
+        $user = $this->registerTenantUser('Member', 'member-login-'.uniqid().'@example.com');
+        $tenant = $user->homeTenant();
 
-        $this->get('/t/'.$tenant->id.'/login')->assertNotFound();
+        $this->get('/t/'.$tenant->id.'/login')->assertOk();
+        $this->get('/t/'.$tenant->slug.'/login')->assertOk();
     }
 
     #[Test]
     public function inactive_organization_tenant_login_is_not_found(): void
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'suspended',
         ]);
 

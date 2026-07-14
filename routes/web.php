@@ -8,15 +8,15 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | All functional routes (auth, dashboard, admin) live in module route files.
 |
-| PHASE 2: Root redirect goes to /t/{personalTenantId}/dashboard
+| BK-064: Root redirect uses Membership-based homeTenant (slug path preferred).
 */
 
 Route::get('/', function () {
     if (auth('web')->check()) {
         $user = auth('web')->user();
-        $personalTenant = $user->personalTenant();
-        if ($personalTenant) {
-            return redirect('/t/'.$personalTenant->id.'/dashboard');
+        $homeTenant = $user->homeTenant();
+        if ($homeTenant) {
+            return redirect('/t/'.$homeTenant->entryKey().'/dashboard');
         }
 
         return redirect()->route('login');

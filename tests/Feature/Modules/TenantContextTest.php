@@ -17,7 +17,6 @@ class TenantContextTest extends TestCase
         $tenant = Tenant::create([
             'name' => 'Test Tenant',
             'slug' => 'test-tenant-'.uniqid(),
-            'type' => 'personal',
             'isolation_level' => 'shared',
         ]);
 

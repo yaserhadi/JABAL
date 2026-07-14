@@ -97,7 +97,6 @@ class TenantOnboardingService
         return Tenant::query()->create([
             'name' => $input->organizationName,
             'slug' => $slug,
-            'type' => 'organization',
             'isolation_level' => $input->isolationLevel,
             'status' => 'active',
         ]);

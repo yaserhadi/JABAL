@@ -119,7 +119,6 @@ class DatabasePerTenantSessionConnectionTest extends TestCase
         $attributes = [
             'name' => 'Db Per Tenant Org',
             'slug' => 'dbpt-'.uniqid(),
-            'type' => 'organization',
             'isolation_level' => 'database',
             'status' => 'active',
         ];

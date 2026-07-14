@@ -43,7 +43,6 @@ class TenantProvisionerTest extends TestCase
         $tenant = Tenant::query()->create([
             'name' => 'Idempotent Org',
             'slug' => 'idem-'.uniqid(),
-            'type' => 'organization',
             'isolation_level' => 'database',
             'status' => 'active',
         ]);
@@ -76,7 +75,6 @@ class TenantProvisionerTest extends TestCase
         $tenant = Tenant::query()->create([
             'name' => 'Failed Org',
             'slug' => 'fail-'.uniqid(),
-            'type' => 'organization',
             'isolation_level' => 'database',
             'status' => 'active',
         ]);

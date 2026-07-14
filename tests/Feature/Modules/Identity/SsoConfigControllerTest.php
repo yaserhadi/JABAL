@@ -32,7 +32,6 @@ class SsoConfigControllerTest extends TestCase
         parent::setUp();
 
         $this->tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAvailable($this->tenant);
@@ -180,7 +179,6 @@ class SsoConfigControllerTest extends TestCase
     public function enabling_requires_entitlement(): void
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         tenancy()->initialize($tenant);
@@ -260,21 +258,26 @@ class SsoConfigControllerTest extends TestCase
     }
 
     #[Test]
-    public function personal_tenant_is_rejected(): void
+    public function tenant_without_sso_entitlement_cannot_enable_sso(): void
     {
-        $user = $this->registerTenantUser('Personal', 'personal-'.uniqid().'@example.com');
-        $tenant = $user->personalTenant();
+        $user = $this->registerTenantUser('NoEntitlement', 'no-entitle-'.uniqid().'@example.com');
+        $tenant = $user->homeTenant();
         app(TenantRbacProvisioner::class)->assignTenantAdminRole($user, $tenant);
 
         $this->actingAsTenantUser($user, $tenant)
             ->getJson('/t/'.$tenant->id.'/security/sso')
-            ->assertForbidden();
+            ->assertOk();
 
         $this->actingAsTenantUser($user, $tenant)
             ->patchJson('/t/'.$tenant->id.'/security/sso', [
-                'provider_label' => 'Nope',
+                'enabled' => true,
+                'issuer_url' => self::SAFE_ISSUER,
+                'client_id' => 'client-id',
+                'client_secret' => 'secret',
+                'scopes' => ['openid', 'profile', 'email'],
             ])
-            ->assertForbidden();
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['enabled']);
     }
 
     #[Test]

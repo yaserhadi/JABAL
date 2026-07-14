@@ -41,7 +41,6 @@ class SsoCallbackSecurityTest extends TestCase
     protected function createEnabledOrgTenant(): array
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAvailable($tenant);

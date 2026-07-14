@@ -57,7 +57,6 @@ class SsoPrvTest extends TestCase
     public function shared_db_sso_config_is_stored_on_tenant_connection_only(): void
     {
         $tenant = \Modules\Tenancy\Models\Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAvailable($tenant);
@@ -86,7 +85,6 @@ class SsoPrvTest extends TestCase
         $this->restoreSharedTenantConnectionDatabase();
 
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'isolation_level' => 'database',
             'status' => 'active',
         ]);
@@ -205,12 +203,10 @@ class SsoPrvTest extends TestCase
         $this->restoreSharedTenantConnectionDatabase();
 
         $tenantA = Tenant::factory()->create([
-            'type' => 'organization',
             'isolation_level' => 'database',
             'status' => 'active',
         ]);
         $tenantB = Tenant::factory()->create([
-            'type' => 'organization',
             'isolation_level' => 'database',
             'status' => 'active',
         ]);

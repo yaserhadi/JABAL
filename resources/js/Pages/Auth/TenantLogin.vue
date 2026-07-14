@@ -9,7 +9,7 @@
                                 {{ tenant.name }}
                             </v-card-title>
                             <v-card-subtitle class="text-center pb-2">
-                                Sign in to your organization
+                                Sign in to your workspace
                             </v-card-subtitle>
                             <v-card-text>
                                 <v-alert
@@ -72,7 +72,7 @@
                                     :href="route('login')"
                                     variant="text"
                                 >
-                                    Back to main sign in
+                                    Back to workspace finder
                                 </v-btn>
                             </v-card-actions>
                         </v-card>
@@ -84,7 +84,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
@@ -97,20 +97,32 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    prefillEmail: {
+        type: String,
+        default: '',
+    },
 });
 
 const form = useForm({
-    email: '',
+    email: props.prefillEmail || '',
     password: '',
     remember: false,
 });
 
+onMounted(() => {
+    if (props.prefillEmail && !form.email) {
+        form.email = props.prefillEmail;
+    }
+});
+
+const tenantKey = computed(() => props.tenant.slug || props.tenant.id);
+
 const ssoRedirectUrl = computed(() =>
-    route('identity.sso.redirect', { tenant: props.tenant.id })
+    route('identity.sso.redirect', { tenant: tenantKey.value })
 );
 
 const submit = () => {
-    form.post(route('login'), {
+    form.post(route('tenant.login.submit', { tenant: tenantKey.value }), {
         onFinish: () => form.reset('password'),
     });
 };

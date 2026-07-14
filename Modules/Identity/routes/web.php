@@ -55,6 +55,7 @@ Route::prefix('t/{tenant}')
     ->middleware(['web', 'guest'])
     ->group(function () {
         Route::get('/login', [AuthController::class, 'showTenantLogin'])->name('tenant.login');
+        Route::post('/login', [AuthController::class, 'tenantLogin'])->name('tenant.login.submit');
         Route::get('/auth/sso/redirect', [SsoAuthController::class, 'redirect'])
             ->name('identity.sso.redirect');
     });
@@ -95,7 +96,6 @@ Route::prefix('t/{tenant}')
                     'id' => $tenant->id,
                     'name' => $tenant->name,
                     'slug' => $tenant->slug,
-                    'type' => $tenant->type,
                 ] : null,
             ]);
         })->middleware('permission:dashboard.view')->name('dashboard');

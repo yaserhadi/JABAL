@@ -109,7 +109,6 @@ class DedicatedTenantAuthModelTest extends TestCase
             $tenant->forceFill([
                 'name' => 'Dedicated Auth Org',
                 'slug' => 'ded-auth-a',
-                'type' => 'organization',
                 'isolation_level' => 'database',
                 'status' => 'active',
             ])->save();

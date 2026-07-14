@@ -11,10 +11,20 @@ use Modules\Tenancy\Models\Tenant;
  */
 class UserService
 {
+    /**
+     * BK-064: Resolve home Tenant via Membership (not personal type / created_by SSOT).
+     */
+    public function resolveHomeTenant(TenantUser $user): ?Tenant
+    {
+        return $user->homeTenant();
+    }
+
+    /**
+     * @deprecated BK-064 — use resolveHomeTenant().
+     */
     public function getPersonalTenant(TenantUser $user): ?Tenant
     {
-        return $user->personalTenant()
-            ?? Tenant::query()->find($user->tenant_id);
+        return $this->resolveHomeTenant($user);
     }
 
     /**
@@ -41,14 +51,17 @@ class UserService
         return new \Illuminate\Database\Eloquent\Collection;
     }
 
+    /**
+     * @deprecated BK-064 — registration creates home tenant; do not invent personal type.
+     */
     public function createPersonalTenant(TenantUser $user): Tenant
     {
-        $tenant = $user->personalTenant();
+        $tenant = $this->resolveHomeTenant($user);
         if ($tenant) {
             return $tenant;
         }
 
-        throw new \RuntimeException('User has no personal tenant.');
+        throw new \RuntimeException('User has no home tenant membership.');
     }
 
     public function addUserToTenant(

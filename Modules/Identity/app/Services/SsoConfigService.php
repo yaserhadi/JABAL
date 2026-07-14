@@ -32,7 +32,7 @@ class SsoConfigService
 
     public function getForTenant(Tenant $tenant): array
     {
-        $this->assertOrganizationTenant($tenant);
+        $this->assertActiveTenant($tenant);
 
         return $this->withTenantContext($tenant, function () use ($tenant) {
             $record = $this->findRow($tenant);
@@ -47,7 +47,7 @@ class SsoConfigService
 
     public function update(Tenant $tenant, array $data): TenantSsoConfig
     {
-        $this->assertOrganizationTenant($tenant);
+        $this->assertActiveTenant($tenant);
 
         return $this->withTenantContext($tenant, function () use ($tenant, $data) {
             $existing = $this->findRow($tenant);
@@ -89,7 +89,7 @@ class SsoConfigService
 
     public function isOperationalForTenant(Tenant $tenant): bool
     {
-        if ($tenant->type !== 'organization') {
+        if ($tenant->status !== 'active') {
             return false;
         }
 
@@ -113,10 +113,6 @@ class SsoConfigService
      */
     public function disableForEntitlementLoss(Tenant $tenant): bool
     {
-        if ($tenant->type !== 'organization') {
-            return false;
-        }
-
         return $this->withTenantContext($tenant, function () use ($tenant) {
             $existing = $this->findRow($tenant);
 
@@ -145,7 +141,7 @@ class SsoConfigService
      */
     public function clearEntitlementDisableFlag(Tenant $tenant): bool
     {
-        if ($tenant->type !== 'organization' || ! $this->featureGate->isSsoAvailable($tenant)) {
+        if (! $this->featureGate->isSsoAvailable($tenant)) {
             return false;
         }
 
@@ -264,10 +260,10 @@ class SsoConfigService
         $logger->log($wasUpdate ? 'sso.config.updated' : 'sso.config.created', $base);
     }
 
-    protected function assertOrganizationTenant(Tenant $tenant): void
+    protected function assertActiveTenant(Tenant $tenant): void
     {
-        if ($tenant->type !== 'organization') {
-            abort(403, 'SSO is available for organization tenants only.');
+        if ($tenant->status !== 'active') {
+            abort(403, 'Tenant is not active.');
         }
     }
 

@@ -29,7 +29,6 @@ class SsoMfaStepUpTest extends TestCase
     protected function createOrgTenantWithMfaRequiredMember(): array
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAndMfaEntitlements($tenant, required: true);

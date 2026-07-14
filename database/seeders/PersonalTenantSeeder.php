@@ -19,12 +19,13 @@ class PersonalTenantSeeder extends Seeder
 
         Tenant::firstOrCreate(
             [
-                'slug' => Str::slug($user->name).'-personal',
+                'slug' => Str::slug($user->name).'-home',
             ],
             [
                 'name' => $user->name.'\'s Workspace',
-                'type' => 'personal',
                 'isolation_level' => 'shared',
+                'status' => 'active',
+                'created_by' => $user->id,
             ]
         );
     }

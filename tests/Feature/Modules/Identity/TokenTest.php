@@ -60,7 +60,6 @@ class TokenTest extends TestCase
         $user = $this->registerTenantUser('Multi Tenant', $email);
 
         $orgTenant = \Modules\Tenancy\Models\Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $userService->addUserToTenant($user, $orgTenant, 'member');

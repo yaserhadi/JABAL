@@ -18,7 +18,6 @@ class TenantRegistrationService
         $tenant = Tenant::create([
             'name' => $name."'s Workspace",
             'slug' => 'pending-'.uniqid(),
-            'type' => 'personal',
             'isolation_level' => $isolationLevel,
             'status' => 'active',
         ]);
@@ -51,7 +50,7 @@ class TenantRegistrationService
 
             $tenant->update([
                 'created_by' => $tenantUser->id,
-                'slug' => 'personal-'.$tenantUser->id,
+                'slug' => 'ws-'.strtolower(substr(str_replace('-', '', $tenantUser->id), 0, 12)),
             ]);
 
             Membership::create([

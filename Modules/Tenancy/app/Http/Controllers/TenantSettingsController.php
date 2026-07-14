@@ -36,7 +36,6 @@ class TenantSettingsController extends Controller
             'id' => $tenant->id,
             'name' => $tenant->name,
             'slug' => $tenant->slug,
-            'type' => $tenant->type,
         ];
 
         if ($request->expectsJson()) {
