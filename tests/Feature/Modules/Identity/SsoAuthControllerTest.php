@@ -25,7 +25,7 @@ class SsoAuthControllerTest extends TestCase
 
     protected function createOrgTenantWithMember(): array
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -72,7 +72,7 @@ class SsoAuthControllerTest extends TestCase
     #[Test]
     public function redirect_rejects_when_entitlement_missing(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
 
         tenancy()->initialize($tenant);
         \Modules\Identity\Models\TenantSsoConfig::query()->create([

@@ -29,7 +29,7 @@ class SsoAuthServiceTest extends TestCase
     #[Test]
     public function prepare_authorization_session_stores_pkce_and_oidc_state_in_session(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -56,8 +56,8 @@ class SsoAuthServiceTest extends TestCase
     #[Test]
     public function complete_callback_rejects_tenant_mismatch_between_state_and_tenant_context(): void
     {
-        $tenantA = Tenant::factory()->create(['type' => 'organization']);
-        $tenantB = Tenant::factory()->create(['type' => 'organization']);
+        $tenantA = Tenant::factory()->create();
+        $tenantB = Tenant::factory()->create();
         $this->grantSsoAvailable($tenantA);
         $this->grantSsoAvailable($tenantB);
 
@@ -88,7 +88,7 @@ class SsoAuthServiceTest extends TestCase
     #[Test]
     public function complete_callback_rejects_missing_authorization_session(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -116,7 +116,7 @@ class SsoAuthServiceTest extends TestCase
     #[Test]
     public function complete_callback_rejects_state_session_mismatch(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -147,7 +147,7 @@ class SsoAuthServiceTest extends TestCase
     #[Test]
     public function resolve_identity_rejects_configured_issuer_mismatch(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
@@ -171,7 +171,7 @@ class SsoAuthServiceTest extends TestCase
     #[Test]
     public function complete_callback_returns_protocol_error_on_idp_failure(): void
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);

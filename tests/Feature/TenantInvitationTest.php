@@ -148,7 +148,7 @@ class TenantInvitationTest extends TestCase
         $this->assertSame($tenantCountBefore, Tenant::query()->count());
         $this->assertSame($this->tenant->id, $acceptResult['user']->tenant_id);
         $this->assertFalse(
-            Tenant::query()->where('type', 'personal')->where('created_by', $acceptResult['user']->id)->exists()
+            Tenant::query()->where('created_by', $acceptResult['user']->id)->exists()
         );
 
         tenancy()->initialize($this->tenant);

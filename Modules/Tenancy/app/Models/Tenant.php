@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Stancl\Tenancy\Contracts\Tenant as TenantContract;
 use Stancl\Tenancy\Database\Concerns\HasInternalKeys;
 use Stancl\Tenancy\Database\Concerns\TenantRun;
@@ -19,6 +20,8 @@ use Stancl\Tenancy\Database\Concerns\TenantRun;
  * - Implements TenantContract only (NO HasDatabase trait)
  * - Uses explicit 'central' connection
  * - NO BelongsToTenant trait (this IS the tenant)
+ *
+ * BK-064: No personal|organization type column. Path entry accepts slug or UUID.
  */
 class Tenant extends Model implements TenantContract
 {
@@ -39,7 +42,6 @@ class Tenant extends Model implements TenantContract
     protected $fillable = [
         'name',
         'slug',
-        'type',
         'isolation_level',
         'status',
         'created_by',
@@ -63,24 +65,27 @@ class Tenant extends Model implements TenantContract
     }
 
     /**
-     * Scope: personal tenants only.
+     * Human path key: prefer slug; UUID remains machine/compatibility.
      */
-    public function scopePersonal($query)
+    public function entryKey(): string
     {
-        return $query->where('type', 'personal');
-    }
-
-    public function isPersonal(): bool
-    {
-        return $this->type === 'personal';
+        return filled($this->slug) ? (string) $this->slug : (string) $this->id;
     }
 
     /**
-     * Scope: organization tenants only.
+     * Resolve /t/{tenant} by UUID or unique slug (BK-064).
      */
-    public function scopeOrganization($query)
+    public function resolveRouteBinding($value, $field = null)
     {
-        return $query->where('type', 'organization');
+        if ($field !== null) {
+            return $this->where($field, $value)->firstOrFail();
+        }
+
+        if (is_string($value) && Str::isUuid($value)) {
+            return $this->where('id', $value)->firstOrFail();
+        }
+
+        return $this->where('slug', $value)->firstOrFail();
     }
 
     /**

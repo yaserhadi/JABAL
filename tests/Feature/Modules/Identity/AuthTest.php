@@ -14,30 +14,59 @@ class AuthTest extends TestCase
     }
 
     /**
-     * PHASE 2: Login redirects to tenant-scoped dashboard /t/{tenant}/dashboard.
+     * BK-064: Central login is discovery only; password auth is tenant-local.
      */
-    public function test_users_can_authenticate_with_valid_credentials(): void
+    public function test_central_login_discovers_and_redirects_to_tenant_login(): void
     {
         $email = 'auth-valid-'.uniqid().'@example.com';
         $user = $this->registerTenantUser('Test User', $email);
-        $password = 'password';
-        $tenant = $user->personalTenant();
+        $tenant = $user->homeTenant();
 
         $response = $this->post('/login', [
             'email' => $email,
-            'password' => $password,
+        ]);
+
+        $this->assertGuest('web');
+        $response->assertRedirect('/t/'.$tenant->slug.'/login?email='.urlencode($email));
+    }
+
+    public function test_users_can_authenticate_on_tenant_login(): void
+    {
+        $email = 'auth-tenant-'.uniqid().'@example.com';
+        $user = $this->registerTenantUser('Test User', $email);
+        $tenant = $user->homeTenant();
+
+        $response = $this->post('/t/'.$tenant->slug.'/login', [
+            'email' => $email,
+            'password' => 'password',
         ]);
 
         $this->assertAuthenticated('web');
-        $response->assertRedirect('/t/'.$tenant->id.'/dashboard');
+        $response->assertRedirect('/t/'.$tenant->slug.'/dashboard');
+    }
+
+    public function test_central_login_does_not_authenticate_with_password(): void
+    {
+        $email = 'auth-no-central-'.uniqid().'@example.com';
+        $this->registerTenantUser('Test User', $email);
+
+        $response = $this->post('/login', [
+            'email' => $email,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest('web');
+        $response->assertRedirect();
     }
 
     public function test_users_cannot_authenticate_with_invalid_password(): void
     {
-        $this->registerTenantUser('Test User', 'test-wrong@example.com');
+        $email = 'test-wrong@example.com';
+        $user = $this->registerTenantUser('Test User', $email);
+        $tenant = $user->homeTenant();
 
-        $response = $this->post('/login', [
-            'email' => 'test-wrong@example.com',
+        $response = $this->post('/t/'.$tenant->slug.'/login', [
+            'email' => $email,
             'password' => 'wrong-password',
         ]);
 
@@ -47,7 +76,7 @@ class AuthTest extends TestCase
     public function test_users_can_logout(): void
     {
         $user = $this->registerTenantUser('Logout User', 'logout-'.uniqid().'@example.com');
-        $tenant = $user->personalTenant();
+        $tenant = $user->homeTenant();
 
         $response = $this->actingAsTenantUser($user, $tenant, 'web')->post('/logout');
 
@@ -67,7 +96,7 @@ class AuthTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect();
         $target = $response->headers->get('Location');
-        $this->assertMatchesRegularExpression('#/t/[a-f0-9-]{36}/dashboard#', (string) $target);
+        $this->assertMatchesRegularExpression('#/t/[a-z0-9-]+/dashboard#', (string) $target);
 
         $dash = $this->get((string) $target);
         $dash->assertStatus(200);
@@ -90,7 +119,7 @@ class AuthTest extends TestCase
 
         $this->assertAuthenticated();
         $target = $response->headers->get('Location');
-        $this->assertMatchesRegularExpression('#/t/[a-f0-9-]{36}/dashboard#', (string) $target);
+        $this->assertMatchesRegularExpression('#/t/[a-z0-9-]+/dashboard#', (string) $target);
 
         $this->get((string) $target)->assertOk();
     }

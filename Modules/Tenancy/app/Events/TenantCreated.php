@@ -44,7 +44,6 @@ class TenantCreated extends DomainEvent implements ShouldDispatchAfterCommit
             'tenant' => [
                 'id' => $this->tenant->id,
                 'name' => $this->tenant->name,
-                'type' => $this->tenant->type,
                 'slug' => $this->tenant->slug,
             ],
         ];

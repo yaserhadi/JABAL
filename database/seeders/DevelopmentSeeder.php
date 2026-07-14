@@ -25,15 +25,15 @@ class DevelopmentSeeder extends Seeder
             'email_verified_at' => now(),
         ]);
 
-        // Create personal tenant for admin using UserService
+        // Create home tenant for admin using UserService
         $personalTenant = $userService->createPersonalTenant($admin);
 
-        // Create organization tenant
+        // Create additional tenant workspace
         $orgTenant = Tenant::create([
             'name' => 'Demo Organization',
             'slug' => 'demo-org',
-            'type' => 'organization',
             'isolation_level' => 'shared',
+            'status' => 'active',
         ]);
 
         // Add admin as owner of organization using UserService

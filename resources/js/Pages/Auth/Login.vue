@@ -9,38 +9,36 @@
                                 {{ appName }}
                             </v-card-title>
                             <v-card-subtitle class="text-center pb-2">
-                                Sign in to your account
+                                Find your workspace
                             </v-card-subtitle>
                             <v-card-text>
                                 <v-form @submit.prevent="submit">
+                                    <v-text-field
+                                        v-model="form.slug"
+                                        label="Workspace slug"
+                                        :error-messages="form.errors.slug"
+                                        prepend-inner-icon="mdi-office-building"
+                                        hint="Preferred: go directly to your workspace login"
+                                        persistent-hint
+                                    />
                                     <v-text-field
                                         v-model="form.email"
                                         label="Email"
                                         type="email"
                                         :error-messages="form.errors.email"
-                                        required
                                         prepend-inner-icon="mdi-email"
-                                    />
-                                    <v-text-field
-                                        v-model="form.password"
-                                        label="Password"
-                                        type="password"
-                                        :error-messages="form.errors.password"
-                                        required
-                                        prepend-inner-icon="mdi-lock"
-                                    />
-                                    <v-checkbox
-                                        v-model="form.remember"
-                                        label="Remember me"
+                                        hint="Or discover your workspace by email"
+                                        persistent-hint
+                                        class="mt-2"
                                     />
                                     <v-btn
                                         type="submit"
                                         color="primary"
                                         block
                                         :loading="form.processing"
-                                        class="mt-2"
+                                        class="mt-4"
                                     >
-                                        Sign In
+                                        Continue
                                     </v-btn>
                                 </v-form>
                             </v-card-text>
@@ -68,14 +66,11 @@ import { route } from 'ziggy-js';
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
 
 const form = useForm({
+    slug: '',
     email: '',
-    password: '',
-    remember: false,
 });
 
 const submit = () => {
-    form.post(route('login'), {
-        onFinish: () => form.reset('password'),
-    });
+    form.post(route('login'));
 };
 </script>

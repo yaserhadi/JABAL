@@ -106,7 +106,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 'id' => $tenant->id,
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
-                'type' => $tenant->type,
             ] : null;
 
             return ApiResponse::success([

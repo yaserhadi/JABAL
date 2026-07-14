@@ -25,7 +25,7 @@ class SsoIdentityResolverTest extends TestCase
 
     protected function createOrgMember(string $email): array
     {
-        $tenant = Tenant::factory()->create(['type' => 'organization']);
+        $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);

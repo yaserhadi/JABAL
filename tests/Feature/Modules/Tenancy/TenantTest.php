@@ -17,25 +17,22 @@ class TenantTest extends TestCase
         $tenant = Tenant::factory()->create([
             'name' => 'Test Tenant',
             'slug' => 'test-tenant',
-            'type' => 'organization',
         ]);
 
         $this->assertDatabaseHas('tenants', [
             'name' => 'Test Tenant',
             'slug' => 'test-tenant',
-            'type' => 'organization',
         ]);
     }
 
-    public function test_user_can_have_personal_tenant(): void
+    public function test_user_can_have_home_tenant(): void
     {
         $user = User::factory()->create();
         $userService = app(\Modules\Identity\Services\UserService::class);
-        $personalTenant = $userService->getPersonalTenant($user);
+        $homeTenant = $userService->resolveHomeTenant($user);
 
-        $this->assertNotNull($personalTenant);
-        $this->assertTrue($personalTenant->isPersonal());
-        $this->assertEquals($user->id, $personalTenant->created_by);
+        $this->assertNotNull($homeTenant);
+        $this->assertEquals($user->id, $homeTenant->created_by);
     }
 
     public function test_user_can_belong_to_multiple_tenants(): void

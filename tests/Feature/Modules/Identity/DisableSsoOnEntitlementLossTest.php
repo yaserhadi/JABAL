@@ -180,7 +180,6 @@ class DisableSsoOnEntitlementLossTest extends TestCase
     protected function createTenantWithEnabledSso(): array
     {
         $tenant = Tenant::factory()->create([
-            'type' => 'organization',
             'status' => 'active',
         ]);
         $this->grantSsoAvailable($tenant);

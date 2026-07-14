@@ -21,7 +21,7 @@ class DisableSsoOnEntitlementLoss
     {
         $tenant = Tenant::query()->find($event->tenantId);
 
-        if (! $tenant || $tenant->type !== 'organization') {
+        if (! $tenant) {
             return;
         }
 

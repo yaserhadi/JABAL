@@ -12,7 +12,7 @@ use Modules\Tenancy\Models\Tenant;
 /**
  * Tenant Resolver Service.
  *
- * Resolves the current tenant from session or user's personal tenant.
+ * Resolves the current tenant from session or user's home tenant.
  * Implements the TenantResolverInterface for dependency injection.
  */
 class TenantResolver implements TenantResolverInterface
@@ -29,7 +29,7 @@ class TenantResolver implements TenantResolverInterface
      *
      * Resolution strategy:
      * 1. Check session for 'active_tenant_id'
-     * 2. Fallback to authenticated user's personal tenant
+     * 2. Fallback to authenticated user's home tenant (Membership)
      *
      * @return \Modules\Tenancy\Models\Tenant|null
      */
@@ -45,9 +45,9 @@ class TenantResolver implements TenantResolverInterface
             }
         }
 
-        // Fallback to user's personal tenant using UserService
+        // Fallback to user's home tenant using UserService
         if (Auth::check()) {
-            return $this->userService->getPersonalTenant(Auth::user());
+            return $this->userService->resolveHomeTenant(Auth::user());
         }
 
         return null;

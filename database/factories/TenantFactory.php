@@ -22,15 +22,24 @@ class TenantFactory extends Factory
         return [
             'name' => $name,
             'slug' => str()->slug($name).'-'.str()->random(6),
-            'type' => 'organization',
             'isolation_level' => 'shared',
+            'status' => 'active',
         ];
     }
 
+    /**
+     * @deprecated BK-064 — type removed; kept as no-op alias for older tests.
+     */
     public function personal(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'personal',
-        ]);
+        return $this;
+    }
+
+    /**
+     * @deprecated BK-064 — type removed; kept as no-op alias for older tests.
+     */
+    public function organization(): static
+    {
+        return $this;
     }
 }

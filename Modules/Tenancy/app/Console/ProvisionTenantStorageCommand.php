@@ -22,12 +22,6 @@ class ProvisionTenantStorageCommand extends Command
             return self::FAILURE;
         }
 
-        if ($tenant->type !== 'organization') {
-            $this->error('Only organization tenants can be provisioned via this command.');
-
-            return self::FAILURE;
-        }
-
         $result = $onboarding->completeStorageProvisioning($tenant);
 
         $this->info('Tenant: '.$result->tenant->id);

@@ -50,12 +50,14 @@ class TenantOnboardingTest extends TestCase
 
     protected function assertR6OwnerLogin(TenantProvisioningResult $result, string $password): TenantProvisioningResult
     {
-        $response = $this->post('/login', [
+        $tenantKey = $result->tenant->entryKey();
+
+        $response = $this->post('/t/'.$tenantKey.'/login', [
             'email' => $result->owner?->email,
             'password' => $password,
         ]);
 
-        $response->assertRedirect('/t/'.$result->tenant->id.'/dashboard');
+        $response->assertRedirect('/t/'.$tenantKey.'/dashboard');
         $this->assertAuthenticated('web');
 
         return $result->withReachable(true);
@@ -75,7 +77,6 @@ class TenantOnboardingTest extends TestCase
         $tenant = $result->tenant;
         $this->assertDatabaseHas('tenants', [
             'id' => $tenant->id,
-            'type' => 'organization',
             'status' => 'active',
             'isolation_level' => 'shared',
         ], 'central');
@@ -120,11 +121,12 @@ class TenantOnboardingTest extends TestCase
         auth('platform')->logout();
         $this->flushSession();
 
-        $login = $this->post('/login', [
+        $tenant = Tenant::query()->findOrFail($tenantId);
+        $login = $this->post('/t/'.$tenant->entryKey().'/login', [
             'email' => $ownerEmail,
             'password' => 'password-Str0ng!',
         ]);
-        $login->assertRedirect('/t/'.$tenantId.'/dashboard');
+        $login->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
     }
 
     public function test_artisan_onboard_organization_command_is_ready_on_shared_db(): void
@@ -142,10 +144,10 @@ class TenantOnboardingTest extends TestCase
         $tenant = Tenant::query()->where('name', 'Artisan Org')->first();
         $this->assertNotNull($tenant);
 
-        $this->post('/login', [
+        $this->post('/t/'.$tenant->entryKey().'/login', [
             'email' => $ownerEmail,
             'password' => 'password-Str0ng!',
-        ])->assertRedirect('/t/'.$tenant->id.'/dashboard');
+        ])->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
     }
 
     public function test_manual_strategy_two_phase_provisioning_becomes_ready(): void

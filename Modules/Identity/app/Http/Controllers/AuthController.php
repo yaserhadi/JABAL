@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Modules\Identity\Events\UserRegistered;
 use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Services\SsoConfigService;
+use Modules\Identity\Services\TenantLoginDiscoveryService;
 use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Tenancy\Events\TenantCreated;
 use Modules\Tenancy\Models\Tenant;
@@ -23,7 +24,7 @@ class AuthController extends Controller
 
     public function showTenantLogin(Tenant $tenant)
     {
-        if ($tenant->type !== 'organization' || $tenant->status !== 'active') {
+        if ($tenant->status !== 'active') {
             abort(404);
         }
 
@@ -33,35 +34,69 @@ class AuthController extends Controller
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
-                'type' => $tenant->type,
+                'slug' => $tenant->slug,
             ],
             'ssoOperational' => $ssoOperational,
+            'prefillEmail' => old('email', request()->query('email')),
         ]);
     }
 
-    public function login(Request $request)
+    /**
+     * BK-064: Central POST /login is discovery/routing only — no TenantUser authentication.
+     */
+    public function login(Request $request, TenantLoginDiscoveryService $discovery)
     {
+        $validated = $request->validate([
+            'slug' => 'nullable|string|max:255',
+            'email' => 'nullable|email',
+        ]);
+
+        $tenant = $discovery->resolveActiveTenant(
+            $validated['slug'] ?? null,
+            $validated['email'] ?? null,
+        );
+
+        $query = [];
+        if (! empty($validated['email'])) {
+            $query['email'] = $validated['email'];
+        }
+
+        $url = route('tenant.login', ['tenant' => $tenant->entryKey()]);
+        if ($query !== []) {
+            $url .= '?'.http_build_query($query);
+        }
+
+        if ($request->header('X-Inertia')) {
+            return Inertia::location($url);
+        }
+
+        return redirect()->to($url);
+    }
+
+    /**
+     * Tenant-local password authentication after Tenant is resolved.
+     */
+    public function tenantLogin(Request $request, Tenant $tenant)
+    {
+        if ($tenant->status !== 'active') {
+            abort(404);
+        }
+
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
+        tenancy()->initialize($tenant);
+
         $tenantUser = TenantUser::findForLogin($request->input('email'));
 
-        if (! $tenantUser) {
+        if (! $tenantUser || $tenantUser->tenant_id !== $tenant->id) {
+            tenancy()->end();
             throw ValidationException::withMessages([
                 'email' => __('The provided credentials do not match our records.'),
             ]);
         }
-
-        $tenant = Tenant::find($tenantUser->tenant_id);
-        if (! $tenant || $tenant->status !== 'active') {
-            throw ValidationException::withMessages([
-                'email' => __('The provided credentials do not match our records.'),
-            ]);
-        }
-
-        tenancy()->initialize($tenant);
 
         if (! Auth::guard('web')->attempt(
             $request->only('email', 'password'),
@@ -76,7 +111,7 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect()->intended('/t/'.$tenant->id.'/dashboard');
+        return redirect()->intended('/t/'.$tenant->entryKey().'/dashboard');
     }
 
     public function showRegister()
@@ -98,7 +133,7 @@ class AuthController extends Controller
             $validated['password']
         );
 
-        $tenant = $tenantUser->personalTenant();
+        $tenant = $tenantUser->homeTenant();
 
         event(new UserRegistered($tenantUser));
         if ($tenant) {
@@ -110,7 +145,7 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        $target = '/t/'.$tenant->id.'/dashboard';
+        $target = '/t/'.$tenant->entryKey().'/dashboard';
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);

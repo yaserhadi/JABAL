@@ -75,7 +75,7 @@ class SecuritySettingsController extends Controller
             ->all();
 
         $sso = $this->withTenantPermissions($tenant, function () use ($tenant, $user) {
-            if ($tenant->type !== 'organization' || ! $user->can('tenant.sso.view')) {
+            if (! $user->can('tenant.sso.view')) {
                 return null;
             }
 
@@ -86,7 +86,7 @@ class SecuritySettingsController extends Controller
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
-                'type' => $tenant->type,
+                'slug' => $tenant->slug,
             ],
             'policies' => $policies,
             'sessions' => $sessions,

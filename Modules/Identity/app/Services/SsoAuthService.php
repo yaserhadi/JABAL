@@ -44,8 +44,8 @@ class SsoAuthService
 
     public function assertTenantMayStartSso(Tenant $tenant): void
     {
-        if ($tenant->type !== 'organization') {
-            throw new SsoSecurityException('SSO is limited to organization tenants.');
+        if ($tenant->status !== 'active') {
+            throw new SsoSecurityException('Tenant is not active.');
         }
 
         if (! $this->configService->isOperationalForTenant($tenant)) {

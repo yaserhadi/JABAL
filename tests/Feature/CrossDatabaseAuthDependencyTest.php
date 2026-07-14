@@ -59,7 +59,6 @@ class CrossDatabaseAuthDependencyTest extends TestCase
             $tenant->forceFill([
                 'name' => 'F8 Dedicated',
                 'slug' => 'f8-ded',
-                'type' => 'organization',
                 'isolation_level' => 'database',
                 'status' => 'active',
             ])->save();

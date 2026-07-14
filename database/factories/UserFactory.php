@@ -65,7 +65,6 @@ class UserFactory extends Factory
 
             Tenant::where('id', $user->tenant_id)->update([
                 'created_by' => $user->id,
-                'type' => 'personal',
             ]);
         });
     }

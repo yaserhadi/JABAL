@@ -48,7 +48,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->assignDashboardViewToUser($userA, $tenantA);
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
-        $this->loginAs($userA->email, 'password')->assertRedirect('/t/'.$tenantA->id.'/dashboard');
+        $this->loginAs($userA->email, 'password')->assertRedirect('/t/'.$tenantA->entryKey().'/dashboard');
         $this->assertSame('database', config('session.driver'));
         $this->assertSame('tenant_db_'.$tenantA->id, config('session.connection'));
         $this->assertSame(1, $this->sessionCount(self::CONN_A));
@@ -62,7 +62,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->assignDashboardViewToUser($userB, $tenantB);
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
-        $this->loginAs($userB->email, 'password')->assertRedirect('/t/'.$tenantB->id.'/dashboard');
+        $this->loginAs($userB->email, 'password')->assertRedirect('/t/'.$tenantB->entryKey().'/dashboard');
         $this->assertSame('database', config('session.driver'));
         $this->assertSame('tenant_db_'.$tenantB->id, config('session.connection'));
         $this->assertSame(0, $this->sessionCount(self::CONN_A));
@@ -78,8 +78,8 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
         $loginA = $this->loginAs($userA->email, 'password');
-        $loginA->assertRedirect('/t/'.$tenantA->id.'/dashboard');
-        $this->getWithCookies('/t/'.$tenantA->id.'/dashboard', $loginA)->assertOk();
+        $loginA->assertRedirect('/t/'.$tenantA->entryKey().'/dashboard');
+        $this->getWithCookies('/t/'.$tenantA->entryKey().'/dashboard', $loginA)->assertOk();
         $this->assertSame('database', config('session.driver'));
         $this->assertSame($connectionA, config('session.connection'));
         $this->assertSame(1, $this->sessionCount(self::CONN_A));
@@ -94,8 +94,8 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
         $loginB = $this->loginAs($userB->email, 'password');
-        $loginB->assertRedirect('/t/'.$tenantB->id.'/dashboard');
-        $this->getWithCookies('/t/'.$tenantB->id.'/dashboard', $loginB)->assertOk();
+        $loginB->assertRedirect('/t/'.$tenantB->entryKey().'/dashboard');
+        $this->getWithCookies('/t/'.$tenantB->entryKey().'/dashboard', $loginB)->assertOk();
         $this->assertSame('database', config('session.driver'));
         $this->assertSame($connectionB, config('session.connection'));
         $this->assertSame(1, $this->sessionCount(self::CONN_B));
@@ -103,7 +103,18 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
 
     private function loginAs(string $email, string $password): TestResponse
     {
-        return $this->call('POST', '/login', ['email' => $email, 'password' => $password], []);
+        $user = \Modules\Identity\Models\TenantUser::findForLogin($email);
+        $this->assertNotNull($user);
+        $tenant = \Modules\Tenancy\Models\Tenant::query()->find($user->tenant_id);
+        $this->assertNotNull($tenant);
+
+        // Prefer UUID machine path so session deferral attestation stays UUID-keyed.
+        return $this->call(
+            'POST',
+            '/t/'.$tenant->id.'/login',
+            ['email' => $email, 'password' => $password],
+            []
+        );
     }
 
     private function getWithCookies(string $uri, TestResponse $fromResponse): TestResponse
@@ -127,7 +138,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         if (! $tenant) {
             $tenant = new Tenant;
             $tenant->id = $tenantId;
-            $tenant->forceFill(['name' => $name, 'slug' => 'ded-'.substr($tenantId, 0, 8), 'type' => 'organization', 'isolation_level' => 'database', 'status' => 'active'])->save();
+            $tenant->forceFill(['name' => $name, 'slug' => 'ded-'.substr($tenantId, 0, 8), 'isolation_level' => 'database', 'status' => 'active'])->save();
         } else {
             $tenant->update(['name' => $name, 'isolation_level' => 'database', 'status' => 'active']);
         }

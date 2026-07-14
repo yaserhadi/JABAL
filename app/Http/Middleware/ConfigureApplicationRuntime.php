@@ -75,13 +75,17 @@ class ConfigureApplicationRuntime
     private function resolveTenantForDeferralDecision(Request $request): ?Tenant
     {
         if ($request->segment(1) === 't') {
-            $id = $request->segment(2);
+            $key = $request->segment(2);
 
-            if (! $id || ! Str::isUuid($id)) {
+            if (! is_string($key) || $key === '') {
                 return null;
             }
 
-            return Tenant::query()->find($id);
+            if (Str::isUuid($key)) {
+                return Tenant::query()->find($key);
+            }
+
+            return Tenant::query()->where('slug', $key)->first();
         }
 
         if ($this->isEligibleAuthPostForDeferral($request)) {
