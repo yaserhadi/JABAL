@@ -106,7 +106,7 @@ class SsoMfaStepUpTest extends TestCase
             ->assertRedirect('/t/'.$tenant->id.'/dashboard');
 
         $this->get('/t/'.$tenant->id.'/dashboard')
-            ->assertRedirect(route('identity.mfa.challenge', ['tenant' => $tenant->id]));
+            ->assertRedirect(route('identity.mfa.challenge', ['tenant' => $tenant->entryKey()]));
     }
 
     protected function grantSsoAndMfaEntitlements(Tenant $tenant, bool $required = false): void

@@ -35,7 +35,7 @@ class EnsureMfaVerified
                 ], 403);
             }
 
-            return redirect()->route('identity.mfa.enroll', ['tenant' => $tenant->id]);
+            return redirect()->route('identity.mfa.enroll', ['tenant' => $tenant->entryKey()]);
         }
 
         if (! $this->mfaService->sessionIsMfaVerified()) {
@@ -47,7 +47,7 @@ class EnsureMfaVerified
                 ], 403);
             }
 
-            return redirect()->route('identity.mfa.challenge', ['tenant' => $tenant->id]);
+            return redirect()->route('identity.mfa.challenge', ['tenant' => $tenant->entryKey()]);
         }
 
         return $next($request);

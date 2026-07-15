@@ -34,12 +34,11 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import { tenantEntry } from '@/support/tenantEntry';
 
 defineProps({
     tenant: Object,
     workspace: Object,
     flash: Object,
 });
-
-const tenantEntry = (t) => t?.slug || t?.id;
 </script>

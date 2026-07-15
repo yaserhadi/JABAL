@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -42,7 +43,7 @@ class EnsureUserBelongsToTenant
 
         $user = $request->user();
         if (! $user) {
-            return redirect()->route('login');
+            return redirect()->guest(app(TenantEntryUrlResolver::class)->guestRedirectUrl($request));
         }
 
         $isMember = Membership::query()

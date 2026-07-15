@@ -87,6 +87,7 @@
 import { computed, onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import { tenantEntry } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: {
@@ -115,7 +116,7 @@ onMounted(() => {
     }
 });
 
-const tenantKey = computed(() => props.tenant.slug || props.tenant.id);
+const tenantKey = computed(() => tenantEntry(props.tenant));
 
 const ssoRedirectUrl = computed(() =>
     route('identity.sso.redirect', { tenant: tenantKey.value })

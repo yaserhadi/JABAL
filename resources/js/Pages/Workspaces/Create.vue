@@ -45,12 +45,11 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import { tenantEntry } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: Object,
 });
-
-const tenantEntry = (t) => t?.slug || t?.id;
 
 const form = useForm({
     name: '',

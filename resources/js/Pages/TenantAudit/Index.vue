@@ -109,6 +109,7 @@ import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { tenantEntry } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: {
@@ -201,7 +202,7 @@ const formatDetails = (entry) => {
 };
 
 const auditRouteParams = () => ({
-    tenant: props.tenant.id,
+    tenant: tenantEntry(props.tenant),
     ...filterForm.value,
 });
 
@@ -214,7 +215,7 @@ const applyFilters = () => {
 
 const clearFilters = () => {
     filterForm.value = { event: null, date_from: null, date_to: null };
-    router.get(route('tenant.audit.index', { tenant: props.tenant.id }), {}, {
+    router.get(route('tenant.audit.index', { tenant: tenantEntry(props.tenant) }), {}, {
         preserveState: true,
         preserveScroll: true,
     });

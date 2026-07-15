@@ -43,7 +43,7 @@ class SsoConfigController extends Controller
 
         if ($request->header('X-Inertia')) {
             return redirect()
-                ->route('identity.security-settings.show', ['tenant' => $tenant->id])
+                ->route('identity.security-settings.show', ['tenant' => $tenant->entryKey()])
                 ->with('success', 'SSO configuration updated.');
         }
 
