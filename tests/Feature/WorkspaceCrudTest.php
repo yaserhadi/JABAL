@@ -96,6 +96,81 @@ class WorkspaceCrudTest extends TestCase
         $this->assertNotNull(Workspace::where('slug', 'new-workspace')->first());
     }
 
+    public function test_authorized_user_can_open_workspace_create_route(): void
+    {
+        $this->assignWorkspaceRole($this->userA, $this->tenantA);
+        $this->actingAs($this->userA);
+        tenancy()->initialize($this->tenantA);
+
+        $response = $this->get('/t/'.$this->tenantA->slug.'/workspaces/create');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Workspaces/Create')
+            ->where('tenant.slug', $this->tenantA->slug));
+    }
+
+    public function test_workspace_store_redirects_to_show_and_resolves_workspace(): void
+    {
+        $this->assignWorkspaceRole($this->userA, $this->tenantA);
+        $this->actingAs($this->userA);
+        tenancy()->initialize($this->tenantA);
+
+        $response = $this->post('/t/'.$this->tenantA->slug.'/workspaces', [
+            'name' => 'Redirect Workspace',
+            'slug' => 'redirect-workspace',
+        ]);
+
+        tenancy()->initialize($this->tenantA);
+        $workspace = Workspace::where('slug', 'redirect-workspace')->first();
+        $this->assertNotNull($workspace);
+
+        $response->assertRedirect(route('workspaces.show', [
+            'tenant' => $this->tenantA->slug,
+            'workspace' => $workspace,
+        ]));
+
+        $show = $this->actingAs($this->userA)->get($response->headers->get('Location'));
+        $show->assertOk();
+        $show->assertInertia(fn ($page) => $page
+            ->component('Workspaces/Show')
+            ->where('workspace.slug', 'redirect-workspace')
+            ->where('tenant.slug', $this->tenantA->slug));
+    }
+
+    public function test_workspace_index_named_routes_have_non_null_destinations(): void
+    {
+        $this->assignWorkspaceRole($this->userA, $this->tenantA);
+        tenancy()->initialize($this->tenantA);
+        $workspace = Workspace::create(['name' => 'Listed', 'slug' => 'listed']);
+        tenancy()->end();
+
+        $this->actingAs($this->userA);
+        tenancy()->initialize($this->tenantA);
+        $response = $this->get('/t/'.$this->tenantA->slug.'/workspaces');
+        $response->assertOk();
+
+        $create = route('workspaces.create', ['tenant' => $this->tenantA->slug]);
+        $show = route('workspaces.show', ['tenant' => $this->tenantA->slug, 'workspace' => $workspace]);
+        $edit = route('workspaces.edit', ['tenant' => $this->tenantA->slug, 'workspace' => $workspace]);
+
+        foreach ([$create, $show, $edit] as $url) {
+            $this->assertIsString($url);
+            $this->assertNotSame('', $url);
+            $this->assertStringNotContainsString('null', $url);
+            $this->assertStringContainsString('/t/'.$this->tenantA->slug.'/workspaces', $url);
+        }
+    }
+
+    public function test_guest_cannot_access_workspace_routes(): void
+    {
+        $response = $this->get('/t/'.$this->tenantA->slug.'/workspaces');
+        $response->assertRedirect(route('login'));
+
+        $create = $this->get('/t/'.$this->tenantA->slug.'/workspaces/create');
+        $create->assertRedirect(route('login'));
+    }
+
     public function test_workspace_binding_isolation_returns_404_for_cross_tenant(): void
     {
         $this->assignWorkspaceRole($this->userA, $this->tenantA);

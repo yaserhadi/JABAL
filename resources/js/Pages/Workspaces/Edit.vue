@@ -24,14 +24,15 @@
                             <v-btn type="submit" color="primary" :loading="form.processing">
                                 Update
                             </v-btn>
-                            <v-btn
+                            <Link
                                 v-if="tenant"
-                                variant="text"
+                                :href="route('workspaces.show', { tenant: tenantEntry(tenant), workspace: workspace?.id })"
                                 class="ml-2"
-                                :to="route('workspaces.show', { tenant: tenant.id, workspace: workspace?.id })"
                             >
-                                Cancel
-                            </v-btn>
+                                <v-btn variant="text">
+                                    Cancel
+                                </v-btn>
+                            </Link>
                             <v-btn
                                 v-if="tenant && workspace"
                                 color="error"
@@ -52,13 +53,15 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { useForm } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 const props = defineProps({
     tenant: Object,
     workspace: Object,
 });
+
+const tenantEntry = (t) => t?.slug || t?.id;
 
 const form = useForm({
     name: props.workspace?.name ?? '',
@@ -69,12 +72,12 @@ const deleteForm = useForm({});
 
 const submit = () => {
     if (!props.tenant || !props.workspace) return;
-    form.put(route('workspaces.update', { tenant: props.tenant.id, workspace: props.workspace.id }));
+    form.put(route('workspaces.update', { tenant: tenantEntry(props.tenant), workspace: props.workspace.id }));
 };
 
 const confirmDestroy = () => {
     if (!confirm('Are you sure you want to delete this workspace?')) return;
     if (!props.tenant || !props.workspace) return;
-    deleteForm.delete(route('workspaces.destroy', { tenant: props.tenant.id, workspace: props.workspace.id }));
+    deleteForm.delete(route('workspaces.destroy', { tenant: tenantEntry(props.tenant), workspace: props.workspace.id }));
 };
 </script>

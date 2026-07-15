@@ -59,13 +59,16 @@ class WorkspacesController extends Controller
         }
 
         return redirect()
-            ->route('workspaces.show', ['tenant' => tenancy()->tenant->id, 'workspace' => $workspace])
+            ->route('workspaces.show', [
+                'tenant' => $this->tenantRouteKey(),
+                'workspace' => $workspace,
+            ])
             ->with('success', 'Workspace created successfully.');
     }
 
-    public function show(Request $request, Workspace $workspace): Response|JsonResponse
+    public function show(Request $request): Response|JsonResponse
     {
-        $workspace = $this->workspaceService->show($workspace);
+        $workspace = $this->workspaceService->show($this->boundWorkspace($request));
 
         if ($request->expectsJson()) {
             return ApiResponse::success($workspace->toArray());
@@ -79,8 +82,9 @@ class WorkspacesController extends Controller
         ]);
     }
 
-    public function edit(Request $request, Workspace $workspace): Response
+    public function edit(Request $request): Response
     {
+        $workspace = $this->boundWorkspace($request);
         $tenant = tenancy()->tenant;
 
         return Inertia::render('Workspaces/Edit', [
@@ -89,29 +93,62 @@ class WorkspacesController extends Controller
         ]);
     }
 
-    public function update(UpdateWorkspaceRequest $request, Workspace $workspace): RedirectResponse|JsonResponse
+    public function update(UpdateWorkspaceRequest $request): RedirectResponse|JsonResponse
     {
-        $workspace = $this->workspaceService->update($workspace, $request->validated());
+        $workspace = $this->workspaceService->update($this->boundWorkspace($request), $request->validated());
 
         if ($request->expectsJson()) {
             return ApiResponse::success($workspace->toArray());
         }
 
         return redirect()
-            ->route('workspaces.show', ['tenant' => tenancy()->tenant->id, 'workspace' => $workspace])
+            ->route('workspaces.show', [
+                'tenant' => $this->tenantRouteKey(),
+                'workspace' => $workspace,
+            ])
             ->with('success', 'Workspace updated successfully.');
     }
 
-    public function destroy(Request $request, Workspace $workspace): RedirectResponse|JsonResponse
+    public function destroy(Request $request): RedirectResponse|JsonResponse
     {
-        $this->workspaceService->destroy($workspace);
+        $this->workspaceService->destroy($this->boundWorkspace($request));
 
         if ($request->expectsJson()) {
             return ApiResponse::success(null, 204);
         }
 
         return redirect()
-            ->route('workspaces.index', ['tenant' => tenancy()->tenant->id])
+            ->route('workspaces.index', ['tenant' => $this->tenantRouteKey()])
             ->with('success', 'Workspace deleted successfully.');
+    }
+
+    /**
+     * Resolve {workspace} after SubstituteBindings.
+     *
+     * Web: /t/{tenant}/workspaces/{workspace}. API: /api/v1/workspaces/{workspace}.
+     * Do not type-hint Workspace on the action — Controller::callAction expands
+     * route parameters by position, so web {tenant} would bind into $workspace.
+     * Without a type-hint, {workspace} remains a key string; resolve under tenancy scope.
+     */
+    private function boundWorkspace(Request $request): Workspace
+    {
+        $workspace = $request->route('workspace');
+
+        if ($workspace instanceof Workspace) {
+            return $workspace;
+        }
+
+        if (is_string($workspace) || is_numeric($workspace)) {
+            return Workspace::query()->whereKey($workspace)->firstOrFail();
+        }
+
+        abort(404);
+    }
+
+    private function tenantRouteKey(): string
+    {
+        $tenant = tenancy()->tenant;
+
+        return (string) ($tenant->slug ?: $tenant->id);
     }
 }

@@ -6,13 +6,13 @@
                     <v-card-title class="text-h5 pa-4 d-flex justify-space-between align-center">
                         <span>{{ workspace?.name }}</span>
                         <div v-if="tenant">
-                            <v-btn
-                                variant="text"
-                                size="small"
-                                :to="route('workspaces.edit', { tenant: tenant.id, workspace: workspace?.id })"
+                            <Link
+                                :href="route('workspaces.edit', { tenant: tenantEntry(tenant), workspace: workspace?.id })"
                             >
-                                Edit
-                            </v-btn>
+                                <v-btn variant="text" size="small">
+                                    Edit
+                                </v-btn>
+                            </Link>
                         </div>
                     </v-card-title>
                     <v-card-text>
@@ -32,6 +32,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { Link } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 defineProps({
@@ -39,4 +40,6 @@ defineProps({
     workspace: Object,
     flash: Object,
 });
+
+const tenantEntry = (t) => t?.slug || t?.id;
 </script>
