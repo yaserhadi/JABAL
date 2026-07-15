@@ -18,8 +18,9 @@ class UpdateWorkspaceRequest extends FormRequest
      */
     public function rules(): array
     {
-        /** @var \Modules\Workspaces\Models\Workspace $workspace */
+        /** @var \Modules\Workspaces\Models\Workspace|string|null $workspace */
         $workspace = $this->route('workspace');
+        $workspaceId = $workspace instanceof Workspace ? $workspace->id : $workspace;
         $tenantId = tenancy()->initialized && tenancy()->tenant
             ? tenancy()->tenant->id
             : null;
@@ -31,10 +32,10 @@ class UpdateWorkspaceRequest extends FormRequest
                 'string',
                 'max:255',
                 'regex:/^[a-z0-9\-]+$/',
-                $tenantId && $workspace
+                $tenantId && $workspaceId
                     ? Rule::unique(Workspace::class, 'slug')
                         ->where('tenant_id', $tenantId)
-                        ->ignore($workspace->id)
+                        ->ignore($workspaceId)
                     : 'unique:workspaces,slug',
             ],
         ];

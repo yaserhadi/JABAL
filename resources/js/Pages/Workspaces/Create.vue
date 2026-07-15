@@ -24,14 +24,15 @@
                             <v-btn type="submit" color="primary" :loading="form.processing">
                                 Create
                             </v-btn>
-                            <v-btn
+                            <Link
                                 v-if="tenant"
-                                variant="text"
+                                :href="route('workspaces.index', { tenant: tenantEntry(tenant) })"
                                 class="ml-2"
-                                :to="route('workspaces.index', { tenant: tenant.id })"
                             >
-                                Cancel
-                            </v-btn>
+                                <v-btn variant="text">
+                                    Cancel
+                                </v-btn>
+                            </Link>
                         </form>
                     </v-card-text>
                 </v-card>
@@ -42,12 +43,14 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { useForm } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 const props = defineProps({
     tenant: Object,
 });
+
+const tenantEntry = (t) => t?.slug || t?.id;
 
 const form = useForm({
     name: '',
@@ -56,6 +59,6 @@ const form = useForm({
 
 const submit = () => {
     if (!props.tenant) return;
-    form.post(route('workspaces.store', { tenant: props.tenant.id }));
+    form.post(route('workspaces.store', { tenant: tenantEntry(props.tenant) }));
 };
 </script>

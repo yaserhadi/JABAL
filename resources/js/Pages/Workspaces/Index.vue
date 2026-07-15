@@ -5,13 +5,14 @@
                 <v-card>
                     <v-card-title class="text-h5 pa-4 d-flex justify-space-between align-center">
                         <span>Workspaces</span>
-                        <v-btn
+                        <Link
                             v-if="tenant"
-                            color="primary"
-                            :to="route('workspaces.create', { tenant: tenant.id })"
+                            :href="route('workspaces.create', { tenant: tenantEntry(tenant) })"
                         >
-                            Create Workspace
-                        </v-btn>
+                            <v-btn color="primary">
+                                Create Workspace
+                            </v-btn>
+                        </Link>
                     </v-card-title>
                     <v-card-text>
                         <v-alert v-if="flash?.success" type="success" variant="tonal" class="mb-4" dismissible>
@@ -30,22 +31,22 @@
                                     <td>{{ ws.name }}</td>
                                     <td>{{ ws.slug }}</td>
                                     <td>
-                                        <v-btn
+                                        <Link
                                             v-if="tenant"
-                                            variant="text"
-                                            size="small"
-                                            :to="route('workspaces.show', { tenant: tenant.id, workspace: ws.id })"
+                                            :href="route('workspaces.show', { tenant: tenantEntry(tenant), workspace: ws.id })"
                                         >
-                                            View
-                                        </v-btn>
-                                        <v-btn
+                                            <v-btn variant="text" size="small">
+                                                View
+                                            </v-btn>
+                                        </Link>
+                                        <Link
                                             v-if="tenant"
-                                            variant="text"
-                                            size="small"
-                                            :to="route('workspaces.edit', { tenant: tenant.id, workspace: ws.id })"
+                                            :href="route('workspaces.edit', { tenant: tenantEntry(tenant), workspace: ws.id })"
                                         >
-                                            Edit
-                                        </v-btn>
+                                            <v-btn variant="text" size="small">
+                                                Edit
+                                            </v-btn>
+                                        </Link>
                                     </td>
                                 </tr>
                             </tbody>
@@ -62,6 +63,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { Link } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 
 defineProps({
@@ -69,4 +71,6 @@ defineProps({
     workspaces: Array,
     flash: Object,
 });
+
+const tenantEntry = (t) => t?.slug || t?.id;
 </script>
