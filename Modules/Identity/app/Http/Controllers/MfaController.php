@@ -2,6 +2,7 @@
 
 namespace Modules\Identity\Http\Controllers;
 
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -37,7 +38,7 @@ class MfaController extends Controller
         }
 
         return Inertia::render('Security/MfaEnroll', [
-            'tenant' => ['id' => $tenantModel->id],
+            'tenant' => TenantInertiaProps::from($tenantModel),
             'qr_url' => $setup['qr_url'],
             'secret' => $setup['secret'],
         ]);
@@ -52,7 +53,9 @@ class MfaController extends Controller
             return ApiResponse::success(['recovery_codes' => $codes]);
         }
 
-        return redirect('/t/'.$tenant.'/dashboard');
+        $tenantModel = Tenant::query()->findOrFail($tenant);
+
+        return redirect()->to(route('dashboard', ['tenant' => $tenantModel->entryKey()]));
     }
 
     public function showChallenge(Request $request, string $tenant): InertiaResponse|JsonResponse
@@ -61,8 +64,10 @@ class MfaController extends Controller
             return ApiResponse::success(['challenge' => true]);
         }
 
+        $tenantModel = Tenant::query()->findOrFail($tenant);
+
         return Inertia::render('Security/MfaChallenge', [
-            'tenant' => ['id' => $tenant],
+            'tenant' => TenantInertiaProps::from($tenantModel),
         ]);
     }
 
@@ -78,6 +83,8 @@ class MfaController extends Controller
             return ApiResponse::success(['verified' => true]);
         }
 
-        return redirect()->intended('/t/'.$tenant.'/dashboard');
+        $tenantModel = Tenant::query()->findOrFail($tenant);
+
+        return app(\App\Http\Auth\TenantEntryUrlResolver::class)->redirectAfterLogin($request, $tenantModel);
     }
 }

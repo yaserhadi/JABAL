@@ -6,7 +6,7 @@
       app
     >
       <v-list>
-        <Link v-if="tenant" :href="route('dashboard', { tenant: tenant.id })">
+        <Link v-if="tenant" :href="route('dashboard', { tenant: tenantEntry(tenant) })">
           <v-list-item
             prepend-icon="mdi-view-dashboard"
             title="Dashboard"
@@ -86,6 +86,7 @@
 import { ref, computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
+import { tenantEntry } from '@/support/tenantEntry'
 
 const page = usePage()
 

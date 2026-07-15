@@ -2,6 +2,8 @@
 
 namespace Modules\Identity\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,11 +33,7 @@ class AuthController extends Controller
         $ssoOperational = app(SsoConfigService::class)->isOperationalForTenant($tenant);
 
         return Inertia::render('Auth/TenantLogin', [
-            'tenant' => [
-                'id' => $tenant->id,
-                'name' => $tenant->name,
-                'slug' => $tenant->slug,
-            ],
+            'tenant' => TenantInertiaProps::from($tenant),
             'ssoOperational' => $ssoOperational,
             'prefillEmail' => old('email', request()->query('email')),
         ]);
@@ -111,7 +109,7 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect()->intended('/t/'.$tenant->entryKey().'/dashboard');
+        return app(TenantEntryUrlResolver::class)->redirectAfterLogin($request, $tenant);
     }
 
     public function showRegister()
@@ -145,7 +143,7 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        $target = '/t/'.$tenant->entryKey().'/dashboard';
+        $target = app(TenantEntryUrlResolver::class)->dashboardUrl($tenant);
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);
@@ -156,12 +154,21 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $resolver = app(TenantEntryUrlResolver::class);
+        $tip = $resolver->resolveTenantForRedirect($request);
+        $resolver->clearIntended($request);
+
         Auth::guard('web')->logout();
         if (tenancy()->initialized) {
             tenancy()->end();
         }
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($tip instanceof Tenant) {
+            // Active → tenant login; inactive → same login URL (existing showTenantLogin → 404). Never silent central.
+            return redirect()->to($resolver->loginUrl($tip));
+        }
 
         return redirect()->route('login');
     }

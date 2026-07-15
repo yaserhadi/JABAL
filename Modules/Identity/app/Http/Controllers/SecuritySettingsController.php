@@ -2,6 +2,7 @@
 
 namespace Modules\Identity\Http\Controllers;
 
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -83,11 +84,7 @@ class SecuritySettingsController extends Controller
         });
 
         return Inertia::render('SecuritySettings/Index', [
-            'tenant' => [
-                'id' => $tenant->id,
-                'name' => $tenant->name,
-                'slug' => $tenant->slug,
-            ],
+            'tenant' => TenantInertiaProps::from($tenant),
             'policies' => $policies,
             'sessions' => $sessions,
             'mfa' => $mfa,
@@ -106,7 +103,7 @@ class SecuritySettingsController extends Controller
         $this->securityPolicyService->update($tenant, $request->validated());
 
         return redirect()
-            ->route('identity.security-settings.show', ['tenant' => $tenant->id])
+            ->route('identity.security-settings.show', ['tenant' => $tenant->entryKey()])
             ->with('success', 'Security policies updated.');
     }
 
@@ -122,7 +119,7 @@ class SecuritySettingsController extends Controller
         $this->sessionRegistryService->revokeForCurrentTenantUser($user, $tenantModel, $session);
 
         return redirect()
-            ->route('identity.security-settings.show', ['tenant' => $tenantModel->id])
+            ->route('identity.security-settings.show', ['tenant' => $tenantModel->entryKey()])
             ->with('success', 'Session revoked.');
     }
 
@@ -142,7 +139,7 @@ class SecuritySettingsController extends Controller
         );
 
         return redirect()
-            ->route('identity.security-settings.show', ['tenant' => $tenant->id])
+            ->route('identity.security-settings.show', ['tenant' => $tenant->entryKey()])
             ->with('success', $count > 0 ? "Revoked {$count} other session(s)." : 'No other sessions to revoke.');
     }
 

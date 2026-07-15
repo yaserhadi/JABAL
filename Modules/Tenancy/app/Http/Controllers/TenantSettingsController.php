@@ -2,6 +2,7 @@
 
 namespace Modules\Tenancy\Http\Controllers;
 
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -32,11 +33,7 @@ class TenantSettingsController extends Controller
         }
 
         $settings = $this->tenantSettings->resolvedForTenant($tenant);
-        $tenantData = [
-            'id' => $tenant->id,
-            'name' => $tenant->name,
-            'slug' => $tenant->slug,
-        ];
+        $tenantData = TenantInertiaProps::from($tenant);
 
         if ($request->expectsJson()) {
             return ApiResponse::success($settings);
@@ -64,7 +61,7 @@ class TenantSettingsController extends Controller
         }
 
         return redirect()
-            ->route('tenant.settings.index', ['tenant' => $tenant->id])
+            ->route('tenant.settings.index', ['tenant' => $tenant->entryKey()])
             ->with('success', 'Settings updated.');
     }
 }

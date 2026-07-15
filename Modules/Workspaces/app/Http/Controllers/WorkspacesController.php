@@ -2,6 +2,7 @@
 
 namespace Modules\Workspaces\Http\Controllers;
 
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -36,7 +37,7 @@ class WorkspacesController extends Controller
         $tenant = tenancy()->tenant;
 
         return Inertia::render('Workspaces/Index', [
-            'tenant' => $tenant ? ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug] : null,
+            'tenant' => $tenant ? TenantInertiaProps::from($tenant) : null,
             'workspaces' => $workspaces,
         ]);
     }
@@ -46,7 +47,7 @@ class WorkspacesController extends Controller
         $tenant = tenancy()->tenant;
 
         return Inertia::render('Workspaces/Create', [
-            'tenant' => $tenant ? ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug] : null,
+            'tenant' => $tenant ? TenantInertiaProps::from($tenant) : null,
         ]);
     }
 
@@ -77,7 +78,7 @@ class WorkspacesController extends Controller
         $tenant = tenancy()->tenant;
 
         return Inertia::render('Workspaces/Show', [
-            'tenant' => $tenant ? ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug] : null,
+            'tenant' => $tenant ? TenantInertiaProps::from($tenant) : null,
             'workspace' => $workspace,
         ]);
     }
@@ -88,7 +89,7 @@ class WorkspacesController extends Controller
         $tenant = tenancy()->tenant;
 
         return Inertia::render('Workspaces/Edit', [
-            'tenant' => $tenant ? ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug] : null,
+            'tenant' => $tenant ? TenantInertiaProps::from($tenant) : null,
             'workspace' => $workspace,
         ]);
     }

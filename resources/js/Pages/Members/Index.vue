@@ -250,6 +250,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { route } from 'ziggy-js';
+import { tenantEntry } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: Object,
@@ -319,7 +320,7 @@ const copyUrl = async (url) => {
 
 const submitInvite = () => {
     if (!props.tenant) return;
-    inviteForm.post(route('members.invite', { tenant: props.tenant.id }), {
+    inviteForm.post(route('members.invite', { tenant: tenantEntry(props.tenant) }), {
         preserveScroll: true,
         onSuccess: () => {
             inviteDialog.value = false;
@@ -331,12 +332,12 @@ const submitInvite = () => {
 const openSuspend = (member) => {
     if (!confirm(`Suspend ${member.user?.name}?`)) return;
     if (!props.tenant) return;
-    router.post(route('members.suspend', { tenant: props.tenant.id, user: member.user_id }));
+    router.post(route('members.suspend', { tenant: tenantEntry(props.tenant), user: member.user_id }));
 };
 
 const openActivate = (member) => {
     if (!props.tenant) return;
-    router.post(route('members.activate', { tenant: props.tenant.id, user: member.user_id }));
+    router.post(route('members.activate', { tenant: tenantEntry(props.tenant), user: member.user_id }));
 };
 
 const openRemove = (member) => {
@@ -345,13 +346,13 @@ const openRemove = (member) => {
         : ' This permanently removes their membership.';
     if (!confirm(`Remove ${member.user?.name} from this tenant?${modeHint}`)) return;
     if (!props.tenant) return;
-    router.delete(route('members.remove', { tenant: props.tenant.id, user: member.user_id }));
+    router.delete(route('members.remove', { tenant: tenantEntry(props.tenant), user: member.user_id }));
 };
 
 const openRestore = (member) => {
     if (!confirm(`Restore ${member.user?.name} as a standard member? Previous roles will not be restored.`)) return;
     if (!props.tenant) return;
-    router.post(route('members.restore', { tenant: props.tenant.id, user: member.user_id }), {}, {
+    router.post(route('members.restore', { tenant: tenantEntry(props.tenant), user: member.user_id }), {}, {
         preserveScroll: true,
     });
 };
@@ -359,7 +360,7 @@ const openRestore = (member) => {
 const openDeleteForever = (member) => {
     if (!confirm(`Permanently delete ${member.user?.name}? This cannot be undone.`)) return;
     if (!props.tenant) return;
-    router.delete(route('members.delete-forever', { tenant: props.tenant.id, user: member.user_id }), {
+    router.delete(route('members.delete-forever', { tenant: tenantEntry(props.tenant), user: member.user_id }), {
         preserveScroll: true,
     });
 };
@@ -367,13 +368,13 @@ const openDeleteForever = (member) => {
 const openTransfer = (member) => {
     if (!confirm(`Transfer ownership to ${member.user?.name}? You will become a member.`)) return;
     if (!props.tenant) return;
-    router.post(route('members.transfer-ownership', { tenant: props.tenant.id, user: member.user_id }));
+    router.post(route('members.transfer-ownership', { tenant: tenantEntry(props.tenant), user: member.user_id }));
 };
 
 const openRevoke = (invitation) => {
     if (!confirm(`Revoke invitation for ${invitation.email}?`)) return;
     if (!props.tenant) return;
-    router.delete(route('members.revoke-invitation', { tenant: props.tenant.id, invitation: invitation.id }), {
+    router.delete(route('members.revoke-invitation', { tenant: tenantEntry(props.tenant), invitation: invitation.id }), {
         preserveScroll: true,
     });
 };
@@ -381,7 +382,7 @@ const openRevoke = (invitation) => {
 const openResend = (invitation) => {
     if (!confirm(`Resend invitation email to ${invitation.email}? The previous link will stop working.`)) return;
     if (!props.tenant) return;
-    router.post(route('members.resend-invitation', { tenant: props.tenant.id, invitation: invitation.id }), {}, {
+    router.post(route('members.resend-invitation', { tenant: tenantEntry(props.tenant), invitation: invitation.id }), {}, {
         preserveScroll: true,
     });
 };

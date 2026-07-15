@@ -165,10 +165,10 @@ class WorkspaceCrudTest extends TestCase
     public function test_guest_cannot_access_workspace_routes(): void
     {
         $response = $this->get('/t/'.$this->tenantA->slug.'/workspaces');
-        $response->assertRedirect(route('login'));
+        $response->assertRedirect(route('tenant.login', ['tenant' => $this->tenantA->slug]));
 
         $create = $this->get('/t/'.$this->tenantA->slug.'/workspaces/create');
-        $create->assertRedirect(route('login'));
+        $create->assertRedirect(route('tenant.login', ['tenant' => $this->tenantA->slug]));
     }
 
     public function test_workspace_binding_isolation_returns_404_for_cross_tenant(): void

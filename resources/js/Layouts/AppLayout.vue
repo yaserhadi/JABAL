@@ -85,6 +85,7 @@
 import { ref, computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import { tenantEntry } from '@/support/tenantEntry';
 
 const page = usePage();
 const tenant = computed(() => page.props.tenant);
@@ -95,11 +96,11 @@ const drawer = ref(true);
 
 /** Inertia has no vue-router; v-list-item :to does nothing. Use client visits instead. */
 const visitTenantRoute = (name) => {
-    const t = tenant.value;
-    if (!t?.id) {
+    const key = tenantEntry(tenant.value);
+    if (!key) {
         return;
     }
-    router.visit(route(name, { tenant: t.id }));
+    router.visit(route(name, { tenant: key }));
 };
 
 const logout = () => {

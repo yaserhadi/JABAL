@@ -2,6 +2,7 @@
 
 namespace Modules\Audit\Http\Controllers;
 
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -72,11 +73,7 @@ class TenantAuditController extends Controller
         )->values();
 
         return Inertia::render('TenantAudit/Index', [
-            'tenant' => [
-                'id' => $tenant->id,
-                'name' => $tenant->name,
-                'slug' => $tenant->slug,
-            ],
+            'tenant' => TenantInertiaProps::from($tenant),
             'logs' => [
                 'data' => $entries,
                 'meta' => [

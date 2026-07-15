@@ -78,10 +78,12 @@ class AuthTest extends TestCase
         $user = $this->registerTenantUser('Logout User', 'logout-'.uniqid().'@example.com');
         $tenant = $user->homeTenant();
 
-        $response = $this->actingAsTenantUser($user, $tenant, 'web')->post('/logout');
+        $response = $this->actingAsTenantUser($user, $tenant, 'web')
+            ->withSession(['tenant_id' => $tenant->id])
+            ->post('/logout');
 
         $this->assertGuest();
-        $response->assertRedirect(route('login'));
+        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
     }
 
     public function test_register_redirects_to_dashboard_with_tenant_admin_permissions(): void

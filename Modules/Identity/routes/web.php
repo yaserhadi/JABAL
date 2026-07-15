@@ -92,11 +92,7 @@ Route::prefix('t/{tenant}')
             $tenant = tenancy()->tenant;
 
             return Inertia::render('Dashboard', [
-                'tenant' => $tenant ? [
-                    'id' => $tenant->id,
-                    'name' => $tenant->name,
-                    'slug' => $tenant->slug,
-                ] : null,
+                'tenant' => $tenant ? \App\Http\Auth\TenantInertiaProps::from($tenant) : null,
             ]);
         })->middleware('permission:dashboard.view')->name('dashboard');
 

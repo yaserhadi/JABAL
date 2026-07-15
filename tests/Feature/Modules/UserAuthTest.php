@@ -32,9 +32,11 @@ class UserAuthTest extends TestCase
         $user = $this->registerTenantUser('Logout User', 'logout-'.uniqid().'@example.com');
         $tenant = $user->homeTenant();
 
-        $response = $this->actingAsTenantUser($user, $tenant, 'web')->post(route('logout'));
+        $response = $this->actingAsTenantUser($user, $tenant, 'web')
+            ->withSession(['tenant_id' => $tenant->id])
+            ->post(route('logout'));
 
-        $response->assertRedirect(route('login'));
+        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
         $this->assertGuest();
     }
 }

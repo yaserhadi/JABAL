@@ -7,17 +7,13 @@ use Illuminate\Support\Facades\Auth;
 use Modules\Identity\Models\Membership;
 
 /**
- * Guard-aware redirects for platform vs tenant application (ADR-0007).
+ * Guard-aware redirects for platform vs tenant application (ADR-0007 / BK-066).
  */
 final class AuthenticationRedirects
 {
     public static function guestRedirect(Request $request): string
     {
-        if ($request->is('platform') || $request->is('platform/*')) {
-            return route('platform.login');
-        }
-
-        return route('login');
+        return app(TenantEntryUrlResolver::class)->guestRedirectUrl($request);
     }
 
     public static function authenticatedRedirect(Request $request): string
@@ -60,7 +56,7 @@ final class AuthenticationRedirects
                 }
 
                 if ($hasMembership) {
-                    return route('dashboard', ['tenant' => $tenant->entryKey()]);
+                    return app(TenantEntryUrlResolver::class)->dashboardUrl($tenant);
                 }
             }
 

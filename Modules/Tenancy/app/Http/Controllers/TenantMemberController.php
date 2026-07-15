@@ -2,6 +2,7 @@
 
 namespace Modules\Tenancy\Http\Controllers;
 
+use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
@@ -111,7 +112,7 @@ class TenantMemberController extends Controller
             ]);
         }
 
-        $tenantData = ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug];
+        $tenantData = TenantInertiaProps::from($tenant);
 
         return Inertia::render('Members/Index', [
             'tenant' => $tenantData,
