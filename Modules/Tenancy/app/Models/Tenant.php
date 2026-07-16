@@ -6,6 +6,7 @@ use App\Support\Audit\Auditable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -62,6 +63,11 @@ class Tenant extends Model implements TenantContract
     public function databaseConfig(): HasOne
     {
         return $this->hasOne(TenantDatabaseConfig::class, 'tenant_id');
+    }
+
+    public function commercialOwnerContact(): BelongsTo
+    {
+        return $this->belongsTo(TenantContact::class, 'commercial_owner_contact_id');
     }
 
     /**

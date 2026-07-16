@@ -98,7 +98,7 @@ class TenantOnboardingTest extends TestCase
         $ownerEmail = 'http-owner-'.uniqid().'@example.com';
 
         $response = $this->actingAs($platformUser, 'platform')
-            ->postJson('/platform/tenants', [
+            ->postJson('/platform/tenants/onboard', [
                 'organization_name' => 'HTTP Org',
                 'owner_name' => 'HTTP Owner',
                 'owner_email' => $ownerEmail,
