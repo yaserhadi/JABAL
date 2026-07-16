@@ -289,7 +289,7 @@ class PlatformBillingAdminTest extends TestCase
         $ownerEmail = 'billing-onboard-'.uniqid().'@example.com';
 
         $response = $this->actingAs($platformUser, 'platform')
-            ->postJson('/platform/tenants', [
+            ->postJson('/platform/tenants/onboard', [
                 'organization_name' => 'Billing Org',
                 'owner_name' => 'Owner',
                 'owner_email' => $ownerEmail,

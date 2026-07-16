@@ -86,6 +86,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by(strtolower($request->ip()).'|'.$email);
         });
 
+        RateLimiter::for('tenant-handle-availability', function (Request $request) {
+            $userId = (string) ($request->user('platform')?->getAuthIdentifier() ?? 'guest');
+
+            return Limit::perMinute(30)->by($userId.'|'.$request->ip());
+        });
+
         // API pipeline: ValidateTenantToken before Sanctum on tenant API routes only.
         // Do NOT prepend Authenticate globally — it runs before StartSession and breaks web session guards.
         $this->app->booted(static function (): void {

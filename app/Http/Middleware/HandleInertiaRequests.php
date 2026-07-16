@@ -32,14 +32,21 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $webUser = $request->user('web');
+
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
             'auth' => [
-                'user' => fn () => $request->user(),
+                'user' => fn () => $webUser,
+                'platformUser' => fn () => $request->user('platform'),
             ],
-            'homeTenant' => fn () => $request->user()?->homeTenant(),
-            'personalTenant' => fn () => $request->user()?->homeTenant(),
+            'homeTenant' => fn () => $webUser && method_exists($webUser, 'homeTenant')
+                ? $webUser->homeTenant()
+                : null,
+            'personalTenant' => fn () => $webUser && method_exists($webUser, 'homeTenant')
+                ? $webUser->homeTenant()
+                : null,
             'csrf_token' => fn () => csrf_token(),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
@@ -80,7 +87,7 @@ class HandleInertiaRequests extends Middleware
             'canUpdateSso' => false,
             'ssoEntitlementAvailable' => false,
         ];
-        $user = $request->user();
+        $user = $request->user('web');
         if (! $user || ! function_exists('tenancy') || ! tenancy()->initialized) {
             return $default;
         }

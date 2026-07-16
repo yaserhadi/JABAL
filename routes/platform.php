@@ -9,6 +9,7 @@ use Modules\Billing\Http\Controllers\Platform\PlatformPlanController;
 use Modules\Billing\Http\Controllers\Platform\PlatformSubscriptionController;
 use Modules\Settings\Http\Controllers\SettingsController;
 use Modules\Tenancy\Http\Controllers\PlatformTenantOnboardingController;
+use Modules\Tenancy\Http\Controllers\PlatformTenantRegistryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,7 +35,39 @@ Route::middleware([EnsureNoTenancy::class])->prefix('platform')->name('platform.
         Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
         Route::get('audit/{id}', [AuditController::class, 'show'])->name('audit.show');
 
-        Route::post('tenants', [PlatformTenantOnboardingController::class, 'store'])->name('tenants.store');
+        // BK-069 Platform Tenant Registry — fine-grained permissions (billing pattern)
+        Route::get('tenants', [PlatformTenantRegistryController::class, 'index'])
+            ->middleware('platform.permission:platform.tenants.view')
+            ->name('tenants.index');
+
+        Route::get('tenants/create', [PlatformTenantRegistryController::class, 'create'])
+            ->middleware('platform.permission:platform.tenants.create')
+            ->name('tenants.create');
+
+        Route::post('tenants/handle-availability', [PlatformTenantRegistryController::class, 'checkHandleAvailability'])
+            ->middleware(['platform.permission:platform.tenants.create', 'throttle:tenant-handle-availability'])
+            ->name('tenants.handle-availability');
+
+        Route::post('tenants', [PlatformTenantRegistryController::class, 'store'])
+            ->middleware('platform.permission:platform.tenants.create')
+            ->name('tenants.store');
+
+        // Legacy JSON onboard alias (same permission) — routes to registry create for BK-005 reuse
+        Route::post('tenants/onboard', [PlatformTenantOnboardingController::class, 'store'])
+            ->middleware('platform.permission:platform.tenants.create')
+            ->name('tenants.onboard');
+
+        Route::get('tenants/{tenant}', [PlatformTenantRegistryController::class, 'show'])
+            ->middleware('platform.permission:platform.tenants.view')
+            ->name('tenants.show');
+
+        Route::get('tenants/{tenant}/edit', [PlatformTenantRegistryController::class, 'edit'])
+            ->middleware('platform.permission:platform.tenants.update')
+            ->name('tenants.edit');
+
+        Route::patch('tenants/{tenant}', [PlatformTenantRegistryController::class, 'update'])
+            ->middleware('platform.permission:platform.tenants.update')
+            ->name('tenants.update');
 
         Route::prefix('billing')->name('billing.')->group(function () {
             Route::get('plans', [PlatformPlanController::class, 'index'])
