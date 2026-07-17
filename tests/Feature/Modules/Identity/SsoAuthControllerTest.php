@@ -15,6 +15,7 @@ use Modules\Identity\Support\Sso\SsoAuthorizationState;
 use Modules\Identity\Support\Sso\SsoIdentityResolutionResult;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantDatabaseConfig;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\TestCase;
@@ -22,13 +23,6 @@ use Tests\TestCase;
 class SsoAuthControllerTest extends TestCase
 {
     use GrantsSsoEntitlement;
-    use \Tests\Support\SkipsPathEnterpriseSsoUnderHostProfile;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->skipPathEnterpriseSsoWhenHostProfile();
-    }
 
     protected function createOrgTenantWithMember(): array
     {
@@ -67,6 +61,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function redirect_rejects_when_sso_disabled(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -77,6 +72,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function redirect_rejects_when_entitlement_missing(): void
     {
         $tenant = Tenant::factory()->create();
@@ -99,6 +95,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function redirect_stores_pkce_state_in_session(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -129,6 +126,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_rejects_tampered_state(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -139,6 +137,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_rejects_expired_state(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -155,6 +154,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_does_not_login_when_resolution_fails(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -176,6 +176,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_logs_in_and_regenerates_session_on_success(): void
     {
         [$tenant, $user] = $this->createOrgTenantWithMember();
@@ -215,6 +216,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_rejects_tenant_mismatch_from_service(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -236,6 +238,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_response_does_not_expose_tokens(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -257,6 +260,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_uses_dedicated_session_connection_when_configured(): void
     {
         [$tenant, $user] = $this->createOrgTenantWithMember();
@@ -307,6 +311,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function redirect_rejects_when_disabled_by_entitlement(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();
@@ -329,6 +334,7 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_catches_security_exception_without_raw_error(): void
     {
         [$tenant] = $this->createOrgTenantWithMember();

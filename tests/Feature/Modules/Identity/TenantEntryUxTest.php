@@ -15,12 +15,12 @@ class TenantEntryUxTest extends TestCase
     {
         $user = $this->registerTenantUser('Guest Redirect', 'guest-'.uniqid().'@example.com');
         $tenant = $user->homeTenant();
-        $dashboard = '/t/'.$tenant->slug.'/dashboard';
+        $dashboard = app(TenantEntryUrlResolver::class)->dashboardUrl($tenant);
 
         $response = $this->get($dashboard);
 
-        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
-        $this->assertSame(url($dashboard), session('url.intended'));
+        $response->assertRedirect($this->tenantLoginRedirectUri($tenant));
+        $this->assertSame($dashboard, session('url.intended'));
     }
 
     public function test_guest_on_uuid_path_redirects_to_canonical_slug_login(): void
@@ -30,7 +30,7 @@ class TenantEntryUxTest extends TestCase
 
         $response = $this->get('/t/'.$tenant->id.'/workspaces');
 
-        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
+        $response->assertRedirect($this->tenantLoginRedirectUri($tenant));
     }
 
     public function test_login_returns_to_safe_intended_destination(): void
@@ -38,7 +38,7 @@ class TenantEntryUxTest extends TestCase
         $email = 'intended-'.uniqid().'@example.com';
         $user = $this->registerTenantUser('Intended User', $email);
         $tenant = $user->homeTenant();
-        $target = '/t/'.$tenant->slug.'/workspaces';
+        $target = $this->tenantNamedRouteUrl('workspaces.index', $tenant);
 
         $this->get($target)->assertRedirect();
 
@@ -62,7 +62,7 @@ class TenantEntryUxTest extends TestCase
                 'email' => $email,
                 'password' => 'password',
             ])
-            ->assertRedirect(route('dashboard', ['tenant' => $tenant->slug]));
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
     }
 
     public function test_cross_tenant_intended_url_falls_back_to_dashboard(): void
@@ -73,12 +73,12 @@ class TenantEntryUxTest extends TestCase
         $otherUser = $this->registerTenantUser('Other Org User', 'other-'.uniqid().'@example.com');
         $other = $otherUser->homeTenant();
 
-        $this->withSession(['url.intended' => url('/t/'.$other->slug.'/dashboard')])
+        $this->withSession(['url.intended' => $this->tenantDashboardRedirectUri($other)])
             ->post('/t/'.$tenant->slug.'/login', [
                 'email' => $email,
                 'password' => 'password',
             ])
-            ->assertRedirect(route('dashboard', ['tenant' => $tenant->slug]));
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
     }
 
     public function test_logout_redirects_to_tenant_login_when_tip_known(): void
@@ -91,7 +91,7 @@ class TenantEntryUxTest extends TestCase
             ->post('/logout');
 
         $this->assertGuest();
-        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
+        $response->assertRedirect($this->tenantLoginRedirectUri($tenant));
     }
 
     public function test_logout_clears_intended_and_falls_back_to_central_without_tip(): void
@@ -123,10 +123,13 @@ class TenantEntryUxTest extends TestCase
         $tenant->update(['status' => 'suspended']);
 
         $this->get('/t/'.$tenant->slug.'/login')->assertNotFound();
-        $this->get('/t/'.$tenant->slug.'/dashboard')->assertRedirect();
-        // Must not land on central discovery as the happy guest path for known inactive tip.
-        $this->get('/t/'.$tenant->slug.'/dashboard')
-            ->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
+        $dashboard = $this->get('/t/'.$tenant->slug.'/dashboard');
+        if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+            $dashboard->assertNotFound();
+        } else {
+            // Path profile preserves the known inactive Tenant login redirect contract.
+            $dashboard->assertRedirect($this->tenantLoginRedirectUri($tenant));
+        }
     }
 
     public function test_platform_guest_still_goes_to_platform_login(): void
@@ -147,9 +150,23 @@ class TenantEntryUxTest extends TestCase
         $request = Request::create('/', 'GET');
         $request->setLaravelSession($this->app['session']->driver());
 
-        $this->assertTrue($resolver->isSafeIntendedUrl($request, $tenant, url('/t/'.$tenant->slug.'/workspaces?tab=1')));
-        $this->assertTrue($resolver->isSafeIntendedUrl($request, $tenant, url('/t/'.$tenant->id.'/dashboard')));
+        $this->assertTrue($resolver->isSafeIntendedUrl(
+            $request,
+            $tenant,
+            $this->tenantNamedRouteUrl('workspaces.index', $tenant).'?tab=1'
+        ));
+        $this->assertTrue($resolver->isSafeIntendedUrl(
+            $request,
+            $tenant,
+            $this->tenantDashboardRedirectUri($tenant)
+        ));
         $this->assertFalse($resolver->isSafeIntendedUrl($request, $tenant, 'https://evil.test/t/'.$tenant->slug.'/dashboard'));
-        $this->assertFalse($resolver->isSafeIntendedUrl($request, $tenant, url('/t/other-slug/dashboard')));
+        $this->assertFalse($resolver->isSafeIntendedUrl(
+            $request,
+            $tenant,
+            app(TenantEntryUrlResolver::class)->dashboardUrl(
+                \Modules\Tenancy\Models\Tenant::factory()->create(['slug' => 'other-slug'])
+            )
+        ));
     }
 }

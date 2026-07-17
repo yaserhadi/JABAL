@@ -99,7 +99,7 @@ class SecuritySettingsControllerTest extends TestCase
                 'session_idle_timeout' => 45,
             ]);
 
-        $response->assertRedirect(route('identity.security-settings.show', ['tenant' => $this->tenant->entryKey()]));
+        $response->assertRedirect($this->tenantNamedRouteUrl('identity.security-settings.show', $this->tenant));
         $response->assertSessionHas('success');
 
         $this->actingAsTenantUser($this->admin, $this->tenant)
@@ -168,7 +168,7 @@ class SecuritySettingsControllerTest extends TestCase
         $response = $this->actingAsTenantUser($this->member, $this->tenant)
             ->delete('/t/'.$this->tenant->id.'/security/settings/sessions/'.$record->id);
 
-        $response->assertRedirect(route('identity.security-settings.show', ['tenant' => $this->tenant->entryKey()]));
+        $response->assertRedirect($this->tenantNamedRouteUrl('identity.security-settings.show', $this->tenant));
 
         tenancy()->initialize($this->tenant);
         $this->assertNotNull($record->refresh()->revoked_at);
@@ -229,7 +229,7 @@ class SecuritySettingsControllerTest extends TestCase
         ]);
 
         $response = $this->delete('/t/'.$this->tenant->id.'/security/settings/sessions');
-        $response->assertRedirect(route('identity.security-settings.show', ['tenant' => $this->tenant->entryKey()]));
+        $response->assertRedirect($this->tenantNamedRouteUrl('identity.security-settings.show', $this->tenant));
 
         $this->assertNotNull($other->refresh()->revoked_at);
 
@@ -270,7 +270,7 @@ class SecuritySettingsControllerTest extends TestCase
     public function test_unauthenticated_access_redirects_to_login(): void
     {
         $response = $this->get('/t/'.$this->tenant->id.'/security/settings');
-        $response->assertRedirect(route('tenant.login', ['tenant' => $this->tenant->entryKey()]));
+        $response->assertRedirect($this->tenantLoginRedirectUri($this->tenant));
     }
 
     protected function seedSecurityPolicyRbac(): void

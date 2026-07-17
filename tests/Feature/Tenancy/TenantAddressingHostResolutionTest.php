@@ -8,6 +8,7 @@ use App\Http\Middleware\RequestHostClassifier;
 use App\Support\Tenancy\TenantAddressingProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Modules\Identity\Services\SsoAuthService;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantDomainProvisioner;
 use Tests\Support\InteractsWithTenantAddressingProfile;
@@ -134,6 +135,22 @@ class TenantAddressingHostResolutionTest extends TestCase
         $this->withServerVariables(['HTTP_HOST' => 'nossogate.jabal.test'])
             ->get('http://nossogate.jabal.test/auth/sso/redirect')
             ->assertNotFound();
+    }
+
+    public function test_host_mode_sso_callback_returns_404_before_provider_flow(): void
+    {
+        $this->mock(SsoAuthService::class, function ($mock) {
+            $mock->shouldNotReceive('completeCallback');
+        });
+
+        $this->call(
+            'GET',
+            'https://auth.jabal.test/auth/sso/callback?code=must-not-be-consumed&state=must-not-be-parsed',
+            server: [
+                'HTTP_HOST' => 'auth.jabal.test',
+                'SERVER_NAME' => 'auth.jabal.test',
+            ]
+        )->assertNotFound();
     }
 
     public function test_host_profile_accessor(): void

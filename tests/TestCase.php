@@ -296,6 +296,17 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Profile-aware absolute URL for an arbitrary named Tenant route.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    protected function tenantNamedRouteUrl(string $name, Tenant $tenant, array $parameters = []): string
+    {
+        return app(\App\Http\Auth\TenantEntryUrlResolver::class)
+            ->namedRouteUrl($name, $tenant, $parameters);
+    }
+
+    /**
      * @param  array<string, mixed>  $parameters
      * @param  array<string, mixed>  $cookies
      * @param  array<string, mixed>  $files

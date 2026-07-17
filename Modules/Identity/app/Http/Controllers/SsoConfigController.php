@@ -2,6 +2,7 @@
 
 namespace Modules\Identity\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -15,8 +16,10 @@ use Modules\Identity\Services\SsoConfigService;
  */
 class SsoConfigController extends Controller
 {
-    public function __construct(protected SsoConfigService $service)
-    {
+    public function __construct(
+        protected SsoConfigService $service,
+        protected TenantEntryUrlResolver $tenantEntryUrls,
+    ) {
         $this->middleware('permission:tenant.sso.view')->only(['show']);
         $this->middleware('permission:tenant.sso.update')->only(['update']);
     }
@@ -43,7 +46,7 @@ class SsoConfigController extends Controller
 
         if ($request->header('X-Inertia')) {
             return redirect()
-                ->route('identity.security-settings.show', ['tenant' => $tenant->entryKey()])
+                ->to($this->tenantEntryUrls->namedRouteUrl('identity.security-settings.show', $tenant))
                 ->with('success', 'SSO configuration updated.');
         }
 

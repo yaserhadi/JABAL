@@ -90,6 +90,30 @@ final class TenantEntryUrlResolver
     }
 
     /**
+     * Generate an absolute canonical URL for a named Tenant route in either profile.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    public function namedRouteUrl(string $name, Tenant $tenant, array $parameters = []): string
+    {
+        $tenantParameter = $this->addressing->isHost()
+            ? ['tenant_label' => $this->entryKey($tenant)]
+            : ['tenant' => $this->entryKey($tenant)];
+
+        $generated = route($name, array_merge($tenantParameter, $parameters), absolute: true);
+
+        if ($this->addressing->isHost()) {
+            $parts = parse_url($generated);
+            $path = $parts['path'] ?? '/';
+            $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+            return $this->entryUrl($tenant).$path.$query;
+        }
+
+        return $generated;
+    }
+
+    /**
      * Resolve tenant tip for redirects (logout / guest). Precedence per BK-066 plan.
      */
     public function resolveTenantForRedirect(Request $request): ?Tenant

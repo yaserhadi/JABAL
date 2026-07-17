@@ -18,6 +18,12 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
+    <groups>
+        <exclude>
+            <!-- Host-only contracts run in phpunit.host.xml. -->
+            <group>host-profile-contract</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory>app</directory>

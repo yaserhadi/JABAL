@@ -4,6 +4,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use Modules\Identity\Services\SsoConfigService;
 use Modules\Tenancy\Models\Tenant;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\TestCase;
@@ -31,6 +32,7 @@ class SsoTenantLoginTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function tenant_login_shows_sso_when_operational(): void
     {
         $tenant = Tenant::factory()->create([
@@ -53,6 +55,33 @@ class SsoTenantLoginTest extends TestCase
                 fn ($page) => $page
                     ->component('Auth/TenantLogin')
                     ->where('ssoOperational', true)
+            );
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function tenant_login_hides_operational_sso_under_host_profile(): void
+    {
+        $tenant = Tenant::factory()->create([
+            'status' => 'active',
+        ]);
+        $this->grantSsoAvailable($tenant);
+
+        tenancy()->initialize($tenant);
+        app(SsoConfigService::class)->update($tenant, [
+            'enabled' => true,
+            'issuer_url' => 'https://example.com',
+            'client_id' => 'client-id',
+            'client_secret' => 'secret',
+        ]);
+        tenancy()->end();
+
+        $this->get('/t/'.$tenant->id.'/login')
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Auth/TenantLogin')
+                    ->where('ssoOperational', false)
             );
     }
 

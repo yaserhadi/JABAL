@@ -44,6 +44,12 @@ class SsoAuthController extends Controller
 
     public function callback(Request $request): RedirectResponse
     {
+        // BK-073: Host-mode Enterprise SSO is unavailable until BK-082.
+        // Fail before state parsing, Tenant initialization, nonce/PKCE, or provider calls.
+        if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+            abort(404);
+        }
+
         $tenant = tenancy()->tenant;
 
         if (! $tenant instanceof Tenant) {

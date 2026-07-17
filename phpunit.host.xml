@@ -18,6 +18,13 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
+    <groups>
+        <exclude>
+            <!-- Positive/path-specific Enterprise SSO contracts run in the Path job.
+                 Host has paired negative-gate tests and must never enter SSO flow. -->
+            <group>path-profile-contract</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory>app</directory>

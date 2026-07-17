@@ -21,7 +21,7 @@ class TenantFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => str()->slug($name).'-'.str()->random(6),
+            'slug' => str()->slug($name).'-'.str()->lower(str()->random(6)),
             'isolation_level' => 'shared',
             'status' => 'active',
         ];

@@ -29,6 +29,12 @@ class InitializeTenancyFromSsoState
             return $next($request);
         }
 
+        // BK-073: Host-mode positive Enterprise SSO is unavailable until BK-082.
+        // Reject before parsing state or touching Tenant/provider transaction context.
+        if ($this->addressing->isHost()) {
+            abort(404);
+        }
+
         $state = $request->query('state');
 
         if (! is_string($state) || $state === '') {
@@ -45,18 +51,6 @@ class InitializeTenancyFromSsoState
 
         if (! $tenant || $tenant->status !== 'active') {
             abort(403, 'Invalid SSO callback tenant.');
-        }
-
-        if ($this->addressing->isHost()) {
-            $resolved = tenancy()->tenant;
-            if ($resolved instanceof Tenant && (string) $resolved->id !== (string) $tenant->id) {
-                abort(403, 'SSO callback tenant conflict.');
-            }
-            // Host mode: do not initialize — Phase 1 is sole resolver. Callback on Auth Host
-            // typically has no Tenant resolved; Host-mode SSO is gated off until BK-082.
-            $request->attributes->set('sso_callback_tenant_id', $tenant->id);
-
-            return $next($request);
         }
 
         if (tenancy()->initialized && tenancy()->tenant?->id !== $tenant->id) {

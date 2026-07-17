@@ -53,7 +53,13 @@ class TenancySecurityTest extends TestCase
         $response = $this->actingAsTenantUser($this->userA, $this->tenantA)
             ->get('/t/'.$this->tenantA->id.'/dashboard');
 
-        $response->assertStatus(403);
+        // Host profile rejects non-operational Tenants before auth with 404 (BK-073 gate).
+        // Path profile preserves the historical membership/status 403 contract.
+        if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+            $response->assertStatus(404);
+        } else {
+            $response->assertStatus(403);
+        }
     }
 
     public function test_web_user_not_member_returns_403(): void

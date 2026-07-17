@@ -16,6 +16,7 @@ use Modules\Identity\Services\SsoConfigService;
 use Modules\Identity\Support\Sso\SsoAuthorizationState;
 use Modules\Identity\Support\Sso\SsoIdentityResolutionResult;
 use Modules\Tenancy\Models\Tenant;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
@@ -23,14 +24,6 @@ use Tests\TestCase;
 /** BK-008 MFA step-up — SSO must not bypass existing MFA middleware. */
 class SsoMfaStepUpTest extends TestCase
 {
-    use \Tests\Support\SkipsPathEnterpriseSsoUnderHostProfile;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->skipPathEnterpriseSsoWhenHostProfile();
-    }
-
     /**
      * @return array{0: Tenant, 1: User}
      */
@@ -73,6 +66,7 @@ class SsoMfaStepUpTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function sso_callback_does_not_set_mfa_verified_at(): void
     {
         [$tenant, $user] = $this->createOrgTenantWithMfaRequiredMember();
@@ -97,6 +91,7 @@ class SsoMfaStepUpTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function mfa_required_tenant_redirects_to_challenge_after_sso_login(): void
     {
         [$tenant, $user] = $this->createOrgTenantWithMfaRequiredMember();

@@ -35,7 +35,10 @@ class EnsureMfaVerified
                 ], 403);
             }
 
-            return redirect()->route('identity.mfa.enroll', ['tenant' => $tenant->entryKey()]);
+            return redirect()->to(
+                app(\App\Http\Auth\TenantEntryUrlResolver::class)
+                    ->namedRouteUrl('identity.mfa.enroll', $tenant)
+            );
         }
 
         if (! $this->mfaService->sessionIsMfaVerified()) {
@@ -47,7 +50,10 @@ class EnsureMfaVerified
                 ], 403);
             }
 
-            return redirect()->route('identity.mfa.challenge', ['tenant' => $tenant->entryKey()]);
+            return redirect()->to(
+                app(\App\Http\Auth\TenantEntryUrlResolver::class)
+                    ->namedRouteUrl('identity.mfa.challenge', $tenant)
+            );
         }
 
         return $next($request);
