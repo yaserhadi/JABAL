@@ -2,30 +2,91 @@
 
 namespace App\Http\Auth;
 
+use App\Support\Tenancy\TenantAddressingProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-066: Focused authority for tenant entry URLs, redirect tip resolution, and safe intended URLs.
+ * BK-066/BK-073: Focused authority for tenant entry URLs, redirect tip resolution, and safe intended URLs.
+ *
+ * All URL-producing methods return absolute canonical URLs in BOTH profiles
+ * from the configured canonical origin — never from the untrusted request Host.
  *
  * Does not own: status eligibility policy, membership, authentication, tenancy init, or platform auth.
  */
 final class TenantEntryUrlResolver
 {
+    public function __construct(
+        private readonly TenantAddressingProfile $addressing,
+    ) {}
+
     public function entryKey(Tenant $tenant): string
     {
         return $tenant->entryKey();
     }
 
+    /**
+     * Absolute canonical Tenant entry URL (no trailing slash).
+     * Host: https://{handle}.{base}
+     * Path: https://{platform}/t/{handle}.
+     */
+    public function entryUrl(Tenant $tenant): string
+    {
+        if ($this->addressing->isHost()) {
+            return $this->addressing->absoluteOriginForHost(
+                $this->addressing->tenantHostFqdn($this->entryKey($tenant))
+            );
+        }
+
+        return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
+            .'/t/'.$this->entryKey($tenant);
+    }
+
+    /**
+     * Path-only helper for internal use — not the primary URL contract.
+     */
+    public function entryPath(Tenant $tenant): string
+    {
+        return '/t/'.$this->entryKey($tenant);
+    }
+
     public function loginUrl(Tenant $tenant): string
     {
-        return route('tenant.login', ['tenant' => $this->entryKey($tenant)]);
+        if ($this->addressing->isHost()) {
+            return $this->entryUrl($tenant).'/login';
+        }
+
+        return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
+            .route('tenant.login', ['tenant' => $this->entryKey($tenant)], absolute: false);
+    }
+
+    public function loginPath(Tenant $tenant): string
+    {
+        if ($this->addressing->isHost()) {
+            return '/login';
+        }
+
+        return route('tenant.login', ['tenant' => $this->entryKey($tenant)], absolute: false);
     }
 
     public function dashboardUrl(Tenant $tenant): string
     {
-        return route('dashboard', ['tenant' => $this->entryKey($tenant)]);
+        if ($this->addressing->isHost()) {
+            return $this->entryUrl($tenant).'/dashboard';
+        }
+
+        return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
+            .route('dashboard', ['tenant' => $this->entryKey($tenant)], absolute: false);
+    }
+
+    public function dashboardPath(Tenant $tenant): string
+    {
+        if ($this->addressing->isHost()) {
+            return '/dashboard';
+        }
+
+        return route('dashboard', ['tenant' => $this->entryKey($tenant)], absolute: false);
     }
 
     /**
@@ -86,18 +147,27 @@ final class TenantEntryUrlResolver
             return false;
         }
 
+        $canonicalEntry = parse_url($this->entryUrl($tenant));
+        if ($canonicalEntry === false || ! isset($canonicalEntry['host'])) {
+            return false;
+        }
+
         if (isset($parts['scheme']) || isset($parts['host'])) {
-            $appUrl = parse_url($request->root());
-            $scheme = $parts['scheme'] ?? ($appUrl['scheme'] ?? 'http');
+            $scheme = $parts['scheme'] ?? ($canonicalEntry['scheme'] ?? 'https');
             $host = $parts['host'] ?? null;
-            if ($host === null || ! isset($appUrl['host'])) {
+            if ($host === null) {
                 return false;
             }
-            if (strcasecmp((string) $host, (string) $appUrl['host']) !== 0) {
+            if (strcasecmp((string) $host, (string) $canonicalEntry['host']) !== 0) {
                 return false;
             }
-            $appScheme = $appUrl['scheme'] ?? 'http';
-            if (strcasecmp((string) $scheme, (string) $appScheme) !== 0) {
+            $expectedScheme = $canonicalEntry['scheme'] ?? 'https';
+            if (strcasecmp((string) $scheme, (string) $expectedScheme) !== 0) {
+                return false;
+            }
+        } elseif ($this->addressing->isHost()) {
+            // Relative URLs on Host profile are only safe when already on the tenant host.
+            if (strcasecmp($request->getHost(), (string) $canonicalEntry['host']) !== 0) {
                 return false;
             }
         }
@@ -105,6 +175,11 @@ final class TenantEntryUrlResolver
         $path = $parts['path'] ?? '';
         if (! is_string($path) || $path === '') {
             return false;
+        }
+
+        if ($this->addressing->isHost()) {
+            // Any path on the tenant origin is acceptable (same-host boundary).
+            return true;
         }
 
         if (! preg_match('#^/t/([^/]+)(/.*)?$#', $path, $m)) {
@@ -151,6 +226,13 @@ final class TenantEntryUrlResolver
 
     private function tenantFromRouteOrPath(Request $request): ?Tenant
     {
+        if (tenancy()->initialized && tenancy()->tenant instanceof Tenant) {
+            $class = \App\Http\Middleware\RequestHostClassifier::classOf($request);
+            if ($class === \App\Http\Middleware\RequestHostClassifier::CLASS_TENANT_CANDIDATE) {
+                return tenancy()->tenant;
+            }
+        }
+
         $routeTenant = $request->route('tenant');
 
         if ($routeTenant instanceof Tenant) {

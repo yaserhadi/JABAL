@@ -19,8 +19,18 @@ class SsoAuthController extends Controller
         protected SsoAuthService $ssoAuthService,
     ) {}
 
-    public function redirect(Request $request, Tenant $tenant): RedirectResponse
+    public function redirect(Request $request, ?Tenant $tenant = null): RedirectResponse
     {
+        // BK-073: Host-mode Enterprise SSO is negatively gated until BK-082.
+        if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+            abort(404);
+        }
+
+        $tenant = $tenant ?? (tenancy()->tenant instanceof Tenant ? tenancy()->tenant : null);
+        if (! $tenant instanceof Tenant) {
+            abort(404);
+        }
+
         try {
             $this->ssoAuthService->assertTenantMayStartSso($tenant);
 
@@ -61,6 +71,8 @@ class SsoAuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect()->intended('/t/'.$tenant->id.'/dashboard');
+        return redirect()->intended(
+            app(\App\Http\Auth\TenantEntryUrlResolver::class)->dashboardUrl($tenant)
+        );
     }
 }

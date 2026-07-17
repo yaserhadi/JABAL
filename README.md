@@ -223,6 +223,7 @@ See [tests/README.md](tests/README.md) for detailed testing guidelines.
 
 ## Documentation
 
+- **[Tenant addressing / Host local setup](docs/reference/tenancy-environment.md)**: `TENANCY_ADDRESSING_PROFILE` (host|path), canonical origins, cookies, trusted proxies (BK-073 / DEC-0023)
 - **[Database Conventions](.cursor/memory/conventions/database-conventions.md)**: Naming, UUID usage, indexing, tenant scoping
 - **[API Conventions](.cursor/memory/conventions/api-conventions.md)**: Response format, versioning, authentication
 - **[Testing Guide](tests/README.md)**: Test structure, conventions, best practices

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Tenancy\TenantAddressingProfile;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -11,11 +12,20 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Run path-based tenancy init early in the web stack (before auth/Inertia).
  * BK-064: segment 2 may be UUID (machine) or slug (human entry).
+ * BK-073: active only when addressing profile is path; no-op in Host profile.
  */
 class InitializeTenancyByPathWhenApplicable
 {
+    public function __construct(
+        private readonly TenantAddressingProfile $addressing,
+    ) {}
+
     public function handle(Request $request, Closure $next): Response
     {
+        if (! $this->addressing->isPath()) {
+            return $next($request);
+        }
+
         $pathTenantId = $this->resolvePathTenantId($request);
 
         if ($pathTenantId) {

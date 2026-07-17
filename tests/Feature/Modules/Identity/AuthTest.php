@@ -27,7 +27,7 @@ class AuthTest extends TestCase
         ]);
 
         $this->assertGuest('web');
-        $response->assertRedirect('/t/'.$tenant->slug.'/login?email='.urlencode($email));
+        $response->assertRedirect($this->tenantLoginRedirectUri($tenant, $email));
     }
 
     public function test_users_can_authenticate_on_tenant_login(): void
@@ -42,7 +42,7 @@ class AuthTest extends TestCase
         ]);
 
         $this->assertAuthenticated('web');
-        $response->assertRedirect('/t/'.$tenant->slug.'/dashboard');
+        $response->assertRedirect($this->tenantDashboardRedirectUri($tenant));
     }
 
     public function test_central_login_does_not_authenticate_with_password(): void
@@ -83,7 +83,7 @@ class AuthTest extends TestCase
             ->post('/logout');
 
         $this->assertGuest();
-        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
+        $response->assertRedirect($this->tenantLoginRedirectUri($tenant));
     }
 
     public function test_register_redirects_to_dashboard_with_tenant_admin_permissions(): void
@@ -98,7 +98,10 @@ class AuthTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect();
         $target = $response->headers->get('Location');
-        $this->assertMatchesRegularExpression('#/t/[a-z0-9-]+/dashboard#', (string) $target);
+        $this->assertMatchesRegularExpression(
+            '#(/t/[a-z0-9-]+/dashboard|[a-z0-9-]+\.jabal\.test/dashboard)$#',
+            (string) $target
+        );
 
         $dash = $this->get((string) $target);
         $dash->assertStatus(200);
@@ -121,7 +124,10 @@ class AuthTest extends TestCase
 
         $this->assertAuthenticated();
         $target = $response->headers->get('Location');
-        $this->assertMatchesRegularExpression('#/t/[a-z0-9-]+/dashboard#', (string) $target);
+        $this->assertMatchesRegularExpression(
+            '#(/t/[a-z0-9-]+/dashboard|[a-z0-9-]+\.jabal\.test/dashboard)$#',
+            (string) $target
+        );
 
         $this->get((string) $target)->assertOk();
     }

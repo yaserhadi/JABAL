@@ -48,7 +48,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->assignDashboardViewToUser($userA, $tenantA);
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
-        $this->loginAs($userA->email, 'password')->assertRedirect('/t/'.$tenantA->entryKey().'/dashboard');
+        $this->loginAs($userA->email, 'password')->assertRedirect($this->tenantDashboardRedirectUri($tenantA));
         $this->assertSame('database', config('session.driver'));
         $this->assertSame('tenant_db_'.$tenantA->id, config('session.connection'));
         $this->assertSame(1, $this->sessionCount(self::CONN_A));
@@ -62,7 +62,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->assignDashboardViewToUser($userB, $tenantB);
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
-        $this->loginAs($userB->email, 'password')->assertRedirect('/t/'.$tenantB->entryKey().'/dashboard');
+        $this->loginAs($userB->email, 'password')->assertRedirect($this->tenantDashboardRedirectUri($tenantB));
         $this->assertSame('database', config('session.driver'));
         $this->assertSame('tenant_db_'.$tenantB->id, config('session.connection'));
         $this->assertSame(0, $this->sessionCount(self::CONN_A));
@@ -78,7 +78,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
         $loginA = $this->loginAs($userA->email, 'password');
-        $loginA->assertRedirect('/t/'.$tenantA->entryKey().'/dashboard');
+        $loginA->assertRedirect($this->tenantDashboardRedirectUri($tenantA));
         $this->getWithCookies('/t/'.$tenantA->entryKey().'/dashboard', $loginA)->assertOk();
         $this->assertSame('database', config('session.driver'));
         $this->assertSame($connectionA, config('session.connection'));
@@ -94,7 +94,7 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
         $loginB = $this->loginAs($userB->email, 'password');
-        $loginB->assertRedirect('/t/'.$tenantB->entryKey().'/dashboard');
+        $loginB->assertRedirect($this->tenantDashboardRedirectUri($tenantB));
         $this->getWithCookies('/t/'.$tenantB->entryKey().'/dashboard', $loginB)->assertOk();
         $this->assertSame('database', config('session.driver'));
         $this->assertSame($connectionB, config('session.connection'));

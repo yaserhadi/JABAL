@@ -53,6 +53,10 @@ class TenantRegistrationService
                 'slug' => 'ws-'.strtolower(substr(str_replace('-', '', $tenantUser->id), 0, 12)),
             ]);
 
+            // BK-073: reserve platform subdomain after final Handle is assigned.
+            app(\Modules\Tenancy\Services\TenantDomainProvisioner::class)
+                ->ensurePlatformSubdomain($tenant->fresh());
+
             Membership::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $tenantUser->id,

@@ -54,6 +54,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'tenantBranding' => fn () => $this->sharedTenantBranding(),
             'tenant_ui_permissions' => fn () => $this->sharedTenantUiPermissions($request),
+            'addressingProfile' => fn () => app(\App\Support\Tenancy\TenantAddressingProfile::class)->profile(),
         ];
     }
 

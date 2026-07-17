@@ -28,6 +28,13 @@ use Tests\TestCase;
 class SsoCallbackSecurityTest extends TestCase
 {
     use GrantsSsoEntitlement;
+    use \Tests\Support\SkipsPathEnterpriseSsoUnderHostProfile;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->skipPathEnterpriseSsoWhenHostProfile();
+    }
 
     protected function tearDown(): void
     {

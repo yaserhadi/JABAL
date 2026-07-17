@@ -42,5 +42,13 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- BK-073: default Path profile for existing suite; Host suite sets host via fresh process -->
+        <env name="TENANCY_ADDRESSING_PROFILE" value="path"/>
+        <env name="TENANCY_CANONICAL_SCHEME" value="http"/>
+        <env name="TENANT_PLATFORM_BASE_DOMAIN" value="jabal.test"/>
+        <env name="TENANCY_CENTRAL_HOSTS" value="localhost,127.0.0.1,jabal.test,platform.jabal.test,auth.jabal.test,api.jabal.test"/>
+        <env name="TENANCY_PLATFORM_HOST" value="localhost"/>
+        <env name="TENANCY_AUTH_HOST" value="localhost"/>
+        <env name="APP_URL" value="http://localhost"/>
     </php>
 </phpunit>

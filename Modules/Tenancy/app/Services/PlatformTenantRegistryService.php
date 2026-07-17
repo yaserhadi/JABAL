@@ -76,7 +76,7 @@ final class PlatformTenantRegistryService
             'id' => $tenant->id,
             'name' => $tenant->name,
             'handle' => $tenant->slug,
-            'entry_path' => '/t/'.$tenant->entryKey(),
+            'entry_url' => app(\App\Http\Auth\TenantEntryUrlResolver::class)->entryUrl($tenant),
             'isolation_level' => $tenant->isolation_level,
             'lifecycle_status' => $presentation['lifecycle_status'],
             'provisioning_status' => $presentation['status'],
@@ -191,7 +191,7 @@ final class PlatformTenantRegistryService
     }
 
     /**
-     * @return array{id: string, name: string, handle: string, entry_path: string, isolation_level: string, lifecycle_status: string, provisioning_status: string, provisioning_detail: string, created_at: ?string}
+     * @return array{id: string, name: string, handle: string, entry_url: string, isolation_level: string, lifecycle_status: string, provisioning_status: string, provisioning_detail: string, created_at: ?string}
      */
     private function toListItem(Tenant $tenant): array
     {
@@ -201,7 +201,7 @@ final class PlatformTenantRegistryService
             'id' => $tenant->id,
             'name' => $tenant->name,
             'handle' => $tenant->slug,
-            'entry_path' => '/t/'.$tenant->entryKey(),
+            'entry_url' => app(\App\Http\Auth\TenantEntryUrlResolver::class)->entryUrl($tenant),
             'isolation_level' => $tenant->isolation_level,
             'lifecycle_status' => $presentation['lifecycle_status'],
             'provisioning_status' => $presentation['status'],
@@ -222,7 +222,7 @@ final class PlatformTenantRegistryService
             'id' => $tenant->id,
             'name' => $tenant->name,
             'handle' => $tenant->slug,
-            'entry_path' => '/t/'.$tenant->entryKey(),
+            'entry_url' => app(\App\Http\Auth\TenantEntryUrlResolver::class)->entryUrl($tenant),
             'isolation_level' => $tenant->isolation_level,
             'lifecycle_status' => $presentation['lifecycle_status'],
             'provisioning_status' => $presentation['status'],

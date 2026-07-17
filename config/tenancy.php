@@ -2,19 +2,21 @@
 
 declare(strict_types=1);
 
-use Stancl\Tenancy\Database\Models\Domain;
-use Stancl\Tenancy\Database\Models\Tenant;
+use App\Models\Domain;
 
 return [
     'tenant_model' => \Modules\Tenancy\Models\Tenant::class,
     'id_generator' => Stancl\Tenancy\UUIDGenerator::class,
 
+    // BK-073: application Domain subclass with data JSON cast (owner-sanctioned).
     'domain_model' => Domain::class,
 
     /**
      * The list of domains hosting your central app.
      *
      * Only relevant if you're using the domain or subdomain identification middleware.
+     * BK-073: AppServiceProvider merges tenancy_addressing hosts into this list at boot
+     * so Stancl subdomain extraction matches platform-subdomain rows (label only).
      */
     'central_domains' => [
         '127.0.0.1',

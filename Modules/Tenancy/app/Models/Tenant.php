@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Modules\Tenancy\Exceptions\TenantHardDeleteProhibitedException;
 use Stancl\Tenancy\Contracts\Tenant as TenantContract;
+use Stancl\Tenancy\Database\Concerns\HasDomains;
 use Stancl\Tenancy\Database\Concerns\HasInternalKeys;
 use Stancl\Tenancy\Database\Concerns\TenantRun;
 
@@ -23,15 +25,26 @@ use Stancl\Tenancy\Database\Concerns\TenantRun;
  * - NO BelongsToTenant trait (this IS the tenant)
  *
  * BK-064: No personal|organization type column. Path entry accepts slug or UUID.
+ * BK-073: HasDomains — Stancl domain registry is the Host resolution authority.
  */
 class Tenant extends Model implements TenantContract
 {
     use Auditable;
+    use HasDomains;
     use HasFactory;
     use HasInternalKeys;
     use HasUuids;
     use SoftDeletes;
     use TenantRun;
+
+    protected static function booted(): void
+    {
+        static::forceDeleting(function (Tenant $tenant): void {
+            throw new TenantHardDeleteProhibitedException(
+                'Hard/force Tenant deletion is prohibited until BK-075 defines domain release policy (application-enforced; Tenant ['.$tenant->id.']).'
+            );
+        });
+    }
 
     protected $connection = 'central';
 

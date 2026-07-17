@@ -52,7 +52,7 @@ class LoginSessionDeferralTest extends TestCase
         $this->post('/t/'.$tenant->entryKey().'/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
+        ])->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->assertSame('database', config('session.driver'));
         $this->assertSame($connection, config('session.connection'));

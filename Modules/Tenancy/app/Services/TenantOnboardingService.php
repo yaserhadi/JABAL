@@ -94,12 +94,19 @@ class TenantOnboardingService
     {
         $slug = $input->slug ?? Str::slug($input->organizationName).'-'.Str::lower(Str::random(6));
 
-        return Tenant::query()->create([
-            'name' => $input->organizationName,
-            'slug' => $slug,
-            'isolation_level' => $input->isolationLevel,
-            'status' => 'active',
-        ]);
+        return \Illuminate\Support\Facades\DB::connection('central')->transaction(function () use ($input, $slug) {
+            $tenant = Tenant::query()->create([
+                'name' => $input->organizationName,
+                'slug' => $slug,
+                'isolation_level' => $input->isolationLevel,
+                'status' => 'active',
+            ]);
+
+            // BK-073: universal platform-subdomain reservation in every profile.
+            app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+
+            return $tenant;
+        });
     }
 
     public function satisfyR2Storage(Tenant $tenant): bool

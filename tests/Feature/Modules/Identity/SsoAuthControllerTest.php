@@ -22,6 +22,13 @@ use Tests\TestCase;
 class SsoAuthControllerTest extends TestCase
 {
     use GrantsSsoEntitlement;
+    use \Tests\Support\SkipsPathEnterpriseSsoUnderHostProfile;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->skipPathEnterpriseSsoWhenHostProfile();
+    }
 
     protected function createOrgTenantWithMember(): array
     {
@@ -200,7 +207,7 @@ class SsoAuthControllerTest extends TestCase
         $beforeSessionId = $session->getId();
 
         $response = $this->get('/auth/sso/callback?code=abc&state='.urlencode($state));
-        $response->assertRedirect('/t/'.$tenant->id.'/dashboard');
+        $response->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->assertAuthenticatedAs($user, 'web');
         $this->assertSame($tenant->id, session('tenant_id'));
@@ -293,7 +300,7 @@ class SsoAuthControllerTest extends TestCase
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
-            ->assertRedirect('/t/'.$tenant->id.'/dashboard');
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->assertSame($connection, config('session.connection'));
         $this->assertGreaterThan(0, DB::connection($connection)->table('sessions')->count());

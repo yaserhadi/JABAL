@@ -23,7 +23,7 @@ class UserAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $response->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
+        $response->assertRedirect($this->tenantDashboardRedirectUri($tenant));
         $this->assertAuthenticated();
     }
 
@@ -34,9 +34,9 @@ class UserAuthTest extends TestCase
 
         $response = $this->actingAsTenantUser($user, $tenant, 'web')
             ->withSession(['tenant_id' => $tenant->id])
-            ->post(route('logout'));
+            ->post('/logout');
 
-        $response->assertRedirect(route('tenant.login', ['tenant' => $tenant->slug]));
+        $response->assertRedirect($this->tenantLoginRedirectUri($tenant));
         $this->assertGuest();
     }
 }

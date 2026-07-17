@@ -23,6 +23,14 @@ use Tests\TestCase;
 /** BK-008 MFA step-up — SSO must not bypass existing MFA middleware. */
 class SsoMfaStepUpTest extends TestCase
 {
+    use \Tests\Support\SkipsPathEnterpriseSsoUnderHostProfile;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->skipPathEnterpriseSsoWhenHostProfile();
+    }
+
     /**
      * @return array{0: Tenant, 1: User}
      */
@@ -82,7 +90,7 @@ class SsoMfaStepUpTest extends TestCase
         $this->assertStringNotContainsString('mfa_verified_at', $controller);
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
-            ->assertRedirect('/t/'.$tenant->id.'/dashboard');
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->assertAuthenticatedAs($user, 'web');
         $this->assertNull(session('mfa_verified_at'));
@@ -103,7 +111,7 @@ class SsoMfaStepUpTest extends TestCase
         });
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
-            ->assertRedirect('/t/'.$tenant->id.'/dashboard');
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->get('/t/'.$tenant->id.'/dashboard')
             ->assertRedirect(route('identity.mfa.challenge', ['tenant' => $tenant->entryKey()]));

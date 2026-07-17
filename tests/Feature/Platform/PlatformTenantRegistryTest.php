@@ -124,7 +124,9 @@ class PlatformTenantRegistryTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Platform/Tenants/Show')
                 ->where('tenant.handle', $handle)
-                ->where('tenant.entry_path', '/t/'.$handle)
+                ->where('tenant.entry_url', app(\App\Http\Auth\TenantEntryUrlResolver::class)->entryUrl(
+                    \Modules\Tenancy\Models\Tenant::query()->where('slug', $handle)->firstOrFail()
+                ))
                 ->where('tenant.application_owner.email', $ownerEmail)
                 ->where('tenant.commercial_owner_contact.assigned', false)
                 ->has('tenant.lifecycle_status')
@@ -346,7 +348,7 @@ class PlatformTenantRegistryTest extends TestCase
         $this->post('/t/'.$handle.'/login', [
             'email' => $email,
             'password' => 'password-Str0ng!',
-        ])->assertRedirect('/t/'.$handle.'/dashboard');
+        ])->assertRedirect($this->tenantDashboardRedirectUri(Tenant::query()->where('slug', $handle)->firstOrFail()));
     }
 
     public function test_self_registration_unchanged_still_auto_generates_handle(): void

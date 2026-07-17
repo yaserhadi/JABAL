@@ -8,7 +8,7 @@
                         <v-alert type="info" variant="tonal" class="mb-4">
                             Tenant Handle is read-only after creation:
                             <code>{{ tenant.handle }}</code>
-                            · live path <code>{{ tenant.entry_path }}</code>
+                            · live entry <code>{{ tenant.entry_url }}</code>
                         </v-alert>
                         <v-form @submit.prevent="submit">
                             <v-text-field

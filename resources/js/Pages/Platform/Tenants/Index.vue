@@ -72,7 +72,7 @@
                                     <td>{{ row.name }}</td>
                                     <td>
                                         <code>{{ row.handle }}</code>
-                                        <div class="text-caption text-medium-emphasis">{{ row.entry_path }}</div>
+                                        <div class="text-caption text-medium-emphasis">{{ row.entry_url }}</div>
                                     </td>
                                     <td>
                                         <v-chip size="small" variant="tonal">{{ row.lifecycle_status }}</v-chip>
