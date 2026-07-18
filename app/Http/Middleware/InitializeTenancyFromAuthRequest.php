@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Tenancy\TenantAddressingProfile;
 use Closure;
 use Illuminate\Http\Request;
 use Modules\Identity\Models\TenantUser;
@@ -10,11 +11,22 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Initialize tenancy from POST /login or POST /register before StartSession (database_per_tenant).
+ *
+ * BK-073 Host profile: never calls tenancy()->initialize().
+ * Validates email-derived Tenant against already-resolved context when both present.
  */
 class InitializeTenancyFromAuthRequest
 {
+    public function __construct(
+        private readonly TenantAddressingProfile $addressing,
+    ) {}
+
     public function handle(Request $request, Closure $next): Response
     {
+        if ($this->addressing->isHost()) {
+            return $this->validateOnlyInHostMode($request, $next);
+        }
+
         if (tenancy()->initialized || ! $this->isEligibleAuthPost($request)) {
             return $next($request);
         }
@@ -25,6 +37,23 @@ class InitializeTenancyFromAuthRequest
             tenancy()->initialize($tenant);
         }
 
+        return $next($request);
+    }
+
+    private function validateOnlyInHostMode(Request $request, Closure $next): Response
+    {
+        if (! $this->isEligibleAuthPost($request)) {
+            return $next($request);
+        }
+
+        $fromEmail = $this->resolveTenantFromEmail($request);
+        $resolved = tenancy()->tenant;
+
+        if ($fromEmail instanceof Tenant && $resolved instanceof Tenant && (string) $fromEmail->id !== (string) $resolved->id) {
+            abort(403, 'Tenant auth context conflict.');
+        }
+
+        // Never initialize in Host mode.
         return $next($request);
     }
 

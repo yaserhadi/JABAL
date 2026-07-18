@@ -24,13 +24,18 @@ class AuthController extends Controller
         return Inertia::render('Auth/Login');
     }
 
-    public function showTenantLogin(Tenant $tenant)
+    public function showTenantLogin(?Tenant $tenant = null)
     {
+        $tenant = $this->resolveTenantArgument($tenant);
+
         if ($tenant->status !== 'active') {
             abort(404);
         }
 
-        $ssoOperational = app(SsoConfigService::class)->isOperationalForTenant($tenant);
+        // BK-073: Host-mode Enterprise SSO UI gate — never advertise SSO until BK-082.
+        $ssoOperational = app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()
+            ? false
+            : app(SsoConfigService::class)->isOperationalForTenant($tenant);
 
         return Inertia::render('Auth/TenantLogin', [
             'tenant' => TenantInertiaProps::from($tenant),
@@ -59,9 +64,9 @@ class AuthController extends Controller
             $query['email'] = $validated['email'];
         }
 
-        $url = route('tenant.login', ['tenant' => $tenant->entryKey()]);
+        $url = app(TenantEntryUrlResolver::class)->loginUrl($tenant);
         if ($query !== []) {
-            $url .= '?'.http_build_query($query);
+            $url .= (str_contains($url, '?') ? '&' : '?').http_build_query($query);
         }
 
         if ($request->header('X-Inertia')) {
@@ -74,8 +79,10 @@ class AuthController extends Controller
     /**
      * Tenant-local password authentication after Tenant is resolved.
      */
-    public function tenantLogin(Request $request, Tenant $tenant)
+    public function tenantLogin(Request $request, ?Tenant $tenant = null)
     {
+        $tenant = $this->resolveTenantArgument($tenant);
+
         if ($tenant->status !== 'active') {
             abort(404);
         }
@@ -171,5 +178,22 @@ class AuthController extends Controller
         }
 
         return redirect()->route('login');
+    }
+
+    /**
+     * Host routes omit {tenant}; resolve from Stancl context. Path routes keep model binding.
+     */
+    private function resolveTenantArgument(?Tenant $tenant): Tenant
+    {
+        if ($tenant instanceof Tenant) {
+            return $tenant;
+        }
+
+        $resolved = tenancy()->tenant;
+        if ($resolved instanceof Tenant) {
+            return $resolved;
+        }
+
+        abort(404);
     }
 }

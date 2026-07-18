@@ -196,6 +196,130 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * BK-073 dual-profile CI: rewrite Path-style /t/{key}/… (and central /platform) URIs
+     * onto Host-bound absolute URLs when TENANCY_ADDRESSING_PROFILE=host.
+     *
+     * Production Host mode does not register Path URIs; this adapter keeps the existing
+     * Path-oriented suite exercisable under a Host-profile boot without duplicating routes.
+     *
+     * Absolute URIs that already target a non-local Host (Host-matrix tests) are left unchanged.
+     *
+     * @param  array<string, mixed>  $server
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    protected function rewriteUriForAddressingProfile(string $uri, array $server): array
+    {
+        if (! isset($this->app) || ! $this->app->bound(\App\Support\Tenancy\TenantAddressingProfile::class)) {
+            return [$uri, $server];
+        }
+
+        $profile = $this->app->make(\App\Support\Tenancy\TenantAddressingProfile::class);
+        if (! $profile->isHost()) {
+            return [$uri, $server];
+        }
+
+        $parts = parse_url($uri);
+        $hostFromUri = isset($parts['host']) ? strtolower((string) $parts['host']) : '';
+        if ($hostFromUri !== '' && ! in_array($hostFromUri, ['localhost', '127.0.0.1'], true)) {
+            return [$uri, $server];
+        }
+
+        $path = $parts['path'] ?? (str_starts_with($uri, '/') ? explode('?', $uri, 2)[0] : '/'.$uri);
+        $query = isset($parts['query']) ? '?'.$parts['query'] : (str_contains($uri, '?') && ! isset($parts['host'])
+            ? '?'.explode('?', $uri, 2)[1]
+            : '');
+
+        if (preg_match('#^/t/([^/]+)(/.*)?$#', $path, $m) === 1) {
+            $key = $m[1];
+            $rest = $m[2] ?? '';
+            $tenant = \Illuminate\Support\Str::isUuid($key)
+                ? Tenant::query()->find($key)
+                : Tenant::query()->where('slug', $key)->first();
+
+            if (! $tenant) {
+                return [$uri, $server];
+            }
+
+            app(\Modules\Tenancy\Services\TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+            $host = $profile->tenantHostFqdn($tenant->entryKey());
+            $absolute = $profile->absoluteOriginForHost($host).($rest === '' ? '/' : $rest).$query;
+            $server['HTTP_HOST'] = $host;
+            $server['SERVER_NAME'] = $host;
+
+            return [$absolute, $server];
+        }
+
+        $platformHost = $profile->platformHost();
+        if ($platformHost !== '' && (
+            str_starts_with($path, '/platform')
+            || in_array($path, ['/login', '/register', '/'], true)
+            || str_starts_with($path, '/password')
+        )) {
+            $absolute = $profile->absoluteOriginForHost($platformHost).$path.$query;
+            $server['HTTP_HOST'] = $platformHost;
+            $server['SERVER_NAME'] = $platformHost;
+
+            return [$absolute, $server];
+        }
+
+        $authHost = $profile->authHost();
+        if ($authHost !== '' && str_starts_with($path, '/auth/sso/callback')) {
+            $absolute = $profile->absoluteOriginForHost($authHost).$path.$query;
+            $server['HTTP_HOST'] = $authHost;
+            $server['SERVER_NAME'] = $authHost;
+
+            return [$absolute, $server];
+        }
+
+        return [$uri, $server];
+    }
+
+    /**
+     * Expected tenant dashboard redirect target for the active addressing profile.
+     */
+    protected function tenantDashboardRedirectUri(Tenant $tenant): string
+    {
+        return app(\App\Http\Auth\TenantEntryUrlResolver::class)->dashboardUrl($tenant);
+    }
+
+    /**
+     * Expected tenant-local login URL (optional email query) for the active addressing profile.
+     */
+    protected function tenantLoginRedirectUri(Tenant $tenant, ?string $email = null): string
+    {
+        $url = app(\App\Http\Auth\TenantEntryUrlResolver::class)->loginUrl($tenant);
+        if (is_string($email) && $email !== '') {
+            $url .= (str_contains($url, '?') ? '&' : '?').'email='.urlencode($email);
+        }
+
+        return $url;
+    }
+
+    /**
+     * Profile-aware absolute URL for an arbitrary named Tenant route.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    protected function tenantNamedRouteUrl(string $name, Tenant $tenant, array $parameters = []): string
+    {
+        return app(\App\Http\Auth\TenantEntryUrlResolver::class)
+            ->namedRouteUrl($name, $tenant, $parameters);
+    }
+
+    /**
+     * @param  array<string, mixed>  $parameters
+     * @param  array<string, mixed>  $cookies
+     * @param  array<string, mixed>  $files
+     * @param  array<string, mixed>  $server
+     */
+    public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        [$uri, $server] = $this->rewriteUriForAddressingProfile((string) $uri, $server);
+
+        return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+    }
+
+    /**
      * Assert that a model is properly scoped to a tenant.
      *
      * @param  mixed  $model

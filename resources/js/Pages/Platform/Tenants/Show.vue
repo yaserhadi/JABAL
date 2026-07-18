@@ -29,7 +29,7 @@
                                 <code>{{ tenant.handle }}</code>
                                 <div class="text-body-2 mt-1">
                                     Live path:
-                                    <code>{{ tenant.entry_path }}</code>
+                                    <code>{{ tenant.entry_url }}</code>
                                 </div>
                             </v-col>
                             <v-col cols="12" md="4">

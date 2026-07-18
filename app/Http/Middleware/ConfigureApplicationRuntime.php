@@ -13,6 +13,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Selects platform vs tenant session runtime before StartSession (ADR-0007 §3.1.3.1).
  *
+ * BK-073: consumes RequestHostClassifier + tenancy()->tenant — NO independent Host→Tenant lookup.
+ * Runs in Phase 2 AFTER Tenant resolution and operational gate.
+ *
  * Stage 5B: defers session.connection on database_per_tenant paths until tenancy init
  * (see ConfigureTenantSessionConnection).
  */
@@ -72,8 +75,16 @@ class ConfigureApplicationRuntime
         }
     }
 
+    /**
+     * Prefer already-resolved tenancy()->tenant (BK-073 Phase 1). Fall back to path/auth
+     * hints only when tenancy is not yet initialized (Path profile legacy surfaces).
+     */
     private function resolveTenantForDeferralDecision(Request $request): ?Tenant
     {
+        if (tenancy()->initialized && tenancy()->tenant instanceof Tenant) {
+            return tenancy()->tenant;
+        }
+
         if ($request->segment(1) === 't') {
             $key = $request->segment(2);
 
@@ -170,6 +181,17 @@ class ConfigureApplicationRuntime
     private function resolveProfile(Request $request): string
     {
         if ($request->is('platform', 'platform/*')) {
+            return 'platform';
+        }
+
+        $class = RequestHostClassifier::classOf($request);
+
+        // Reserved infrastructure hosts (API/asset/operations) never use tenant session.
+        if (in_array($class, [
+            RequestHostClassifier::CLASS_API,
+            RequestHostClassifier::CLASS_ASSET,
+            RequestHostClassifier::CLASS_OPERATIONS,
+        ], true)) {
             return 'platform';
         }
 

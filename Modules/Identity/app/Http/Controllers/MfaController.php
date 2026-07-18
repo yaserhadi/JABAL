@@ -55,7 +55,9 @@ class MfaController extends Controller
 
         $tenantModel = Tenant::query()->findOrFail($tenant);
 
-        return redirect()->to(route('dashboard', ['tenant' => $tenantModel->entryKey()]));
+        return redirect()->to(
+            app(\App\Http\Auth\TenantEntryUrlResolver::class)->dashboardUrl($tenantModel)
+        );
     }
 
     public function showChallenge(Request $request, string $tenant): InertiaResponse|JsonResponse

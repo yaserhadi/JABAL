@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\ConfigureApplicationRuntime;
 use App\Http\Middleware\ConfigureTenantSessionConnection;
+use App\Http\Middleware\InitializeTenancyByHostWhenApplicable;
 use App\Http\Middleware\InitializeTenancyByPathWhenApplicable;
+use App\Http\Middleware\RequestHostClassifier;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -12,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantDatabaseConfig;
+use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
@@ -33,6 +36,7 @@ class DatabasePerTenantSessionConnectionTest extends TestCase
     }
 
     /** T-S5B-02 */
+    #[Group('path-profile-contract')]
     public function test_path_request_defers_and_resolves_dynamic_connection_before_session(): void
     {
         $tenant = $this->createDatabasePerTenantFixture();
@@ -49,6 +53,36 @@ class DatabasePerTenantSessionConnectionTest extends TestCase
 
             return app(InitializeTenancyByPathWhenApplicable::class)->handle($req, function (Request $req) use ($next) {
                 return app(ConfigureTenantSessionConnection::class)->handle($req, $next);
+            });
+        });
+    }
+
+    /** Host-profile counterpart to T-S5B-02 (Path middleware is a no-op under Host). */
+    #[Group('host-profile-contract')]
+    public function test_host_request_defers_and_resolves_dynamic_connection_before_session(): void
+    {
+        $tenant = $this->createDatabasePerTenantFixture();
+        app(\Modules\Tenancy\Services\TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+        $host = $tenant->slug.'.jabal.test';
+
+        $request = Request::create('https://'.$host.'/dashboard', 'GET', server: [
+            'HTTP_HOST' => $host,
+            'SERVER_NAME' => $host,
+        ]);
+        $next = function (Request $req) use ($tenant): Response {
+            $this->assertSame('tenant_db_'.$tenant->id, config('session.connection'));
+
+            return response('ok');
+        };
+
+        // Production Host order: classify → resolve Tenant → configure runtime → bind session.
+        app(RequestHostClassifier::class)->handle($request, function (Request $req) use ($next) {
+            return app(InitializeTenancyByHostWhenApplicable::class)->handle($req, function (Request $req) use ($next) {
+                return app(ConfigureApplicationRuntime::class)->handle($req, function (Request $req) use ($next) {
+                    $this->assertTrue($req->attributes->get(ConfigureApplicationRuntime::SESSION_CONNECTION_DEFERRED));
+
+                    return app(ConfigureTenantSessionConnection::class)->handle($req, $next);
+                });
             });
         });
     }

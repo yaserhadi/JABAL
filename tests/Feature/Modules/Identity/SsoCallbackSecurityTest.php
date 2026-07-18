@@ -18,6 +18,7 @@ use Modules\Identity\Support\Sso\SsoClaimsExtractor;
 use Modules\Identity\Support\Sso\SsoIdentityResolver;
 use Modules\Identity\Support\Sso\SsoIssuerUrlValidator;
 use Modules\Tenancy\Models\Tenant;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\Support\ClaimsFailingSsoAuthService;
@@ -112,6 +113,7 @@ class SsoCallbackSecurityTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function package_nonce_failure_is_rejected_without_login(): void
     {
         [$tenant] = $this->createEnabledOrgTenant();
@@ -136,6 +138,7 @@ class SsoCallbackSecurityTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function package_audience_failure_is_rejected_without_login(): void
     {
         [$tenant] = $this->createEnabledOrgTenant();
@@ -157,6 +160,7 @@ class SsoCallbackSecurityTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function package_client_id_failure_is_rejected_without_login(): void
     {
         [$tenant] = $this->createEnabledOrgTenant();
@@ -178,6 +182,7 @@ class SsoCallbackSecurityTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function userinfo_sub_mismatch_is_rejected_without_login(): void
     {
         [$tenant] = $this->createEnabledOrgTenant();

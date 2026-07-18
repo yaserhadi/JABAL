@@ -16,6 +16,7 @@ use Modules\Identity\Services\SsoConfigService;
 use Modules\Identity\Support\Sso\SsoAuthorizationState;
 use Modules\Identity\Support\Sso\SsoIdentityResolutionResult;
 use Modules\Tenancy\Models\Tenant;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
@@ -65,6 +66,7 @@ class SsoMfaStepUpTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function sso_callback_does_not_set_mfa_verified_at(): void
     {
         [$tenant, $user] = $this->createOrgTenantWithMfaRequiredMember();
@@ -82,13 +84,14 @@ class SsoMfaStepUpTest extends TestCase
         $this->assertStringNotContainsString('mfa_verified_at', $controller);
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
-            ->assertRedirect('/t/'.$tenant->id.'/dashboard');
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->assertAuthenticatedAs($user, 'web');
         $this->assertNull(session('mfa_verified_at'));
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function mfa_required_tenant_redirects_to_challenge_after_sso_login(): void
     {
         [$tenant, $user] = $this->createOrgTenantWithMfaRequiredMember();
@@ -103,7 +106,7 @@ class SsoMfaStepUpTest extends TestCase
         });
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
-            ->assertRedirect('/t/'.$tenant->id.'/dashboard');
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->get('/t/'.$tenant->id.'/dashboard')
             ->assertRedirect(route('identity.mfa.challenge', ['tenant' => $tenant->entryKey()]));

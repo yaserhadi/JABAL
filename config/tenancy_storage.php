@@ -20,7 +20,7 @@ return [
 
     'mode' => env('TENANCY_MODE', 'shared_db'),
 
-    'identification' => env('TENANCY_IDENTIFICATION', 'path'),
+    'identification' => env('TENANCY_IDENTIFICATION', 'path'), // deprecated alias — prefer tenancy_addressing.profile (BK-073)
 
     'shared_connection' => env('TENANCY_SHARED_DB_CONNECTION', 'tenant'),
 

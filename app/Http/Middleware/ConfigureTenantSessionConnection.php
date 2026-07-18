@@ -18,7 +18,14 @@ class ConfigureTenantSessionConnection
             return $next($request);
         }
 
-        if (! $request->attributes->get(ConfigureApplicationRuntime::SESSION_CONNECTION_DEFERRED)) {
+        $deferred = (bool) $request->attributes->get(ConfigureApplicationRuntime::SESSION_CONNECTION_DEFERRED);
+
+        // Safety net: if Runtime ran before Path init and left deferral unset, re-evaluate now.
+        if (! $deferred && tenancy()->initialized && config('tenancy_storage.mode') === 'database_per_tenant') {
+            $deferred = $this->shouldDeferForCurrentTenant();
+        }
+
+        if (! $deferred) {
             return $next($request);
         }
 
@@ -55,6 +62,23 @@ class ConfigureTenantSessionConnection
         }
 
         return $next($request);
+    }
+
+    private function shouldDeferForCurrentTenant(): bool
+    {
+        $tenant = tenancy()->tenant;
+        if (! $tenant) {
+            return false;
+        }
+
+        $resolver = app(TenantStorageResolver::class);
+        $sharedConnection = (string) config('tenancy_storage.shared_connection', 'tenant');
+
+        try {
+            return $resolver->connectionFor($tenant) !== $sharedConnection;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function forgetSessionInstances(): void

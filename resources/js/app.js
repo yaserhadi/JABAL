@@ -56,6 +56,10 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
+        const sharedProfile = props?.initialPage?.props?.addressingProfile;
+        if (typeof sharedProfile === 'string') {
+            window.__jabalAddressingProfile = sharedProfile;
+        }
         const app = createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(vuetify);

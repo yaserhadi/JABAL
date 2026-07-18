@@ -125,8 +125,7 @@ class WorkspaceCrudTest extends TestCase
         $workspace = Workspace::where('slug', 'redirect-workspace')->first();
         $this->assertNotNull($workspace);
 
-        $response->assertRedirect(route('workspaces.show', [
-            'tenant' => $this->tenantA->slug,
+        $response->assertRedirect($this->tenantNamedRouteUrl('workspaces.show', $this->tenantA, [
             'workspace' => $workspace,
         ]));
 
@@ -150,25 +149,29 @@ class WorkspaceCrudTest extends TestCase
         $response = $this->get('/t/'.$this->tenantA->slug.'/workspaces');
         $response->assertOk();
 
-        $create = route('workspaces.create', ['tenant' => $this->tenantA->slug]);
-        $show = route('workspaces.show', ['tenant' => $this->tenantA->slug, 'workspace' => $workspace]);
-        $edit = route('workspaces.edit', ['tenant' => $this->tenantA->slug, 'workspace' => $workspace]);
+        $create = $this->tenantNamedRouteUrl('workspaces.create', $this->tenantA);
+        $show = $this->tenantNamedRouteUrl('workspaces.show', $this->tenantA, ['workspace' => $workspace]);
+        $edit = $this->tenantNamedRouteUrl('workspaces.edit', $this->tenantA, ['workspace' => $workspace]);
 
         foreach ([$create, $show, $edit] as $url) {
             $this->assertIsString($url);
             $this->assertNotSame('', $url);
             $this->assertStringNotContainsString('null', $url);
-            $this->assertStringContainsString('/t/'.$this->tenantA->slug.'/workspaces', $url);
+            if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+                $this->assertStringContainsString($this->tenantA->slug.'.jabal.test/workspaces', $url);
+            } else {
+                $this->assertStringContainsString('/t/'.$this->tenantA->slug.'/workspaces', $url);
+            }
         }
     }
 
     public function test_guest_cannot_access_workspace_routes(): void
     {
         $response = $this->get('/t/'.$this->tenantA->slug.'/workspaces');
-        $response->assertRedirect(route('tenant.login', ['tenant' => $this->tenantA->slug]));
+        $response->assertRedirect($this->tenantLoginRedirectUri($this->tenantA));
 
         $create = $this->get('/t/'.$this->tenantA->slug.'/workspaces/create');
-        $create->assertRedirect(route('tenant.login', ['tenant' => $this->tenantA->slug]));
+        $create->assertRedirect($this->tenantLoginRedirectUri($this->tenantA));
     }
 
     public function test_workspace_binding_isolation_returns_404_for_cross_tenant(): void

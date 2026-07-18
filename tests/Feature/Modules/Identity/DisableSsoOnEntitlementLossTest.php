@@ -15,6 +15,7 @@ use Modules\Identity\Support\Sso\SsoAuthorizationState;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantDatabaseConfig;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\TestCase;
@@ -78,6 +79,7 @@ class DisableSsoOnEntitlementLossTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function redirect_is_blocked_after_entitlement_loss(): void
     {
         [$tenant] = $this->createTenantWithEnabledSso();
@@ -90,6 +92,7 @@ class DisableSsoOnEntitlementLossTest extends TestCase
     }
 
     #[Test]
+    #[Group('path-profile-contract')]
     public function callback_is_blocked_after_entitlement_loss(): void
     {
         [$tenant] = $this->createTenantWithEnabledSso();
@@ -101,6 +104,47 @@ class DisableSsoOnEntitlementLossTest extends TestCase
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
             ->assertRedirect(route('login'))
             ->assertSessionHasErrors('email');
+
+        $this->assertGuest('web');
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function host_redirect_is_unavailable_after_entitlement_loss(): void
+    {
+        [$tenant] = $this->createTenantWithEnabledSso();
+        app(\Modules\Tenancy\Services\TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+
+        app(SubscriptionService::class)->changePlan($tenant->id, $this->basicPlan->code);
+
+        $this->call(
+            'GET',
+            'https://'.$tenant->slug.'.jabal.test/auth/sso/redirect',
+            server: [
+                'HTTP_HOST' => $tenant->slug.'.jabal.test',
+                'SERVER_NAME' => $tenant->slug.'.jabal.test',
+            ]
+        )->assertNotFound();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function host_callback_is_unavailable_after_entitlement_loss(): void
+    {
+        [$tenant] = $this->createTenantWithEnabledSso();
+
+        app(SubscriptionService::class)->changePlan($tenant->id, $this->basicPlan->code);
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->call(
+            'GET',
+            'https://auth.jabal.test/auth/sso/callback?code=abc&state='.urlencode($state),
+            server: [
+                'HTTP_HOST' => 'auth.jabal.test',
+                'SERVER_NAME' => 'auth.jabal.test',
+            ]
+        )->assertNotFound();
 
         $this->assertGuest('web');
     }

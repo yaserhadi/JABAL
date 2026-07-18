@@ -11,6 +11,8 @@ use App\Support\Context\ExecutionContext;
 use App\Support\Context\RequestContext;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Tenancy\DefaultTenantStorageResolver;
+use App\Support\Tenancy\TenantAddressingProfile;
+use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
@@ -19,7 +21,9 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
+use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
+use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,18 +33,17 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantStorageResolver::class, DefaultTenantStorageResolver::class);
+        $this->app->singleton(TenantAddressingProfile::class);
+        $this->app->singleton(TenantRouteRegistrar::class);
 
-        // Register RequestContext as singleton
         $this->app->singleton(RequestContext::class, function () {
             return RequestContext::getInstance();
         });
 
-        // Register ActorContext as singleton
         $this->app->singleton(ActorContext::class, function () {
             return ActorContext::getInstance();
         });
 
-        // Register ExecutionContext as singleton
         $this->app->singleton(ExecutionContext::class, function () {
             return ExecutionContext::getInstance();
         });
@@ -57,10 +60,18 @@ class AppServiceProvider extends ServiceProvider
 
         Sanctum::usePersonalAccessTokenModel(TenantPersonalAccessToken::class);
 
-        // PHASE 2: Configure Stancl middleware to use X-Tenant-Id header
+        // BK-073: fail-fast addressing validation + sync Stancl central_domains.
+        $addressing = $this->app->make(TenantAddressingProfile::class);
+        $addressing->assertValidConfiguration();
+        config([
+            'tenancy.central_domains' => array_values(array_unique(array_merge(
+                (array) config('tenancy.central_domains', []),
+                $addressing->centralHosts(),
+            ))),
+        ]);
+
         InitializeTenancyByRequestData::$header = 'X-Tenant-Id';
 
-        // PHASE 2: Handle missing/invalid tenant gracefully
         InitializeTenancyByRequestData::$onFail = function ($exception, $request, $next) {
             return response()->json([
                 'success' => false,
@@ -68,7 +79,13 @@ class AppServiceProvider extends ServiceProvider
             ], 401);
         };
 
-        // Phase 3B: Set Spatie permissions team context during tenancy initialization
+        // BK-073: unknown / unregistered Tenant Host → controlled 404 (fail closed).
+        $hostOnFail = static function ($exception, $request, $next) {
+            abort(404, 'Tenant not found for host.');
+        };
+        InitializeTenancyByDomain::$onFail = $hostOnFail;
+        InitializeTenancyBySubdomain::$onFail = $hostOnFail;
+
         Event::subscribe(SetSpatiePermissionsTeamId::class);
 
         RateLimiter::for('invitations', function (Request $request) {
@@ -92,13 +109,9 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($userId.'|'.$request->ip());
         });
 
-        // API pipeline: ValidateTenantToken before Sanctum on tenant API routes only.
-        // Do NOT prepend Authenticate globally — it runs before StartSession and breaks web session guards.
         $this->app->booted(static function (): void {
             $kernel = app(Kernel::class);
             $kernel->prependToMiddlewarePriority(ValidateTenantToken::class);
-            // Sanctum must resolve the tokenable user before Stancl initializes tenancy from X-Tenant-Id,
-            // otherwise BelongsToTenant scopes the user query to the header tenant and cross-tenant tokens 401.
             $kernel->appendToMiddlewarePriority(
                 \Illuminate\Auth\Middleware\Authenticate::class,
                 InitializeTenancyByRequestData::class,

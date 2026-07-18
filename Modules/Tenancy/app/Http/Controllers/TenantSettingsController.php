@@ -2,6 +2,7 @@
 
 namespace Modules\Tenancy\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,8 @@ use Modules\Tenancy\Services\TenantSettingsService;
 class TenantSettingsController extends Controller
 {
     public function __construct(
-        protected TenantSettingsService $tenantSettings
+        protected TenantSettingsService $tenantSettings,
+        protected TenantEntryUrlResolver $tenantEntryUrls,
     ) {
         $this->middleware('permission:tenant.settings.view')->only(['show']);
         $this->middleware('permission:tenant.settings.update')->only(['update']);
@@ -61,7 +63,7 @@ class TenantSettingsController extends Controller
         }
 
         return redirect()
-            ->route('tenant.settings.index', ['tenant' => $tenant->entryKey()])
+            ->to($this->tenantEntryUrls->namedRouteUrl('tenant.settings.index', $tenant))
             ->with('success', 'Settings updated.');
     }
 }

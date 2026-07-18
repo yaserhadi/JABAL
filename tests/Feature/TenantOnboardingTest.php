@@ -57,7 +57,7 @@ class TenantOnboardingTest extends TestCase
             'password' => $password,
         ]);
 
-        $response->assertRedirect('/t/'.$tenantKey.'/dashboard');
+        $response->assertRedirect($this->tenantDashboardRedirectUri($result->tenant));
         $this->assertAuthenticated('web');
 
         return $result->withReachable(true);
@@ -126,7 +126,7 @@ class TenantOnboardingTest extends TestCase
             'email' => $ownerEmail,
             'password' => 'password-Str0ng!',
         ]);
-        $login->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
+        $login->assertRedirect($this->tenantDashboardRedirectUri($tenant));
     }
 
     public function test_artisan_onboard_organization_command_is_ready_on_shared_db(): void
@@ -147,7 +147,7 @@ class TenantOnboardingTest extends TestCase
         $this->post('/t/'.$tenant->entryKey().'/login', [
             'email' => $ownerEmail,
             'password' => 'password-Str0ng!',
-        ])->assertRedirect('/t/'.$tenant->entryKey().'/dashboard');
+        ])->assertRedirect($this->tenantDashboardRedirectUri($tenant));
     }
 
     public function test_manual_strategy_two_phase_provisioning_becomes_ready(): void

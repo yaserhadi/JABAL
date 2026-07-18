@@ -2,6 +2,7 @@
 
 namespace Modules\Workspaces\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +19,8 @@ use Modules\Workspaces\Services\WorkspaceService;
 class WorkspacesController extends Controller
 {
     public function __construct(
-        protected WorkspaceService $workspaceService
+        protected WorkspaceService $workspaceService,
+        protected TenantEntryUrlResolver $tenantEntryUrls,
     ) {
         $this->middleware('permission:workspace.view')->only(['index', 'show']);
         $this->middleware('permission:workspace.create')->only(['create', 'store']);
@@ -59,11 +61,13 @@ class WorkspacesController extends Controller
             return ApiResponse::success($workspace->toArray(), 201);
         }
 
+        $tenant = tenancy()->tenant;
+        abort_unless($tenant, 404);
+
         return redirect()
-            ->route('workspaces.show', [
-                'tenant' => $this->tenantRouteKey(),
+            ->to($this->tenantEntryUrls->namedRouteUrl('workspaces.show', $tenant, [
                 'workspace' => $workspace,
-            ])
+            ]))
             ->with('success', 'Workspace created successfully.');
     }
 
@@ -102,11 +106,13 @@ class WorkspacesController extends Controller
             return ApiResponse::success($workspace->toArray());
         }
 
+        $tenant = tenancy()->tenant;
+        abort_unless($tenant, 404);
+
         return redirect()
-            ->route('workspaces.show', [
-                'tenant' => $this->tenantRouteKey(),
+            ->to($this->tenantEntryUrls->namedRouteUrl('workspaces.show', $tenant, [
                 'workspace' => $workspace,
-            ])
+            ]))
             ->with('success', 'Workspace updated successfully.');
     }
 
@@ -118,8 +124,11 @@ class WorkspacesController extends Controller
             return ApiResponse::success(null, 204);
         }
 
+        $tenant = tenancy()->tenant;
+        abort_unless($tenant, 404);
+
         return redirect()
-            ->route('workspaces.index', ['tenant' => $this->tenantRouteKey()])
+            ->to($this->tenantEntryUrls->namedRouteUrl('workspaces.index', $tenant))
             ->with('success', 'Workspace deleted successfully.');
     }
 
@@ -144,12 +153,5 @@ class WorkspacesController extends Controller
         }
 
         abort(404);
-    }
-
-    private function tenantRouteKey(): string
-    {
-        $tenant = tenancy()->tenant;
-
-        return (string) ($tenant->slug ?: $tenant->id);
     }
 }
