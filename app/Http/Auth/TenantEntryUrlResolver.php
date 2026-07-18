@@ -33,14 +33,27 @@ final class TenantEntryUrlResolver
      */
     public function entryUrl(Tenant $tenant): string
     {
+        return $this->entryUrlForHandle($this->entryKey($tenant));
+    }
+
+    /**
+     * Absolute canonical entry URL preview for a Handle (Create UI — no Tenant row required).
+     */
+    public function entryUrlForHandle(string $handle): string
+    {
+        $key = strtolower(trim($handle));
+        if ($key === '') {
+            return '';
+        }
+
         if ($this->addressing->isHost()) {
             return $this->addressing->absoluteOriginForHost(
-                $this->addressing->tenantHostFqdn($this->entryKey($tenant))
+                $this->addressing->tenantHostFqdn($key)
             );
         }
 
         return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
-            .'/t/'.$this->entryKey($tenant);
+            .'/t/'.$key;
     }
 
     /**
