@@ -360,4 +360,21 @@ class PlatformTenantRegistryTest extends TestCase
         $this->assertNotNull($tenant);
         $this->assertTrue(str_starts_with((string) $tenant->slug, 'ws-'));
     }
+
+    public function test_create_page_exposes_absolute_entry_url_preview(): void
+    {
+        $user = $this->platformUserWithPermissions(['platform.tenants.create', 'platform.tenants.view']);
+        $example = app(\App\Http\Auth\TenantEntryUrlResolver::class)->entryUrlForHandle('example');
+
+        $this->actingAs($user, 'platform')
+            ->get(route('platform.tenants.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Platform/Tenants/Create')
+                ->where('addressing_profile', app(\App\Support\Tenancy\TenantAddressingProfile::class)->profile())
+                ->where('entry_url_preview_example', $example)
+                ->where('entry_url_preview_example', fn ($url) => is_string($url)
+                    && str_starts_with($url, 'http')
+                    && ! str_starts_with($url, '/t/')));
+    }
 }

@@ -2,7 +2,9 @@
 
 namespace Modules\Tenancy\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy\TenantAddressingProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,10 +39,15 @@ class PlatformTenantRegistryController extends Controller
         ]);
     }
 
-    public function create(): Response
-    {
+    public function create(
+        TenantAddressingProfile $addressing,
+        TenantEntryUrlResolver $entryUrls,
+    ): Response {
         return Inertia::render('Platform/Tenants/Create', [
             'default_isolation_level' => (string) config('tenancy_storage.default_isolation_level', 'shared'),
+            'addressing_profile' => $addressing->profile(),
+            // Example absolute entry URL for an empty Handle placeholder (UI substitutes live Handle).
+            'entry_url_preview_example' => $entryUrls->entryUrlForHandle('example'),
         ]);
     }
 

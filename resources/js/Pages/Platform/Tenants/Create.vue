@@ -28,8 +28,8 @@
                                 @blur="checkAvailability"
                             />
                             <div class="mb-4 text-body-2">
-                                Live entry path:
-                                <code>/t/{{ normalizedHandle || '…' }}</code>
+                                Live entry URL:
+                                <code>{{ liveEntryUrl }}</code>
                             </div>
                             <v-alert
                                 v-if="availability"
@@ -87,8 +87,10 @@ import axios from 'axios';
 import { computed, ref } from 'vue';
 import { route } from 'ziggy-js';
 
-defineProps({
+const props = defineProps({
     default_isolation_level: { type: String, default: 'shared' },
+    addressing_profile: { type: String, default: 'path' },
+    entry_url_preview_example: { type: String, default: '' },
 });
 
 const form = useForm({
@@ -102,6 +104,21 @@ const form = useForm({
 const availability = ref(null);
 
 const normalizedHandle = computed(() => (form.handle || '').trim().toLowerCase());
+
+/**
+ * Absolute canonical entry URL preview (BK-073) — Host or Path from backend example template.
+ */
+const liveEntryUrl = computed(() => {
+    const handle = normalizedHandle.value || '…';
+    const example = props.entry_url_preview_example || '';
+    if (example.includes('example')) {
+        return example.replace('example', handle);
+    }
+    if (props.addressing_profile === 'host') {
+        return `https://${handle}.jabal.test`;
+    }
+    return `https://localhost/t/${handle}`;
+});
 
 const checkAvailability = async () => {
     if (!normalizedHandle.value) {
