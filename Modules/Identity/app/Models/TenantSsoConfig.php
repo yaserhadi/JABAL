@@ -7,12 +7,14 @@ use App\Support\Traits\ResolvesTenantStorageConnection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-008: Tenant-owned OIDC SSO configuration (tenant data layer).
+ * BK-008 / BK-082: Tenant-owned OIDC SSO configuration (tenant data layer).
  *
- * client_secret_encrypted is storage-only in schema-models; encryption/write-only API comes later.
+ * Material IdP settings are versioned via TenantSsoConfigVersion (active_version_id).
+ * Operational flags (enabled / disabled_by_entitlement) remain on this parent row.
  */
 class TenantSsoConfig extends Model
 {
@@ -38,6 +40,7 @@ class TenantSsoConfig extends Model
         'client_secret_encrypted',
         'redirect_uri',
         'scopes',
+        'active_version_id',
     ];
 
     protected $hidden = [
@@ -53,5 +56,15 @@ class TenantSsoConfig extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(TenantSsoConfigVersion::class, 'config_id');
+    }
+
+    public function activeVersion(): BelongsTo
+    {
+        return $this->belongsTo(TenantSsoConfigVersion::class, 'active_version_id');
     }
 }

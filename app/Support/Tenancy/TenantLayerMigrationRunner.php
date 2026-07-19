@@ -25,6 +25,7 @@ class TenantLayerMigrationRunner
         'user_sessions',
         'tenant_security_policies',
         'tenant_sso_config',
+        'tenant_sso_config_versions',
         'tenant_user_identities',
     ];
 

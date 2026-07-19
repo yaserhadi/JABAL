@@ -53,10 +53,12 @@ class TenantLayerMigrationRunnerTest extends TestCase
         );
 
         Schema::connection($tenantConnection)->dropIfExists('tenant_user_identities');
+        Schema::connection($tenantConnection)->dropIfExists('tenant_sso_config_versions');
         Schema::connection($tenantConnection)->dropIfExists('tenant_sso_config');
         DB::connection($tenantConnection)->table('migrations')->whereIn('migration', [
             '2026_07_07_100000_create_tenant_sso_config_table',
             '2026_07_07_100001_create_tenant_user_identities_table',
+            '2026_07_19_100000_create_tenant_sso_config_versions_table',
         ])->delete();
 
         $this->assertFalse(Schema::connection($tenantConnection)->hasTable('tenant_sso_config'));
@@ -67,6 +69,7 @@ class TenantLayerMigrationRunnerTest extends TestCase
 
         $this->useDedicatedPhysicalDatabase();
         $this->assertTrue(Schema::connection($tenantConnection)->hasTable('tenant_sso_config'));
+        $this->assertTrue(Schema::connection($tenantConnection)->hasTable('tenant_sso_config_versions'));
         $this->assertTrue(Schema::connection($tenantConnection)->hasTable('tenant_user_identities'));
         $this->assertTrue(
             DB::connection($connection)->table('users')->where('email', $email)->exists(),
@@ -89,10 +92,12 @@ class TenantLayerMigrationRunnerTest extends TestCase
         $this->assertTrue($runner->hasEstablishedTenantTables($schema));
 
         Schema::connection($tenantConnection)->dropIfExists('tenant_user_identities');
+        Schema::connection($tenantConnection)->dropIfExists('tenant_sso_config_versions');
         Schema::connection($tenantConnection)->dropIfExists('tenant_sso_config');
         DB::connection($tenantConnection)->table('migrations')->whereIn('migration', [
             '2026_07_07_100000_create_tenant_sso_config_table',
             '2026_07_07_100001_create_tenant_user_identities_table',
+            '2026_07_19_100000_create_tenant_sso_config_versions_table',
         ])->delete();
 
         $this->assertTrue($runner->hasMissingRequiredTables($schema));
@@ -101,6 +106,7 @@ class TenantLayerMigrationRunnerTest extends TestCase
 
         $this->useDedicatedPhysicalDatabase();
         $this->assertTrue(Schema::connection($tenantConnection)->hasTable('tenant_sso_config'));
+        $this->assertTrue(Schema::connection($tenantConnection)->hasTable('tenant_sso_config_versions'));
         $this->assertTrue(
             DB::connection($connection)->table('users')->where('email', $email)->exists()
         );
