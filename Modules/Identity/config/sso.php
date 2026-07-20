@@ -10,4 +10,7 @@ return [
     'auth_transaction_ttl' => (int) env('SSO_AUTH_TRANSACTION_TTL', 600),
     'handoff_ttl' => (int) env('SSO_HANDOFF_TTL', 60),
     'auth_transaction_concurrency' => (int) env('SSO_AUTH_TRANSACTION_CONCURRENCY', 3),
+    // BK-082 WS3 host-only browser binding cookie names (IH-3)
+    'tenant_continuation_cookie' => 'jabal_sso_tenant_continuation',
+    'auth_binding_cookie' => 'jabal_sso_auth_binding',
 ];

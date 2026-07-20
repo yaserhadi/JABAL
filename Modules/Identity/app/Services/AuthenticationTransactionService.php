@@ -45,7 +45,15 @@ class AuthenticationTransactionService
      *   purpose?: string,
      *   tenant_continuation_secret?: string,
      * }  $input
-     * @return array{transaction: SsoAuthenticationTransaction, state: string, nonce: string, pkce_verifier: string, pkce_challenge: string}
+     * @return array{
+     *   transaction: SsoAuthenticationTransaction,
+     *   state: string,
+     *   nonce: string,
+     *   pkce_verifier: string,
+     *   pkce_challenge: string,
+     *   tenant_continuation_secret: string,
+     *   initiation_reference: string,
+     * }
      */
     public function create(array $input): array
     {
@@ -56,6 +64,8 @@ class AuthenticationTransactionService
 
         $stateLookup = (string) Str::uuid();
         $stateSecret = SsoSecretCrypto::opaqueToken(SsoSecretCrypto::STATE_SECRET_BYTES);
+        $initiationLookup = (string) Str::uuid();
+        $initiationSecret = SsoSecretCrypto::opaqueToken(SsoSecretCrypto::INITIATION_SECRET_BYTES);
         $nonce = SsoSecretCrypto::opaqueToken(SsoSecretCrypto::NONCE_BYTES);
         $pkceVerifier = SsoSecretCrypto::pkceCodeVerifier();
         $correlationId = (string) Str::uuid();
@@ -67,6 +77,8 @@ class AuthenticationTransactionService
             $continuationHash,
             $stateLookup,
             $stateSecret,
+            $initiationLookup,
+            $initiationSecret,
             $nonce,
             $pkceVerifier,
             $correlationId,
@@ -85,6 +97,9 @@ class AuthenticationTransactionService
                 'purpose' => $input['purpose'] ?? SsoAuthenticationTransaction::PURPOSE_ORDINARY,
                 'state_lookup' => $stateLookup,
                 'state_secret_hash' => SsoSecretCrypto::proof($stateSecret),
+                'initiation_lookup' => $initiationLookup,
+                'initiation_secret_hash' => SsoSecretCrypto::proof($initiationSecret),
+                'state_secret_encrypted' => Crypt::encryptString($stateSecret),
                 'nonce_encrypted' => Crypt::encryptString($nonce),
                 'pkce_verifier_encrypted' => Crypt::encryptString($pkceVerifier),
                 'auth_binding_secret_hash' => null,
@@ -101,6 +116,62 @@ class AuthenticationTransactionService
             'pkce_verifier' => $pkceVerifier,
             'pkce_challenge' => SsoSecretCrypto::pkceChallengeS256($pkceVerifier),
             'tenant_continuation_secret' => $continuationSecret,
+            'initiation_reference' => $initiationLookup.'.'.$initiationSecret,
+        ];
+    }
+
+    public function findByInitiationReference(string $reference): ?SsoAuthenticationTransaction
+    {
+        [$lookup, $secret] = $this->splitOpaquePair($reference);
+
+        if ($lookup === null || $secret === null) {
+            return null;
+        }
+
+        $transaction = SsoAuthenticationTransaction::query()->where('initiation_lookup', $lookup)->first();
+
+        if (! $transaction || $transaction->secretsErased()) {
+            return null;
+        }
+
+        if (! is_string($transaction->initiation_secret_hash) || $transaction->initiation_secret_hash === '') {
+            return null;
+        }
+
+        if (! SsoSecretCrypto::proofsMatch((string) $transaction->initiation_secret_hash, $secret)) {
+            return null;
+        }
+
+        return $transaction;
+    }
+
+    /**
+     * Recover authorize-request materials for Auth Host initiate (not for browser authority).
+     *
+     * @return array{state: string, nonce: string, pkce_challenge: string}|null
+     */
+    public function authorizationMaterials(SsoAuthenticationTransaction $transaction): ?array
+    {
+        if ($transaction->secretsErased()) {
+            return null;
+        }
+
+        if (! is_string($transaction->state_secret_encrypted) || $transaction->state_secret_encrypted === '') {
+            return null;
+        }
+
+        $stateSecret = Crypt::decryptString($transaction->state_secret_encrypted);
+        $nonce = $this->decryptNonce($transaction);
+        $pkceVerifier = $this->decryptPkceVerifier($transaction);
+
+        if ($nonce === null || $pkceVerifier === null || $stateSecret === '') {
+            return null;
+        }
+
+        return [
+            'state' => $transaction->state_lookup.'.'.$stateSecret,
+            'nonce' => $nonce,
+            'pkce_challenge' => SsoSecretCrypto::pkceChallengeS256($pkceVerifier),
         ];
     }
 
@@ -375,6 +446,7 @@ class AuthenticationTransactionService
     protected function eraseTransactionRecoverableSecrets(SsoAuthenticationTransaction $transaction): void
     {
         $transaction->forceFill([
+            'state_secret_encrypted' => '',
             'nonce_encrypted' => '',
             'pkce_verifier_encrypted' => '',
             'secrets_erased_at' => now(),

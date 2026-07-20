@@ -55,6 +55,9 @@ class SsoAuthenticationTransaction extends Model
         'purpose',
         'state_lookup',
         'state_secret_hash',
+        'initiation_lookup',
+        'initiation_secret_hash',
+        'state_secret_encrypted',
         'nonce_encrypted',
         'pkce_verifier_encrypted',
         'auth_binding_secret_hash',
@@ -69,6 +72,8 @@ class SsoAuthenticationTransaction extends Model
 
     protected $hidden = [
         'state_secret_hash',
+        'initiation_secret_hash',
+        'state_secret_encrypted',
         'nonce_encrypted',
         'pkce_verifier_encrypted',
         'auth_binding_secret_hash',

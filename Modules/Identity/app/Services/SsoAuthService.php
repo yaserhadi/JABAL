@@ -137,6 +137,32 @@ class SsoAuthService
     }
 
     /**
+     * BK-082 Host: build authorize URL from central transaction materials (no Path Laravel session).
+     *
+     * @param  array{state: string, nonce: string, pkce_challenge: string}  $materials
+     */
+    public function buildHostAuthorizationRedirectUrl(Tenant $tenant, array $materials): string
+    {
+        $this->assertTenantMayStartSso($tenant);
+
+        $redirectUri = $this->resolveRedirectUri($tenant);
+        $client = $this->buildOpenIdClient($tenant, $redirectUri);
+        $config = $this->configService->getForTenant($tenant);
+        $scopes = is_array($config['scopes'] ?? null)
+            ? $config['scopes']
+            : config('identity.sso.default_scopes', ['openid', 'profile', 'email']);
+
+        return $this->createAuthorizationGateway()->getAuthorizationUri($client, [
+            'scope' => implode(' ', $scopes),
+            'state' => $materials['state'],
+            'nonce' => $materials['nonce'],
+            'code_challenge' => $materials['pkce_challenge'],
+            'code_challenge_method' => 'S256',
+            'redirect_uri' => $redirectUri,
+        ]);
+    }
+
+    /**
      * Protocol callback + identity resolution only — no web guard login.
      *
      * @param  array{code?: string|null, state?: string|null}  $callbackParams

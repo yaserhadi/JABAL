@@ -48,6 +48,21 @@ class AuthenticationTransactionStoreTest extends TestCase
             (string) $txn->getAttributes()['state_secret_hash'],
             explode('.', $created['state'], 2)[1],
         ));
+        $this->assertArrayHasKey('initiation_reference', $created);
+        $this->assertStringContainsString('.', $created['initiation_reference']);
+        $this->assertTrue(SsoSecretCrypto::proofsMatch(
+            (string) $txn->getAttributes()['initiation_secret_hash'],
+            explode('.', $created['initiation_reference'], 2)[1],
+        ));
+        $materials = $service->authorizationMaterials($txn);
+        $this->assertNotNull($materials);
+        $this->assertSame($created['state'], $materials['state']);
+        $this->assertSame($created['nonce'], $materials['nonce']);
+        $this->assertSame($created['pkce_challenge'], $materials['pkce_challenge']);
+        $found = $service->findByInitiationReference($created['initiation_reference']);
+        $this->assertNotNull($found);
+        $this->assertSame($txn->id, $found->id);
+        $this->assertNull($service->findByInitiationReference($created['initiation_reference'].'x'));
         $this->assertArrayNotHasKey('authorization_code', $txn->getAttributes());
     }
 

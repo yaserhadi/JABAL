@@ -6,6 +6,8 @@ use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoInitiateController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoStartController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Controllers\SecurityPolicyController;
@@ -13,6 +15,7 @@ use Modules\Identity\Http\Controllers\SecuritySettingsController;
 use Modules\Identity\Http\Controllers\SsoAuthController;
 use Modules\Identity\Http\Controllers\SsoConfigController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
+use Modules\Identity\Http\Middleware\EnterpriseSsoTransitionHeaders;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
 
 /*
@@ -59,8 +62,13 @@ if ($addressing->isHost()) {
         });
     });
 
-    // Auth Host ONLY — Enterprise SSO callback
+    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback surface (still 404-gated until later WS)
     $registrar->onAuthHost(function () {
+        Route::middleware(['web', 'guest', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::get('auth/enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
+                ->name('identity.enterprise-sso.initiate');
+        });
+
         Route::middleware('guest')->group(function () {
             Route::get('auth/sso/callback', [SsoAuthController::class, 'callback'])
                 ->name('identity.sso.callback');
@@ -69,6 +77,11 @@ if ($addressing->isHost()) {
 
     // Tenant Host — wildcard {tenant_label} is NOT a resolver
     $registrar->onTenantHost(function () {
+        Route::middleware(['web', 'guest', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::get('/auth/enterprise-sso/start', EnterpriseSsoStartController::class)
+                ->name('identity.enterprise-sso.start');
+        });
+
         Route::middleware(['web', 'guest'])->group(function () {
             Route::get('/login', [AuthController::class, 'showTenantLogin'])->name('tenant.login');
             Route::post('/login', [AuthController::class, 'tenantLogin'])->name('tenant.login.submit');
