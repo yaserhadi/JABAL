@@ -490,6 +490,104 @@ class AuthenticationTransactionService
         }
     }
 
+    /**
+     * BK-082 WS7: idempotent expiry + secret erase for stale txn/handoff rows (D21).
+     *
+     * @return array{transactions_expired: int, handoffs_expired: int, secrets_erased: int}
+     */
+    public function expireAndEraseStale(): array
+    {
+        $transactionsExpired = 0;
+        $handoffsExpired = 0;
+        $secretsErased = 0;
+
+        return DB::connection('central')->transaction(function () use (&$transactionsExpired, &$handoffsExpired, &$secretsErased) {
+            $openTxnStatuses = [
+                SsoAuthenticationTransaction::STATUS_PENDING,
+                SsoAuthenticationTransaction::STATUS_AWAITING_CALLBACK,
+                SsoAuthenticationTransaction::STATUS_CALLBACK_RESERVED,
+                SsoAuthenticationTransaction::STATUS_HANDOFF_ISSUED,
+            ];
+
+            $staleTxns = SsoAuthenticationTransaction::query()
+                ->whereIn('status', $openTxnStatuses)
+                ->where('expires_at', '<', now())
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($staleTxns as $txn) {
+                $txn->forceFill([
+                    'status' => SsoAuthenticationTransaction::STATUS_EXPIRED,
+                    'failure_reason' => 'expired',
+                ])->save();
+                if (! $txn->secretsErased()) {
+                    $this->eraseTransactionRecoverableSecrets($txn);
+                    $secretsErased++;
+                }
+                $transactionsExpired++;
+            }
+
+            // Terminal rows that still hold recoverable secrets.
+            $terminalWithSecrets = SsoAuthenticationTransaction::query()
+                ->whereIn('status', [
+                    SsoAuthenticationTransaction::STATUS_FAILED,
+                    SsoAuthenticationTransaction::STATUS_EXPIRED,
+                    SsoAuthenticationTransaction::STATUS_SUPERSEDED,
+                    SsoAuthenticationTransaction::STATUS_CONSUMED,
+                    SsoAuthenticationTransaction::STATUS_HANDOFF_ISSUED,
+                ])
+                ->whereNull('secrets_erased_at')
+                ->lockForUpdate()
+                ->limit(500)
+                ->get();
+
+            foreach ($terminalWithSecrets as $txn) {
+                $this->eraseTransactionRecoverableSecrets($txn);
+                $secretsErased++;
+            }
+
+            $staleHandoffs = SsoTenantHandoff::query()
+                ->where('status', SsoTenantHandoff::STATUS_ISSUED)
+                ->where('expires_at', '<', now())
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($staleHandoffs as $handoff) {
+                $handoff->forceFill([
+                    'status' => SsoTenantHandoff::STATUS_EXPIRED,
+                    'failure_reason' => 'expired',
+                ])->save();
+                if (! $handoff->secretsErased()) {
+                    $this->eraseHandoffSecrets($handoff);
+                    $secretsErased++;
+                }
+                $handoffsExpired++;
+            }
+
+            $consumedWithSecrets = SsoTenantHandoff::query()
+                ->whereIn('status', [
+                    SsoTenantHandoff::STATUS_CONSUMED,
+                    SsoTenantHandoff::STATUS_EXPIRED,
+                    SsoTenantHandoff::STATUS_FAILED,
+                ])
+                ->whereNull('secrets_erased_at')
+                ->lockForUpdate()
+                ->limit(500)
+                ->get();
+
+            foreach ($consumedWithSecrets as $handoff) {
+                $this->eraseHandoffSecrets($handoff);
+                $secretsErased++;
+            }
+
+            return [
+                'transactions_expired' => $transactionsExpired,
+                'handoffs_expired' => $handoffsExpired,
+                'secrets_erased' => $secretsErased,
+            ];
+        });
+    }
+
     protected function eraseTransactionRecoverableSecrets(SsoAuthenticationTransaction $transaction): void
     {
         $transaction->forceFill([

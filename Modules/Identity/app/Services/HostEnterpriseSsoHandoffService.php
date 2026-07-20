@@ -16,6 +16,7 @@ use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Support\Sso\SsoAssuranceEvaluator;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
 use Modules\Identity\Support\Sso\SsoMfaContinuation;
+use Modules\Identity\Support\Sso\SsoSecurityAudit;
 use Modules\Tenancy\Models\Tenant;
 use Throwable;
 
@@ -32,6 +33,7 @@ class HostEnterpriseSsoHandoffService
         protected SessionRegistryService $sessionRegistry,
         protected TenantAddressingProfile $addressing,
         protected TenantEntryUrlResolver $entryUrls,
+        protected SsoSecurityAudit $securityAudit,
     ) {}
 
     public function handle(Request $request): RedirectResponse
@@ -146,8 +148,19 @@ class HostEnterpriseSsoHandoffService
             return null;
         }
 
+        $handoff = SsoTenantHandoff::query()->whereKey($payload['handoff_id'] ?? '')->first();
+        $federation = $handoff instanceof SsoTenantHandoff
+            ? $this->federationAttributesFromHandoff($handoff)
+            : [];
+
         try {
-            $this->sessionRegistry->register($registryUser, $request, $request->session()->getId());
+            $this->sessionRegistry->register($registryUser, $request, $request->session()->getId(), $federation);
+            $this->securityAudit->record('sso.session.registered', [
+                'tenant_id' => (string) $tenant->id,
+                'correlation_id' => $federation['correlation_id'] ?? null,
+                'identity_link_id' => $federation['identity_link_id'] ?? null,
+                'reason' => 'mfa_continuation_complete',
+            ]);
         } catch (Throwable) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
@@ -227,7 +240,19 @@ class HostEnterpriseSsoHandoffService
         }
 
         try {
-            $this->sessionRegistry->register($user, $request, $request->session()->getId());
+            $this->sessionRegistry->register(
+                $user,
+                $request,
+                $request->session()->getId(),
+                $this->federationAttributesFromHandoff($handoff),
+            );
+            $this->securityAudit->record('sso.session.registered', [
+                'tenant_id' => (string) $tenant->id,
+                'correlation_id' => $handoff->correlation_id,
+                'identity_link_id' => $handoff->identity_link_id,
+                'handoff_id' => (string) $handoff->id,
+                'reason' => 'full_session',
+            ]);
         } catch (Throwable) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
@@ -299,6 +324,34 @@ class HostEnterpriseSsoHandoffService
         return is_string($txn?->purpose) && $txn->purpose !== ''
             ? $txn->purpose
             : SsoAuthenticationTransaction::PURPOSE_ORDINARY;
+    }
+
+    /**
+     * @return array{idp_sid?: string, idp_issuer?: string, identity_link_id?: string, idp_configuration_version_id?: string, correlation_id?: string}
+     */
+    protected function federationAttributesFromHandoff(SsoTenantHandoff $handoff): array
+    {
+        $attrs = [
+            'identity_link_id' => is_string($handoff->identity_link_id) ? $handoff->identity_link_id : null,
+            'correlation_id' => is_string($handoff->correlation_id) ? $handoff->correlation_id : null,
+        ];
+
+        $evidence = is_array($handoff->assurance_evidence) ? $handoff->assurance_evidence : [];
+        if (isset($evidence['sid']) && is_string($evidence['sid']) && $evidence['sid'] !== '') {
+            $attrs['idp_sid'] = $evidence['sid'];
+        }
+
+        $txn = SsoAuthenticationTransaction::query()->whereKey($handoff->transaction_id)->first();
+        if ($txn) {
+            if (is_string($txn->expected_issuer) && $txn->expected_issuer !== '') {
+                $attrs['idp_issuer'] = rtrim($txn->expected_issuer, '/');
+            }
+            if (is_string($txn->idp_configuration_version_id) && $txn->idp_configuration_version_id !== '') {
+                $attrs['idp_configuration_version_id'] = $txn->idp_configuration_version_id;
+            }
+        }
+
+        return array_filter($attrs, static fn ($v) => is_string($v) && $v !== '');
     }
 
     protected function redirectClean(Tenant $tenant, string $postLoginPath, Request $request): RedirectResponse

@@ -233,6 +233,10 @@ class HostEnterpriseSsoCallbackService
             $out['auth_time'] = (int) $claims['auth_time'];
         }
 
+        if (isset($claims['sid']) && is_string($claims['sid']) && $claims['sid'] !== '' && strlen($claims['sid']) <= 255) {
+            $out['sid'] = $claims['sid'];
+        }
+
         return $out;
     }
 

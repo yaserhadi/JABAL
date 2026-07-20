@@ -16,4 +16,6 @@ return [
     // BK-082 WS4: Host Authorization Response mode (query default; form_post when provider profile requires it)
     'host_response_mode' => env('SSO_HOST_RESPONSE_MODE', 'query'),
     'mfa_continuation_ttl' => (int) env('SSO_MFA_CONTINUATION_TTL', 300),
+    // BK-082 WS7 retention for transient SSO cleanup (D21)
+    'transient_cleanup_batch' => (int) env('SSO_TRANSIENT_CLEANUP_BATCH', 500),
 ];

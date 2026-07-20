@@ -6,6 +6,7 @@ use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoBackChannelLogoutController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoCallbackController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoHandoffController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoInitiateController;
@@ -66,11 +67,18 @@ if ($addressing->isHost()) {
 
     // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback (WS4); legacy Path-style callback stays 404-gated
     $registrar->onAuthHost(function () {
-        Route::middleware(['web', 'guest', EnterpriseSsoTransitionHeaders::class])->group(function () {
+        Route::middleware(['web', 'guest', 'throttle:sso-enterprise-initiate', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::get('auth/enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
                 ->name('identity.enterprise-sso.initiate');
+        });
+        Route::middleware(['web', 'guest', 'throttle:sso-enterprise-callback', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::match(['get', 'post'], 'auth/enterprise-sso/callback', EnterpriseSsoCallbackController::class)
                 ->name('identity.enterprise-sso.callback');
+        });
+        // Back-Channel Logout: no session cookie dependency; Auth Host only.
+        Route::middleware(['throttle:sso-enterprise-bclogout', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::post('auth/enterprise-sso/backchannel-logout', EnterpriseSsoBackChannelLogoutController::class)
+                ->name('identity.enterprise-sso.backchannel-logout');
         });
 
         Route::middleware('guest')->group(function () {
@@ -81,12 +89,12 @@ if ($addressing->isHost()) {
 
     // Tenant Host — wildcard {tenant_label} is NOT a resolver
     $registrar->onTenantHost(function () {
-        Route::middleware(['web', 'guest', EnterpriseSsoTransitionHeaders::class])->group(function () {
+        Route::middleware(['web', 'guest', 'throttle:sso-enterprise-start', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::get('/auth/enterprise-sso/start', EnterpriseSsoStartController::class)
                 ->name('identity.enterprise-sso.start');
         });
 
-        Route::middleware(['web', EnterpriseSsoTransitionHeaders::class])->group(function () {
+        Route::middleware(['web', 'throttle:sso-enterprise-handoff', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::get('/auth/enterprise-sso/handoff', EnterpriseSsoHandoffController::class)
                 ->name('identity.enterprise-sso.handoff');
         });
@@ -101,12 +109,15 @@ if ($addressing->isHost()) {
         Route::middleware([
             'web',
             'auth',
+            'throttle:sso-enterprise-mfa',
             EnsureUserBelongsToTenant::class,
+            EnterpriseSsoTransitionHeaders::class,
         ])->group(function () {
             Route::get('/security/mfa/enroll', [MfaController::class, 'showEnroll'])->name('identity.mfa.enroll');
             Route::post('/security/mfa/enroll', [MfaController::class, 'confirmEnroll'])->name('identity.mfa.enroll.confirm');
             Route::get('/security/mfa/challenge', [MfaController::class, 'showChallenge'])->name('identity.mfa.challenge');
             Route::post('/security/mfa/challenge', [MfaController::class, 'verifyChallenge'])->name('identity.mfa.challenge.verify');
+            Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');
         });
 
         Route::middleware([

@@ -109,6 +109,51 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($userId.'|'.$request->ip());
         });
 
+        // BK-082 WS7: stage-specific Enterprise SSO abuse controls (multi-dimensional; IP alone not sole authority).
+        RateLimiter::for('sso-enterprise-start', function (Request $request) {
+            $host = strtolower((string) $request->getHost());
+
+            return [
+                Limit::perMinute(30)->by('sso-start|'.$host.'|'.$request->ip()),
+                Limit::perMinute(120)->by('sso-start|'.$host),
+            ];
+        });
+        RateLimiter::for('sso-enterprise-initiate', function (Request $request) {
+            $ref = substr((string) $request->query('t', ''), 0, 64);
+
+            return [
+                Limit::perMinute(30)->by('sso-init|'.$request->ip().'|'.$ref),
+                Limit::perMinute(120)->by('sso-init|'.$request->ip()),
+            ];
+        });
+        RateLimiter::for('sso-enterprise-callback', function (Request $request) {
+            return [
+                Limit::perMinute(40)->by('sso-cb|'.$request->ip()),
+                Limit::perMinute(20)->by('sso-cb|'.substr((string) $request->input('state', $request->query('state', '')), 0, 64)),
+            ];
+        });
+        RateLimiter::for('sso-enterprise-handoff', function (Request $request) {
+            $host = strtolower((string) $request->getHost());
+
+            return [
+                Limit::perMinute(30)->by('sso-ho|'.$host.'|'.$request->ip()),
+                Limit::perMinute(20)->by('sso-ho|'.substr((string) $request->query('h', ''), 0, 64)),
+            ];
+        });
+        RateLimiter::for('sso-enterprise-mfa', function (Request $request) {
+            $userId = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+
+            return Limit::perMinute(20)->by('sso-mfa|'.$userId.'|'.$request->ip());
+        });
+        RateLimiter::for('sso-enterprise-bclogout', function (Request $request) {
+            $tenant = substr((string) $request->query('tenant', $request->input('tenant', '')), 0, 64);
+
+            return [
+                Limit::perMinute(60)->by('sso-bc|'.$tenant.'|'.$request->ip()),
+                Limit::perMinute(180)->by('sso-bc|'.$tenant),
+            ];
+        });
+
         $this->app->booted(static function (): void {
             $kernel = app(Kernel::class);
             $kernel->prependToMiddlewarePriority(ValidateTenantToken::class);
