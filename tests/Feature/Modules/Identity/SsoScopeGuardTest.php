@@ -79,7 +79,28 @@ class SsoScopeGuardTest extends TestCase
     public function no_central_sso_tables(): void
     {
         $schema = DB::connection('central')->getSchemaBuilder();
+
+        // Tenant-layer SSO config/identity tables must never appear on central.
         $this->assertFalse($schema->hasTable('tenant_sso_config'));
         $this->assertFalse($schema->hasTable('tenant_user_identities'));
+
+        // BK-082 / DEC-0024 named allowlist: Identity-owned Authentication Transaction + Handoff only.
+        $this->assertTrue(
+            $schema->hasTable('sso_authentication_transactions'),
+            'Central Authentication Transaction store is required for Host Enterprise SSO.'
+        );
+        $this->assertTrue(
+            $schema->hasTable('sso_tenant_handoffs'),
+            'Central Tenant Handoff store is required for Host Enterprise SSO.'
+        );
+    }
+
+    #[Test]
+    public function authorization_code_must_not_be_persisted_in_central_sso_schema(): void
+    {
+        $schema = DB::connection('central')->getSchemaBuilder();
+        $this->assertFalse($schema->hasColumn('sso_authentication_transactions', 'authorization_code'));
+        $this->assertFalse($schema->hasColumn('sso_authentication_transactions', 'auth_code'));
+        $this->assertFalse($schema->hasColumn('sso_tenant_handoffs', 'authorization_code'));
     }
 }
