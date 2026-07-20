@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoCallbackController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoHandoffController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoInitiateController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoStartController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
@@ -83,6 +84,11 @@ if ($addressing->isHost()) {
         Route::middleware(['web', 'guest', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::get('/auth/enterprise-sso/start', EnterpriseSsoStartController::class)
                 ->name('identity.enterprise-sso.start');
+        });
+
+        Route::middleware(['web', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::get('/auth/enterprise-sso/handoff', EnterpriseSsoHandoffController::class)
+                ->name('identity.enterprise-sso.handoff');
         });
 
         Route::middleware(['web', 'guest'])->group(function () {

@@ -30,6 +30,11 @@ class RegisterSessionOnLogin
             return;
         }
 
+        // BK-082 WS5: Host SSO MFA continuation defers UserSession until MFA completes.
+        if ($request->session()?->get(\Modules\Identity\Support\Sso\SsoMfaContinuation::DEFER_USER_SESSION_KEY)) {
+            return;
+        }
+
         try {
             $this->sessionRegistry->register(
                 $event->user,

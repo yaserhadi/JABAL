@@ -72,4 +72,9 @@ class SsoTenantHandoff extends Model
     {
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
+
+    public function secretsErased(): bool
+    {
+        return $this->secrets_erased_at !== null;
+    }
 }

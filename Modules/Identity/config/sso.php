@@ -15,4 +15,5 @@ return [
     'auth_binding_cookie' => 'jabal_sso_auth_binding',
     // BK-082 WS4: Host Authorization Response mode (query default; form_post when provider profile requires it)
     'host_response_mode' => env('SSO_HOST_RESPONSE_MODE', 'query'),
+    'mfa_continuation_ttl' => (int) env('SSO_MFA_CONTINUATION_TTL', 300),
 ];

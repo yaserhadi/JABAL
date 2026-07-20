@@ -339,13 +339,41 @@ class AuthenticationTransactionService
     }
 
     /**
+     * Read-only Handoff proof check (no consume). Used for D12 policy before irreversible consume.
+     */
+    public function peekHandoff(string $reference): ?SsoTenantHandoff
+    {
+        [$lookup, $secret] = $this->splitOpaquePair($reference);
+
+        if ($lookup === null || $secret === null || ! Str::isUuid($lookup)) {
+            return null;
+        }
+
+        $handoff = SsoTenantHandoff::query()->whereKey($lookup)->first();
+
+        if (! $handoff || $handoff->status !== SsoTenantHandoff::STATUS_ISSUED) {
+            return null;
+        }
+
+        if ($handoff->isExpired() || $handoff->secretsErased()) {
+            return null;
+        }
+
+        if (! SsoSecretCrypto::proofsMatch((string) $handoff->secret_hash, $secret)) {
+            return null;
+        }
+
+        return $handoff;
+    }
+
+    /**
      * Atomic Handoff consume. Returns null on replay/mismatch/expiry.
      */
     public function consumeHandoff(string $reference, string $tenantId, string $destinationHost, string $continuationSecret): ?SsoTenantHandoff
     {
         [$lookup, $secret] = $this->splitOpaquePair($reference);
 
-        if ($lookup === null || $secret === null) {
+        if ($lookup === null || $secret === null || ! Str::isUuid($lookup)) {
             return null;
         }
 
