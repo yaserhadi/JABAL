@@ -7,18 +7,22 @@ use Modules\Identity\Models\SsoBackchannelLogoutEvent;
 use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Support\Sso\SsoBackChannelLogoutTokenValidator;
+use Modules\Identity\Support\Sso\SsoRsaJwk;
 use Modules\Identity\Support\Sso\SsoSecretCrypto;
 use Modules\Identity\Support\Sso\SsoSecurityAudit;
+use Modules\Identity\Support\Sso\SsoTrustedJwksResolver;
 use Modules\Tenancy\Models\Tenant;
+use RuntimeException;
 use Throwable;
 
 /**
- * BK-082 WS7: OIDC Back-Channel Logout processing (D26).
+ * BK-082 WS7: OIDC Back-Channel Logout processing (D22/D26).
  */
 class SsoBackChannelLogoutService
 {
     public function __construct(
         protected SsoBackChannelLogoutTokenValidator $tokenValidator,
+        protected SsoTrustedJwksResolver $jwksResolver,
         protected SsoConfigService $configService,
         protected SessionRegistryService $sessionRegistry,
         protected SsoSecurityAudit $audit,
@@ -43,14 +47,18 @@ class SsoBackChannelLogoutService
             return $this->reject(null, (string) $tenant->id, null, 'malformed_token', 400);
         }
 
-        $alg = $decoded['header']['alg'] ?? null;
-        if (! is_string($alg) || ! in_array($alg, ['HS256', 'RS256'], true)) {
-            return $this->reject(null, (string) $tenant->id, null, 'alg_unsupported', 400);
-        }
-
         $version = $this->resolveActiveVersion($tenant);
         if ($version === null) {
             return $this->reject(null, (string) $tenant->id, null, 'idp_config_missing', 400);
+        }
+
+        $configuredAlgs = $this->configuredLogoutAlgs($version);
+        $alg = isset($decoded['header']['alg']) && is_string($decoded['header']['alg'])
+            ? $decoded['header']['alg']
+            : null;
+        $algError = $this->tokenValidator->assertAlgorithmAllowed($alg, $configuredAlgs);
+        if ($algError !== null) {
+            return $this->reject(null, (string) $tenant->id, (string) $version->id, $algError, 400);
         }
 
         $expectedIssuer = (string) $version->issuer_url;
@@ -60,16 +68,9 @@ class SsoBackChannelLogoutService
             return $this->reject(null, (string) $tenant->id, (string) $version->id, $claimError, 400);
         }
 
-        if ($alg === 'HS256') {
-            $secret = $this->configService->getDecryptedClientSecretForVersion($tenant, $version);
-            if ($secret === null || $secret === ''
-                || ! $this->tokenValidator->verifyHmacSha256($decoded['signing_input'], $decoded['signature'], $secret)) {
-                return $this->reject(null, (string) $tenant->id, (string) $version->id, 'signature_invalid', 400);
-            }
-        } else {
-            // RS256 production path: require signature verification via IdP JWKS (BK-062 live).
-            // Protocol fixtures use HS256; unsigned/unsupported RS256 without verifier fails closed.
-            return $this->reject(null, (string) $tenant->id, (string) $version->id, 'alg_unsupported', 400);
+        $verifyError = $this->verifySignature($tenant, $version, $decoded, (string) $alg);
+        if ($verifyError !== null) {
+            return $this->reject(null, (string) $tenant->id, (string) $version->id, $verifyError, 400);
         }
 
         $jti = (string) $decoded['payload']['jti'];
@@ -77,7 +78,6 @@ class SsoBackChannelLogoutService
 
         $existing = SsoBackchannelLogoutEvent::query()->where('jti_hash', $jtiHash)->first();
         if ($existing) {
-            // Idempotent replay: already processed or rejected — no further session changes.
             $this->audit->record('sso.bclogout.replay', [
                 'tenant_id' => (string) $tenant->id,
                 'idp_configuration_version_id' => (string) $version->id,
@@ -97,7 +97,6 @@ class SsoBackChannelLogoutService
         try {
             $revoked = $this->revokeSessions($tenant, $version, $decoded['payload']);
         } catch (Throwable) {
-            // Do not persist jti on internal failure — allow safe retry without double effects.
             $this->audit->record('sso.bclogout.rejected', [
                 'tenant_id' => (string) $tenant->id,
                 'idp_configuration_version_id' => (string) $version->id,
@@ -138,6 +137,103 @@ class SsoBackChannelLogoutService
             'reason' => 'ok',
             'sessions_revoked' => $revoked,
         ];
+    }
+
+    /**
+     * @param  array{header: array<string, mixed>, payload: array<string, mixed>, signing_input: string, signature: string}  $decoded
+     */
+    protected function verifySignature(
+        Tenant $tenant,
+        TenantSsoConfigVersion $version,
+        array $decoded,
+        string $alg,
+    ): ?string {
+        if ($alg === 'HS256') {
+            $secret = $this->configService->getDecryptedClientSecretForVersion($tenant, $version);
+            if ($secret === null || $secret === '') {
+                return 'hs256_secret_missing';
+            }
+            if (! $this->tokenValidator->verifyHmacSha256($decoded['signing_input'], $decoded['signature'], $secret)) {
+                return 'signature_invalid';
+            }
+
+            return null;
+        }
+
+        if ($alg !== 'RS256') {
+            return 'alg_unsupported';
+        }
+
+        try {
+            $jwksUri = $this->jwksResolver->resolveJwksUri(
+                is_string($version->jwks_uri) ? $version->jwks_uri : null,
+                (string) $version->issuer_url,
+            );
+            $bundle = $this->jwksResolver->fetchKeys($jwksUri, forceRefresh: false);
+            $kid = isset($decoded['header']['kid']) && is_string($decoded['header']['kid'])
+                ? $decoded['header']['kid']
+                : null;
+            $found = $this->jwksResolver->findRsaKeyByKid($jwksUri, $bundle['keys'], $kid);
+            if ($found === null) {
+                return 'kid_unresolved';
+            }
+
+            $pem = SsoRsaJwk::toPublicPem($found['key']);
+            if ($pem === null) {
+                return 'key_material_invalid';
+            }
+
+            // Algorithm confusion: header claims RS256 but JWK is not RSA/sig.
+            if (($found['key']['kty'] ?? null) !== 'RSA') {
+                return 'algorithm_confusion';
+            }
+
+            if (! $this->tokenValidator->verifyRs256($decoded['signing_input'], $decoded['signature'], $pem)) {
+                return 'signature_invalid';
+            }
+
+            if ($found['refreshed']) {
+                $this->audit->record('sso.bclogout.jwks_refreshed', [
+                    'tenant_id' => (string) $tenant->id,
+                    'idp_configuration_version_id' => (string) $version->id,
+                    'reason' => 'unknown_kid_refresh',
+                    'status' => 'ok',
+                    'sessions_revoked' => 0,
+                ]);
+            }
+        } catch (RuntimeException $e) {
+            return $e->getMessage() !== '' ? $e->getMessage() : 'jwks_unavailable';
+        } catch (Throwable) {
+            return 'jwks_unavailable';
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function configuredLogoutAlgs(TenantSsoConfigVersion $version): array
+    {
+        $raw = $version->logout_token_signing_algs;
+        if (is_array($raw) && $raw !== []) {
+            $out = [];
+            foreach ($raw as $alg) {
+                if (is_string($alg) && in_array($alg, SsoBackChannelLogoutTokenValidator::PLATFORM_ALLOWED_ALGS, true)) {
+                    $out[] = $alg;
+                }
+            }
+
+            return array_values(array_unique($out));
+        }
+
+        // Default asymmetric contract — HS256 is never an implicit fallback.
+        $defaults = config('identity.sso.default_logout_token_signing_algs', ['RS256']);
+
+        return is_array($defaults) ? array_values(array_intersect(
+            $defaults,
+            SsoBackChannelLogoutTokenValidator::PLATFORM_ALLOWED_ALGS
+        )) : ['RS256'];
     }
 
     /**

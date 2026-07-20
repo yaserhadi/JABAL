@@ -29,6 +29,8 @@ class SsoConfigService
         'client_id',
         'redirect_uri',
         'scopes',
+        'jwks_uri',
+        'logout_token_signing_algs',
     ];
 
     /** @var list<string> */
@@ -39,6 +41,8 @@ class SsoConfigService
         'client_secret_encrypted',
         'redirect_uri',
         'scopes',
+        'jwks_uri',
+        'logout_token_signing_algs',
     ];
 
     /** @var list<string> */
@@ -317,6 +321,9 @@ class SsoConfigService
             'client_id' => $material['client_id'] ?? null,
             'client_secret_encrypted' => $material['client_secret_encrypted'] ?? null,
             'redirect_uri' => $material['redirect_uri'] ?? null,
+            'jwks_uri' => $material['jwks_uri'] ?? null,
+            'logout_token_signing_algs' => $material['logout_token_signing_algs']
+                ?? config('identity.sso.default_logout_token_signing_algs', ['RS256']),
             'scopes' => $material['scopes'] ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
             'activated_at' => now(),
             'superseded_at' => null,
@@ -355,6 +362,8 @@ class SsoConfigService
             'client_id' => $config->client_id,
             'client_secret_encrypted' => $config->getAttributes()['client_secret_encrypted'] ?? null,
             'redirect_uri' => $config->redirect_uri,
+            'jwks_uri' => $config->jwks_uri,
+            'logout_token_signing_algs' => $config->logout_token_signing_algs,
             'scopes' => $config->scopes,
         ];
     }

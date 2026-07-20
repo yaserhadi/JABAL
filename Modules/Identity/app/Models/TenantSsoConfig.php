@@ -39,6 +39,8 @@ class TenantSsoConfig extends Model
         'client_id',
         'client_secret_encrypted',
         'redirect_uri',
+        'jwks_uri',
+        'logout_token_signing_algs',
         'scopes',
         'active_version_id',
     ];
@@ -51,6 +53,7 @@ class TenantSsoConfig extends Model
         'enabled' => 'boolean',
         'disabled_by_entitlement' => 'boolean',
         'scopes' => 'array',
+        'logout_token_signing_algs' => 'array',
     ];
 
     public function tenant(): BelongsTo

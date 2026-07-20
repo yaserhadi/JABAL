@@ -18,4 +18,8 @@ return [
     'mfa_continuation_ttl' => (int) env('SSO_MFA_CONTINUATION_TTL', 300),
     // BK-082 WS7 retention for transient SSO cleanup (D21)
     'transient_cleanup_batch' => (int) env('SSO_TRANSIENT_CLEANUP_BATCH', 500),
+    // BK-082 WS7 corrective — D22 JWKS / logout-token algs
+    'jwks_cache_ttl' => (int) env('SSO_JWKS_CACHE_TTL', 300),
+    'jwks_http_timeout' => (int) env('SSO_JWKS_HTTP_TIMEOUT', 5),
+    'default_logout_token_signing_algs' => ['RS256'],
 ];

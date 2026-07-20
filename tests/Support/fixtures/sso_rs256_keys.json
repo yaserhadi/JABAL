@@ -1,0 +1,24 @@
+{
+    "primary": {
+        "private_pem": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDGqeAd3ibXyOY7\n8AfBUV0oWU0JpFl5M5yf24K5upHY2MZ53PL5JHh\/yPfgTKx1msfVWCTQaxwaOEOK\n136pJ0\/YxYe61o3+ySJVEatiSkywoNNN+qlJfW01pgKcePx6wByQaDH0+GqBm0EP\nhxt8DYSbht6DgYovvHyVAryddyeoPuB5k5yQz7Ah8j8399dVmWe0KXcsQan\/+5w4\nFC170+ZvHaXPk8wYfIhRrtSCfNAPuGwI7KKQ8dRUrESUlDqVZpo0pnrqNqe6qcAL\nKi5NUjWHQM7oFCDvk5dolrcPQyVy5xTAS9r+U5lbEplbBQChKXv5vkQVkdQdb6Bl\nNOryiZMJAgMBAAECggEAB0fM9pNAXaqXY21vv1ItxY+GPvr2q3YsgIBBKXDQrP9+\nwJMMFXzUbKxvBxmQPWwbdDJbgQbX3A8hTIqKsgTGjJVqnLqFsCdrWm5AF2VNK7Dt\nJX+w6ghOcwefM2BMsmvtcA5dfFKJRrAroXfMVk7BhBiceXnLGGZCM4zK4ENwYN5C\ndNcxSUOrnDqlJxcJ96r+P6bRGwkrU\/WFHpbNBuC+I2Mr0LRcHMdsQG7kjhngrxsZ\nuaKBBB8HtkFKP4QuBWZ3wmTNK1mCsdhkqtDoorKy3D59dX3NScX8f978adWt4Qf0\nPZcQoTz5uiyNdx7nKdpWQZpBhxBgAs47mBaPSGxlYQKBgQDzC9simuWIMZpIrX4+\nmZSzLyaOPj\/kmb8INCtFyaJutksMlIinLmlYmQRT90zHP8cXSHcS2aNS6r7dbe+U\nTRi6h62GYvQhrScRn2mUOBnUp+lKLy8pRRQic0jC+SMD\/bh+dtDM5SMR\/Uyhm+2I\nR\/bm58lxJvmT9yzZYoTJT4P7mQKBgQDRQHUtujrAKJhonovsfcZOZFW6jXYZzdt3\nn9TM+fqSmFwoGYd\/7TBcoyV0J0SFvHyN4pHl4T6WmDahE3b\/s7hrRMZ6hW29oKx9\nUHvv5vpxqpHT3dOJeL6wNdGqxbiOh3QANIDeDDpP3u3lqUFGppTEB23r+RPVHWol\nYzAa7Gp48QKBgQDrKmmaDi5RnU0fTV99yrSqu9CeiXThCDJjCbdlCzhzz0bGoWGo\nAaxE4aniZMKReBB3YtJ0FsmFDUYokprh78chlO49vblibFwFHS3XEIFN1jpQYV9M\nm15kBxA8Nzu+PN0q4GQgHQXV\/jULmgg3eQpZWaT8Ky4KEXv\/yueYsauO4QKBgEcf\n5bR5TGbsZYGKAn2L8s\/Kguk6FB6JPkPW6\/oQLf+OEiT\/KHNvJ7UVLzHf9waOHrgL\nfxPoD+IYMtllSFl5uQGdCumyWK7P4lFl\/fp5RD9GfvLIv5JGnGpAoNevBSBNIjy\/\nm93dwiRL3gjmEu30yTQoYlCHBRq3ONEkecFtAnPBAoGBAPI6x9zPcvwhs7vb06TL\nciY8Z+h2wK9CGwn9pkk1pFVfCm7vw3gdFmN1sFFpi1\/bcVU5L8EXVJGkhJzdcssO\nrY\/q7DHtnZyhXcaozjIlYjlvjb9q4l5IilQdOPQPyb0ImWTuwbZdEw2LtQjEMXwf\nrv4FvNl4\/1KpRf3Y\/znwHbE9\n-----END PRIVATE KEY-----\n",
+        "jwk": {
+            "kty": "RSA",
+            "kid": "kid-primary",
+            "use": "sig",
+            "alg": "RS256",
+            "n": "xqngHd4m18jmO_AHwVFdKFlNCaRZeTOcn9uCubqR2NjGedzy-SR4f8j34EysdZrH1Vgk0GscGjhDitd-qSdP2MWHutaN_skiVRGrYkpMsKDTTfqpSX1tNaYCnHj8esAckGgx9PhqgZtBD4cbfA2Em4beg4GKL7x8lQK8nXcnqD7geZOckM-wIfI_N_fXVZlntCl3LEGp__ucOBQte9Pmbx2lz5PMGHyIUa7UgnzQD7hsCOyikPHUVKxElJQ6lWaaNKZ66januqnACyouTVI1h0DO6BQg75OXaJa3D0MlcucUwEva_lOZWxKZWwUAoSl7-b5EFZHUHW-gZTTq8omTCQ",
+            "e": "AQAB"
+        }
+    },
+    "rotated": {
+        "private_pem": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCPre4IY5ASj10n\ncECY\/R\/bMoMSi\/WeuE+\/q\/\/eWmKo9kEvCBa5DH18+swG1K5S5xL8yNxLjXUL+I47\nupM739vZPw+fPqEUKPLfXkVY3MXNRqguqVy+arz1Ovkxd9tKoaEC8yJ0WfzJ4xLu\nLEMzXaJ2ft\/KivsfIoI6VXvf7R\/+Lba6\/LdfGGTGQvSYSZ5ZdYDTch7eTSeXq+1z\n9AYVWNWkcT+hL+1TJo+Wz1nM+1IVOVGC7nVdYtrH9brC2TzCgfKyq2dP8PskeZml\nfes7VW194XXCSdXdPPfxs+bd0Ge3MU5Jf0TtYSop+S2dg5vNBNqpaHM8O2QCceb8\n54sVd0RnAgMBAAECggEAARmvmONzG+lHXEEPhZYFE4krmGdEMZVIxKq2pW3Jk3Cu\njbbBC2Um\/hK8bRFdtAEIBxgrGiFsGlp3c5amTQJixrzYZXuCmuRrY75VlDlXAtwk\nXcmEDjZ3QJhVUzjCdnjBaNCsdi0NDHP11g22hm\/hPO+tm0ZjZ1jwAi4oajRNlx7T\nxApPjM\/G3iH2Fa20+6kkKXC31\/HZpwwmglJ2PxqgB+XCW0WQl4rpDP7F71ymTtQ1\nm\/W97gKRd15h1d\/epm2Mkm9kHCGFdHuQlI2BgfwurTiJqc7UMjpG\/qtNVuJyB6es\nyYPtF27xOXjp56LvApkkpPkGoC9urbF2y93Vfnw1BQKBgQDCeBLAKx4ENVQr6unL\nfeiVWcuGY+QeQjqt\/PwciaYR\/SNaybv0FE48m90OB0FlAOG7+qkmsDUXdpepM8ST\njp6WBmKEOeiH0FqIqayjp1x5SVEMHy7xl2royubnBfXM1f+qzTZu6EOJbXRG96MB\n4vMKvlArA5WiHVh5uB3nl0I\/UwKBgQC9I+oFhjy\/LYHGXJW0ra76\/ZAcMe8H9TE0\n0YTozEleI8OwzK4Jgz485EmaZ+8J9brFi3VCJ0nhIzuwNdE33j\/JBKVwuBBQB8FI\n7bIijVjDVvxmmr53ZY9U54Dx39GRzOQWdVdEawJCUQeXJ54QvhM39nv\/\/aecsskY\n8Jyr2SaIHQKBgHKms\/dT9Fhq0Hsr\/jaYvrz+ub07u0wTo+DcHA7\/IEfOxD9MXGFk\nb1PQWJ1ira1MvclD2OIUVNjGdFevS5\/rH5g3n3FxaqRXtGiKEFxT2XMwRHYvFFAf\nA0rIBSYDH41qRVd\/sS3mBZtKSplkelgsYzncRgt2C4wOXRE1+XuGc+o9AoGAO69+\npPmkZ8vrfPYwg9CfPDMR6+PSA1fbjEhlwbTdnih5E2yzqurQlBSSKXiM1T7HDpmg\nihyt0q70ofmJqTCoPj4KGxTqiOa5ltLzeLXUAeiMQ7CnVDQnU+quJSW1E2Ztv6yN\nulhuYREC7S8iUTQ6Clns7W5VGzzL+uPK\/OvMnf0CgYEAuWbMEKUQm0M8J43vaG2U\n+v\/KYKPCdEFtgm2XN4Y+70MhJifgIJ9cWkg1wpPeb9aBSkh2\/UkrRY2EN9Afimyd\nIZ9pIqphMYRTAmoUHieNIM39ND+DWJenHieEVmZjOBjKgeQ3zC5u\/2MkQf2Z1Aur\nrfPmwZkd3LQoM8g88Rj7tUY=\n-----END PRIVATE KEY-----\n",
+        "jwk": {
+            "kty": "RSA",
+            "kid": "kid-rotated",
+            "use": "sig",
+            "alg": "RS256",
+            "n": "j63uCGOQEo9dJ3BAmP0f2zKDEov1nrhPv6v_3lpiqPZBLwgWuQx9fPrMBtSuUucS_MjcS411C_iOO7qTO9_b2T8Pnz6hFCjy315FWNzFzUaoLqlcvmq89Tr5MXfbSqGhAvMidFn8yeMS7ixDM12idn7fyor7HyKCOlV73-0f_i22uvy3XxhkxkL0mEmeWXWA03Ie3k0nl6vtc_QGFVjVpHE_oS_tUyaPls9ZzPtSFTlRgu51XWLax_W6wtk8woHysqtnT_D7JHmZpX3rO1VtfeF1wknV3Tz38bPm3dBntzFOSX9E7WEqKfktnYObzQTaqWhzPDtkAnHm_OeLFXdEZw",
+            "e": "AQAB"
+        }
+    }
+}

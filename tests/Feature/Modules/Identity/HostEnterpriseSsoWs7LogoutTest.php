@@ -21,7 +21,7 @@ use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\Support\InteractsWithTenantAddressingProfile;
 use Tests\TestCase;
 
-/** BK-082 Workstream 7 — Tenant logout, BC Logout, cleanup. */
+/** BK-082 WS7 — Tenant logout + BC Logout HS256 fixtures (T43/T44 symmetric; see HostEnterpriseSsoWs7BcLogoutRs256Test for RS256). */
 class HostEnterpriseSsoWs7LogoutTest extends TestCase
 {
     use GrantsSsoEntitlement;
@@ -73,6 +73,7 @@ class HostEnterpriseSsoWs7LogoutTest extends TestCase
             'client_id' => 'client-id',
             'client_secret' => 'client-secret-value-for-hs256',
             'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'logout_token_signing_algs' => ['HS256'],
         ]);
         $link = TenantUserIdentity::query()->create([
             'tenant_id' => $tenant->id,

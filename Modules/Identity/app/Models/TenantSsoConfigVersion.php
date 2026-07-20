@@ -47,6 +47,8 @@ class TenantSsoConfigVersion extends Model
         'client_id',
         'client_secret_encrypted',
         'redirect_uri',
+        'jwks_uri',
+        'logout_token_signing_algs',
         'scopes',
         'activated_at',
         'superseded_at',
@@ -58,6 +60,7 @@ class TenantSsoConfigVersion extends Model
 
     protected $casts = [
         'scopes' => 'array',
+        'logout_token_signing_algs' => 'array',
         'activated_at' => 'datetime',
         'superseded_at' => 'datetime',
         'version_number' => 'integer',

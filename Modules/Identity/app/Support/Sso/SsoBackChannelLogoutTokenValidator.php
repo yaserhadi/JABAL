@@ -3,14 +3,14 @@
 namespace Modules\Identity\Support\Sso;
 
 /**
- * BK-082 WS7: parse and validate OIDC Back-Channel Logout Token claims (D26).
- *
- * Signature verification is performed by the caller after structural validation
- * (or via {@see verifyHmacSha256} for HS256 client_secret profiles / tests).
+ * BK-082 WS7: parse/validate OIDC Back-Channel Logout Token (D22/D26).
  */
 final class SsoBackChannelLogoutTokenValidator
 {
     public const EVENT_TYPE = 'http://schemas.openid.net/event/backchannel-logout';
+
+    /** Platform allowlist — config version must still explicitly enable each alg. */
+    public const PLATFORM_ALLOWED_ALGS = ['RS256', 'HS256'];
 
     /**
      * @return array{header: array<string, mixed>, payload: array<string, mixed>, signing_input: string, signature: string}|null
@@ -22,8 +22,8 @@ final class SsoBackChannelLogoutTokenValidator
             return null;
         }
 
-        $headerJson = $this->b64urlDecode($parts[0]);
-        $payloadJson = $this->b64urlDecode($parts[1]);
+        $headerJson = SsoRsaJwk::b64urlDecode($parts[0]);
+        $payloadJson = SsoRsaJwk::b64urlDecode($parts[1]);
         if ($headerJson === null || $payloadJson === null) {
             return null;
         }
@@ -40,6 +40,26 @@ final class SsoBackChannelLogoutTokenValidator
             'signing_input' => $parts[0].'.'.$parts[1],
             'signature' => $parts[2],
         ];
+    }
+
+    /**
+     * @param  list<string>  $configuredAlgs
+     */
+    public function assertAlgorithmAllowed(?string $alg, array $configuredAlgs): ?string
+    {
+        if (! is_string($alg) || $alg === '' || strtolower($alg) === 'none') {
+            return 'alg_none_or_missing';
+        }
+
+        if (! in_array($alg, self::PLATFORM_ALLOWED_ALGS, true)) {
+            return 'alg_unsupported';
+        }
+
+        if (! in_array($alg, $configuredAlgs, true)) {
+            return 'alg_not_configured';
+        }
+
+        return null;
     }
 
     /**
@@ -105,42 +125,54 @@ final class SsoBackChannelLogoutTokenValidator
     public function verifyHmacSha256(string $signingInput, string $signatureB64Url, string $clientSecret): bool
     {
         $expected = hash_hmac('sha256', $signingInput, $clientSecret, true);
-        $actual = $this->b64urlDecode($signatureB64Url);
-        if ($actual === null) {
+        $actual = SsoRsaJwk::b64urlDecode($signatureB64Url);
+
+        return $actual !== null && hash_equals($expected, $actual);
+    }
+
+    public function verifyRs256(string $signingInput, string $signatureB64Url, string $publicPem): bool
+    {
+        $signature = SsoRsaJwk::b64urlDecode($signatureB64Url);
+        if ($signature === null) {
             return false;
         }
 
-        return hash_equals($expected, $actual);
+        $result = openssl_verify($signingInput, $signature, $publicPem, OPENSSL_ALGO_SHA256);
+
+        return $result === 1;
     }
 
     /**
-     * Build a compact HS256 JWT for protocol fixture tests (not for production minting).
-     *
      * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $headerExtra
      */
-    public function mintHmacSha256ForTests(array $payload, string $clientSecret): string
+    public function mintHmacSha256ForTests(array $payload, string $clientSecret, array $headerExtra = []): string
     {
-        $header = $this->b64urlEncode(json_encode(['alg' => 'HS256', 'typ' => 'JWT'], JSON_THROW_ON_ERROR));
-        $body = $this->b64urlEncode(json_encode($payload, JSON_THROW_ON_ERROR));
-        $signingInput = $header.'.'.$body;
-        $sig = $this->b64urlEncode(hash_hmac('sha256', $signingInput, $clientSecret, true));
+        $header = array_merge(['alg' => 'HS256', 'typ' => 'JWT'], $headerExtra);
+        $headerPart = SsoRsaJwk::b64urlEncode(json_encode($header, JSON_THROW_ON_ERROR));
+        $body = SsoRsaJwk::b64urlEncode(json_encode($payload, JSON_THROW_ON_ERROR));
+        $signingInput = $headerPart.'.'.$body;
+        $sig = SsoRsaJwk::b64urlEncode(hash_hmac('sha256', $signingInput, $clientSecret, true));
 
         return $signingInput.'.'.$sig;
     }
 
-    protected function b64urlEncode(string $value): string
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $headerExtra
+     */
+    public function mintRs256ForTests(array $payload, string $privatePem, array $headerExtra = []): string
     {
-        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
-    }
-
-    protected function b64urlDecode(string $value): ?string
-    {
-        $remainder = strlen($value) % 4;
-        if ($remainder > 0) {
-            $value .= str_repeat('=', 4 - $remainder);
+        $header = array_merge(['alg' => 'RS256', 'typ' => 'JWT'], $headerExtra);
+        $headerPart = SsoRsaJwk::b64urlEncode(json_encode($header, JSON_THROW_ON_ERROR));
+        $body = SsoRsaJwk::b64urlEncode(json_encode($payload, JSON_THROW_ON_ERROR));
+        $signingInput = $headerPart.'.'.$body;
+        $signature = '';
+        $ok = openssl_sign($signingInput, $signature, $privatePem, OPENSSL_ALGO_SHA256);
+        if (! $ok) {
+            throw new \RuntimeException('Unable to sign RS256 fixture.');
         }
-        $decoded = base64_decode(strtr($value, '-_', '+/'), true);
 
-        return $decoded === false ? null : $decoded;
+        return $signingInput.'.'.SsoRsaJwk::b64urlEncode($signature);
     }
 }
