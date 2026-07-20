@@ -13,4 +13,6 @@ return [
     // BK-082 WS3 host-only browser binding cookie names (IH-3)
     'tenant_continuation_cookie' => 'jabal_sso_tenant_continuation',
     'auth_binding_cookie' => 'jabal_sso_auth_binding',
+    // BK-082 WS4: Host Authorization Response mode (query default; form_post when provider profile requires it)
+    'host_response_mode' => env('SSO_HOST_RESPONSE_MODE', 'query'),
 ];

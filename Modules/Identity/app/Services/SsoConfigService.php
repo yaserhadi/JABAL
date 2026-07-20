@@ -264,6 +264,26 @@ class SsoConfigService
         });
     }
 
+    /**
+     * Decrypt client secret from a bound IdP configuration version (WS4 Host token exchange).
+     */
+    public function getDecryptedClientSecretForVersion(Tenant $tenant, TenantSsoConfigVersion $version): ?string
+    {
+        return $this->withTenantContext($tenant, function () use ($tenant, $version) {
+            if ((string) $version->tenant_id !== (string) $tenant->id) {
+                return null;
+            }
+
+            $encrypted = $version->getAttributes()['client_secret_encrypted'] ?? null;
+
+            if (! is_string($encrypted) || $encrypted === '') {
+                return null;
+            }
+
+            return Crypt::decryptString($encrypted);
+        });
+    }
+
     public function getConfiguredIssuer(Tenant $tenant): ?string
     {
         return $this->withTenantContext($tenant, function () use ($tenant) {

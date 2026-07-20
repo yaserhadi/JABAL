@@ -6,6 +6,7 @@ use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoCallbackController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoInitiateController;
 use Modules\Identity\Http\Controllers\EnterpriseSsoStartController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
@@ -62,11 +63,13 @@ if ($addressing->isHost()) {
         });
     });
 
-    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback surface (still 404-gated until later WS)
+    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback (WS4); legacy Path-style callback stays 404-gated
     $registrar->onAuthHost(function () {
         Route::middleware(['web', 'guest', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::get('auth/enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
                 ->name('identity.enterprise-sso.initiate');
+            Route::match(['get', 'post'], 'auth/enterprise-sso/callback', EnterpriseSsoCallbackController::class)
+                ->name('identity.enterprise-sso.callback');
         });
 
         Route::middleware('guest')->group(function () {

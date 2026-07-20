@@ -57,6 +57,48 @@ final class SsoIdentityResolver
         return $this->attemptFirstLink($tenant, $claims, $normalizedClaimsIssuer);
     }
 
+    /**
+     * BK-082 Host / D10: existing issuer+subject Identity Link only — never attemptFirstLink / silent JIT.
+     */
+    public function resolveExistingLinkOnly(
+        Tenant $tenant,
+        SsoValidatedClaims $claims,
+        string $configuredIssuer,
+    ): SsoIdentityResolutionResult {
+        $normalizedConfigured = rtrim(trim($configuredIssuer), '/');
+        $normalizedClaimsIssuer = rtrim(trim($claims->issuer), '/');
+
+        if ($normalizedConfigured !== $normalizedClaimsIssuer) {
+            return SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_ISSUER_MISMATCH);
+        }
+
+        $existing = TenantUserIdentity::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('issuer', $normalizedClaimsIssuer)
+            ->where('subject', $claims->subject)
+            ->first();
+
+        if (! $existing) {
+            return SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED);
+        }
+
+        $user = TenantUser::query()
+            ->withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $existing->user_id)
+            ->first();
+
+        if (! $user || $user->trashed()) {
+            return SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_USER_INACTIVE);
+        }
+
+        if (! $this->hasActiveMembership($tenant, $user)) {
+            return SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_MEMBERSHIP_INACTIVE);
+        }
+
+        return SsoIdentityResolutionResult::success($user, $existing, false);
+    }
+
     protected function attemptFirstLink(
         Tenant $tenant,
         SsoValidatedClaims $claims,

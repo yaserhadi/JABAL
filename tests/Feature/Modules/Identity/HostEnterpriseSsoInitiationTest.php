@@ -51,7 +51,7 @@ class HostEnterpriseSsoInitiationTest extends TestCase
             'issuer_url' => 'https://idp.example.com',
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
-            'redirect_uri' => 'https://auth.jabal.test/auth/sso/callback',
+            'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
         ]);
         tenancy()->end();
 

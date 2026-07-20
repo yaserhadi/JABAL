@@ -13,6 +13,7 @@ final class SsoIdentityResolutionResult
     public const REASON_EMAIL_NOT_VERIFIED = 'email_not_verified';
     public const REASON_MEMBERSHIP_INACTIVE = 'membership_inactive';
     public const REASON_USER_INACTIVE = 'user_inactive';
+    public const REASON_IDENTITY_NOT_PROVISIONED = 'identity_not_provisioned';
 
     private function __construct(
         public readonly ?TenantUser $user,

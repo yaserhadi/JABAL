@@ -124,7 +124,7 @@ class AuthenticationTransactionService
     {
         [$lookup, $secret] = $this->splitOpaquePair($reference);
 
-        if ($lookup === null || $secret === null) {
+        if ($lookup === null || $secret === null || ! Str::isUuid($lookup)) {
             return null;
         }
 
@@ -200,11 +200,30 @@ class AuthenticationTransactionService
         });
     }
 
+    public function authBindingMatches(SsoAuthenticationTransaction $transaction, string $authBindingSecret): bool
+    {
+        if (! is_string($transaction->auth_binding_secret_hash) || $transaction->auth_binding_secret_hash === '') {
+            return false;
+        }
+
+        return SsoSecretCrypto::proofsMatch((string) $transaction->auth_binding_secret_hash, $authBindingSecret);
+    }
+
+    public function failTerminal(SsoAuthenticationTransaction $transaction, string $reason): SsoAuthenticationTransaction
+    {
+        return DB::connection('central')->transaction(function () use ($transaction, $reason) {
+            $locked = SsoAuthenticationTransaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+            $this->markFailed($locked, $reason);
+
+            return $locked->fresh();
+        });
+    }
+
     public function findByState(string $state): ?SsoAuthenticationTransaction
     {
         [$lookup, $secret] = $this->splitOpaquePair($state);
 
-        if ($lookup === null || $secret === null) {
+        if ($lookup === null || $secret === null || ! Str::isUuid($lookup)) {
             return null;
         }
 
