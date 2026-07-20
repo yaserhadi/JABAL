@@ -7,6 +7,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Modules\Identity\Models\SsoPlatformControl;
 use Modules\Identity\Models\TenantSsoConfig;
 use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Identity\Support\SecurityFeatureGate;
@@ -103,6 +104,7 @@ class SsoConfigService
                         'tenant_id' => $tenant->id,
                         'enabled' => false,
                         'disabled_by_entitlement' => false,
+                        'rollout_state' => TenantSsoConfig::ROLLOUT_ENABLED,
                         'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
                     ], $payload));
 
@@ -142,9 +144,26 @@ class SsoConfigService
     public function getActiveVersionId(Tenant $tenant): ?string
     {
         return $this->withTenantContext($tenant, function () use ($tenant) {
-            $id = $this->findRow($tenant)?->active_version_id;
+            $config = $this->findRow($tenant);
+            $id = $config?->active_version_id;
+            if (! is_string($id) || $id === '') {
+                return null;
+            }
 
-            return is_string($id) && $id !== '' ? $id : null;
+            $version = TenantSsoConfigVersion::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($id)
+                ->first();
+
+            if (! $version instanceof TenantSsoConfigVersion) {
+                return null;
+            }
+
+            if ($version->mayServeNewProductionLogin() || $version->isTestOnly()) {
+                return $id;
+            }
+
+            return null;
         });
     }
 
@@ -187,15 +206,49 @@ class SsoConfigService
             return false;
         }
 
+        if (SsoPlatformControl::current()->disable_enterprise_sso) {
+            return false;
+        }
+
         return $this->withTenantContext($tenant, function () use ($tenant) {
             $record = $this->findRow($tenant);
+            if (! $record) {
+                return false;
+            }
 
-            return (bool) ($record?->enabled)
-                && ! (bool) ($record?->disabled_by_entitlement)
-                && filled($record?->issuer_url)
-                && filled($record?->client_id)
-                && filled($record?->client_secret_encrypted)
-                && filled($record?->active_version_id);
+            $rollout = (string) ($record->rollout_state ?: TenantSsoConfig::ROLLOUT_ENABLED);
+            if (in_array($rollout, [
+                TenantSsoConfig::ROLLOUT_DISABLED,
+                TenantSsoConfig::ROLLOUT_SECURITY_DISABLED,
+                TenantSsoConfig::ROLLOUT_PAUSED,
+            ], true)) {
+                return false;
+            }
+
+            if (! (bool) $record->enabled
+                || (bool) $record->disabled_by_entitlement
+                || ! filled($record->issuer_url)
+                || ! filled($record->client_id)
+                || ! filled($record->client_secret_encrypted)
+                || ! filled($record->active_version_id)) {
+                return false;
+            }
+
+            $version = TenantSsoConfigVersion::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($record->active_version_id)
+                ->first();
+
+            if (! $version instanceof TenantSsoConfigVersion) {
+                return false;
+            }
+
+            // Test-only / pilot remain "configured" but are not generally operational.
+            if ($version->isTestOnly() || $rollout === TenantSsoConfig::ROLLOUT_TEST_ONLY) {
+                return false;
+            }
+
+            return $version->mayServeNewProductionLogin();
         });
     }
 
@@ -326,6 +379,8 @@ class SsoConfigService
                 ?? config('identity.sso.default_logout_token_signing_algs', ['RS256']),
             'scopes' => $material['scopes'] ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
             'activated_at' => now(),
+            'validated_at' => now(),
+            'approved_at' => now(),
             'superseded_at' => null,
         ]);
     }
@@ -432,6 +487,8 @@ class SsoConfigService
             'scopes' => $record->scopes ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
             'has_client_secret' => filled($record->getAttributes()['client_secret_encrypted'] ?? null),
             'active_version_id' => $record->active_version_id,
+            'rollout_state' => $record->rollout_state ?? TenantSsoConfig::ROLLOUT_ENABLED,
+            'pending_version_id' => $record->pending_version_id,
         ];
     }
 
@@ -450,6 +507,8 @@ class SsoConfigService
             'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
             'has_client_secret' => false,
             'active_version_id' => null,
+            'rollout_state' => TenantSsoConfig::ROLLOUT_DISABLED,
+            'pending_version_id' => null,
         ];
     }
 
@@ -502,6 +561,17 @@ class SsoConfigService
         if (! $this->featureGate->isSsoAvailable($tenant)) {
             abort(403, 'SSO is not available for this tenant plan.');
         }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function runInTenantContext(Tenant $tenant, callable $callback)
+    {
+        return $this->withTenantContext($tenant, $callback);
     }
 
     /**

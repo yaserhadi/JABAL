@@ -37,6 +37,14 @@ class TenantRbacProvisioner
         'tenant.security-policy.update',
         'tenant.sso.view',
         'tenant.sso.update',
+        'tenant.sso.configure',
+        'tenant.sso.validate',
+        'tenant.sso.test',
+        'tenant.sso.approve',
+        'tenant.sso.activate',
+        'tenant.sso.disable',
+        'tenant.sso.rotate-secret',
+        'tenant.sso.kill-switch',
     ];
 
     /** @var array<string, array<int, string>> */
@@ -59,6 +67,14 @@ class TenantRbacProvisioner
             'tenant.security-policy.update',
             'tenant.sso.view',
             'tenant.sso.update',
+            'tenant.sso.configure',
+            'tenant.sso.validate',
+            'tenant.sso.test',
+            'tenant.sso.approve',
+            'tenant.sso.activate',
+            'tenant.sso.disable',
+            'tenant.sso.rotate-secret',
+            'tenant.sso.kill-switch',
         ],
         'member' => ['workspace.view', 'dashboard.view'],
     ];

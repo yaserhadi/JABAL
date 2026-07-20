@@ -10,10 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 /**
- * BK-082: Immutable IdP configuration version (DEC-0024 D15 / D30 foundation).
+ * BK-082: Immutable IdP configuration version (DEC-0024 D15 / D30 / WS8 lifecycle).
  *
- * Material fields MUST NOT be edited after leaving draft. Active/superseded/disabled
- * rows only allow status lifecycle updates (e.g. active → superseded).
+ * Material fields MUST NOT be edited after leaving draft. Non-draft rows only allow
+ * lifecycle column updates (status timestamps / disable reason / secret revoke).
  */
 class TenantSsoConfigVersion extends Model
 {
@@ -23,11 +23,28 @@ class TenantSsoConfigVersion extends Model
 
     public const STATUS_DRAFT = 'draft';
 
+    public const STATUS_VALIDATED = 'validated';
+
+    public const STATUS_TEST_ONLY = 'test_only';
+
+    public const STATUS_APPROVED = 'approved';
+
     public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_DISABLED = 'disabled';
 
     public const STATUS_SUPERSEDED = 'superseded';
 
-    public const STATUS_DISABLED = 'disabled';
+    /** @var list<string> */
+    public const LIFECYCLE_STATUSES = [
+        self::STATUS_DRAFT,
+        self::STATUS_VALIDATED,
+        self::STATUS_TEST_ONLY,
+        self::STATUS_APPROVED,
+        self::STATUS_ACTIVE,
+        self::STATUS_DISABLED,
+        self::STATUS_SUPERSEDED,
+    ];
 
     protected $connection = 'tenant';
 
@@ -51,7 +68,12 @@ class TenantSsoConfigVersion extends Model
         'logout_token_signing_algs',
         'scopes',
         'activated_at',
+        'validated_at',
+        'approved_at',
         'superseded_at',
+        'disabled_at',
+        'secret_revoked_at',
+        'disable_reason',
     ];
 
     protected $hidden = [
@@ -62,7 +84,11 @@ class TenantSsoConfigVersion extends Model
         'scopes' => 'array',
         'logout_token_signing_algs' => 'array',
         'activated_at' => 'datetime',
+        'validated_at' => 'datetime',
+        'approved_at' => 'datetime',
         'superseded_at' => 'datetime',
+        'disabled_at' => 'datetime',
+        'secret_revoked_at' => 'datetime',
         'version_number' => 'integer',
     ];
 
@@ -75,12 +101,22 @@ class TenantSsoConfigVersion extends Model
                 return;
             }
 
-            $allowed = ['status', 'superseded_at', 'updated_at'];
+            $allowed = [
+                'status',
+                'superseded_at',
+                'validated_at',
+                'approved_at',
+                'disabled_at',
+                'secret_revoked_at',
+                'disable_reason',
+                'activated_at',
+                'updated_at',
+            ];
 
             foreach (array_keys($model->getDirty()) as $attribute) {
                 if (! in_array($attribute, $allowed, true)) {
                     throw new LogicException(
-                        'IdP configuration version material fields are immutable once activated (DEC-0024 D15/D30).'
+                        'IdP configuration version material fields are immutable once leaving draft (DEC-0024 D15/D30).'
                     );
                 }
             }
@@ -92,8 +128,24 @@ class TenantSsoConfigVersion extends Model
         return $this->belongsTo(TenantSsoConfig::class, 'config_id');
     }
 
-    public function isBindable(): bool
+    public function isBindableForInFlight(): bool
     {
-        return in_array($this->status, [self::STATUS_ACTIVE, self::STATUS_SUPERSEDED, self::STATUS_DISABLED], true);
+        return in_array($this->status, [
+            self::STATUS_ACTIVE,
+            self::STATUS_SUPERSEDED,
+            self::STATUS_DISABLED,
+            self::STATUS_TEST_ONLY,
+        ], true);
+    }
+
+    public function mayServeNewProductionLogin(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE
+            && $this->secret_revoked_at === null;
+    }
+
+    public function isTestOnly(): bool
+    {
+        return $this->status === self::STATUS_TEST_ONLY;
     }
 }

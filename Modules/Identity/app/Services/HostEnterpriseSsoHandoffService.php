@@ -31,6 +31,7 @@ class HostEnterpriseSsoHandoffService
         protected MfaService $mfaService,
         protected SsoAssuranceEvaluator $assuranceEvaluator,
         protected SessionRegistryService $sessionRegistry,
+        protected SsoOperationalGate $operationalGate,
         protected TenantAddressingProfile $addressing,
         protected TenantEntryUrlResolver $entryUrls,
         protected SsoSecurityAudit $securityAudit,
@@ -65,6 +66,19 @@ class HostEnterpriseSsoHandoffService
         }
 
         if ($peek->tenant_id !== (string) $tenant->id || strtolower($peek->destination_host) !== $destinationHost) {
+            abort(404);
+        }
+
+        $txn = SsoAuthenticationTransaction::query()->whereKey($peek->transaction_id)->first();
+        $boundVersionId = $txn ? (string) $txn->idp_configuration_version_id : null;
+        try {
+            $this->operationalGate->assertMayProceed(
+                $tenant,
+                SsoOperationalGate::STAGE_SESSION_CREATE,
+                $boundVersionId,
+                (string) $peek->user_id,
+            );
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException) {
             abort(404);
         }
 

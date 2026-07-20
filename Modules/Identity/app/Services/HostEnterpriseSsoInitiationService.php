@@ -20,6 +20,7 @@ class HostEnterpriseSsoInitiationService
         protected AuthenticationTransactionService $transactions,
         protected SsoConfigService $configService,
         protected SsoAuthService $ssoAuthService,
+        protected SsoOperationalGate $operationalGate,
         protected TenantAddressingProfile $addressing,
     ) {}
 
@@ -29,11 +30,23 @@ class HostEnterpriseSsoInitiationService
             abort(404);
         }
 
-        $this->ssoAuthService->assertTenantMayStartSso($tenant);
+        $actorUserId = $request->user()?->getAuthIdentifier();
+        $this->operationalGate->assertMayProceed(
+            $tenant,
+            SsoOperationalGate::STAGE_INITIATION,
+            null,
+            is_string($actorUserId) ? $actorUserId : null,
+        );
 
         $versionId = $this->configService->getActiveVersionId($tenant);
         if ($versionId === null) {
             throw new SsoSecurityException('Active IdP configuration version is required.');
+        }
+
+        // Re-read version under race: must still be active at bind time.
+        $version = $this->configService->findVersionForTenant($tenant, $versionId);
+        if ($version === null || ! $version->mayServeNewProductionLogin()) {
+            throw new SsoSecurityException('IdP configuration version is not active for production login.');
         }
 
         $destinationHost = strtolower($request->getHost());
@@ -105,7 +118,11 @@ class HostEnterpriseSsoInitiationService
             abort(404);
         }
 
-        $this->ssoAuthService->assertTenantMayStartSso($tenant);
+        $this->operationalGate->assertMayProceed(
+            $tenant,
+            SsoOperationalGate::STAGE_AUTH_ADVANCE,
+            (string) $transaction->idp_configuration_version_id,
+        );
 
         $materials = $this->transactions->authorizationMaterials($transaction);
         if ($materials === null) {

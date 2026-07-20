@@ -26,6 +26,7 @@ class HostEnterpriseSsoCallbackService
         protected SsoAuthService $ssoAuthService,
         protected SsoAuthorizationResponseParser $responseParser,
         protected SsoIdentityResolver $identityResolver,
+        protected SsoOperationalGate $operationalGate,
         protected TenantAddressingProfile $addressing,
     ) {}
 
@@ -170,11 +171,19 @@ class HostEnterpriseSsoCallbackService
         }
 
         try {
+            $this->operationalGate->assertMayProceed(
+                $tenant,
+                SsoOperationalGate::STAGE_HANDOFF_ISSUE,
+                (string) $reserved->idp_configuration_version_id,
+            );
             $issued = $this->transactions->issueHandoff($reserved, [
                 'user_id' => (string) $resolution->user->id,
                 'identity_link_id' => (string) $resolution->identityLink->id,
                 'assurance_evidence' => $this->boundedAssuranceEvidence(is_array($idClaims) ? $idClaims : []),
             ]);
+        } catch (SsoSecurityException $e) {
+            $this->transactions->failTerminal($reserved, 'handoff_blocked_'.$e->getMessage());
+            abort(404);
         } catch (Throwable) {
             $this->transactions->failTerminal($reserved, 'handoff_issue_failed');
             abort(404);

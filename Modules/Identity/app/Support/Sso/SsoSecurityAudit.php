@@ -24,6 +24,7 @@ final class SsoSecurityAudit
         'addressing_profile',
         'sessions_revoked',
         'event_id',
+        'actor_user_id',
     ];
 
     public function __construct(

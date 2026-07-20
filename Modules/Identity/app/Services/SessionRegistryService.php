@@ -133,6 +133,15 @@ class SessionRegistryService
             ->update(['revoked_at' => now()]);
     }
 
+    public function revokeActiveByIdpConfigurationVersion(Tenant $tenant, string $idpConfigurationVersionId): int
+    {
+        return UserSession::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('idp_configuration_version_id', $idpConfigurationVersionId)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
+    }
+
     public function cleanup(int $olderThanDays): int
     {
         return UserSession::where(function ($query) use ($olderThanDays) {

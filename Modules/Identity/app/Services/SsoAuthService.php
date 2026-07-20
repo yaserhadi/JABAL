@@ -43,15 +43,15 @@ class SsoAuthService
         protected Session $session,
     ) {}
 
-    public function assertTenantMayStartSso(Tenant $tenant): void
+    public function assertTenantMayStartSso(Tenant $tenant, ?string $actorUserId = null): void
     {
-        if ($tenant->status !== 'active') {
-            throw new SsoSecurityException('Tenant is not active.');
-        }
-
-        if (! $this->configService->isOperationalForTenant($tenant)) {
-            throw new SsoSecurityException('Tenant SSO is not enabled or not fully configured.');
-        }
+        app(SsoOperationalGate::class)->assertMayProceed(
+            $tenant,
+            SsoOperationalGate::STAGE_INITIATION,
+            null,
+            $actorUserId,
+            allowTestOnly: false,
+        );
     }
 
     /**

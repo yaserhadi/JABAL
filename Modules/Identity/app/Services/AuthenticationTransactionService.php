@@ -588,6 +588,141 @@ class AuthenticationTransactionService
         });
     }
 
+    /**
+     * Cancel open transactions + issued handoffs for a tenant (WS8 security-disable / kill switch).
+     *
+     * @return int Number of records cancelled
+     */
+    public function cancelOpenForTenant(string $tenantId, string $reason): int
+    {
+        return (int) DB::connection('central')->transaction(function () use ($tenantId, $reason) {
+            $count = 0;
+            $openTxn = SsoAuthenticationTransaction::query()
+                ->where('tenant_id', $tenantId)
+                ->whereIn('status', $this->openTransactionStatuses())
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($openTxn as $txn) {
+                $this->markFailed($txn, $reason);
+                $count++;
+            }
+
+            $openHandoffs = SsoTenantHandoff::query()
+                ->where('tenant_id', $tenantId)
+                ->where('status', SsoTenantHandoff::STATUS_ISSUED)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($openHandoffs as $handoff) {
+                $handoff->forceFill([
+                    'status' => SsoTenantHandoff::STATUS_FAILED,
+                    'failure_reason' => $reason,
+                ])->save();
+                if (! $handoff->secretsErased()) {
+                    $this->eraseHandoffSecrets($handoff);
+                }
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
+    /**
+     * @return int Number of records cancelled
+     */
+    public function cancelOpenForVersion(string $tenantId, string $versionId, string $reason): int
+    {
+        return (int) DB::connection('central')->transaction(function () use ($tenantId, $versionId, $reason) {
+            $count = 0;
+            $openTxn = SsoAuthenticationTransaction::query()
+                ->where('tenant_id', $tenantId)
+                ->where('idp_configuration_version_id', $versionId)
+                ->whereIn('status', $this->openTransactionStatuses())
+                ->lockForUpdate()
+                ->get();
+
+            $txnIds = [];
+            foreach ($openTxn as $txn) {
+                $txnIds[] = (string) $txn->id;
+                $this->markFailed($txn, $reason);
+                $count++;
+            }
+
+            if ($txnIds !== []) {
+                $openHandoffs = SsoTenantHandoff::query()
+                    ->whereIn('transaction_id', $txnIds)
+                    ->where('status', SsoTenantHandoff::STATUS_ISSUED)
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($openHandoffs as $handoff) {
+                    $handoff->forceFill([
+                        'status' => SsoTenantHandoff::STATUS_FAILED,
+                        'failure_reason' => $reason,
+                    ])->save();
+                    if (! $handoff->secretsErased()) {
+                        $this->eraseHandoffSecrets($handoff);
+                    }
+                    $count++;
+                }
+            }
+
+            return $count;
+        });
+    }
+
+    /**
+     * @return int Number of records cancelled
+     */
+    public function cancelOpenEverywhere(string $reason): int
+    {
+        return (int) DB::connection('central')->transaction(function () use ($reason) {
+            $count = 0;
+            $openTxn = SsoAuthenticationTransaction::query()
+                ->whereIn('status', $this->openTransactionStatuses())
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($openTxn as $txn) {
+                $this->markFailed($txn, $reason);
+                $count++;
+            }
+
+            $openHandoffs = SsoTenantHandoff::query()
+                ->where('status', SsoTenantHandoff::STATUS_ISSUED)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($openHandoffs as $handoff) {
+                $handoff->forceFill([
+                    'status' => SsoTenantHandoff::STATUS_FAILED,
+                    'failure_reason' => $reason,
+                ])->save();
+                if (! $handoff->secretsErased()) {
+                    $this->eraseHandoffSecrets($handoff);
+                }
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function openTransactionStatuses(): array
+    {
+        return [
+            SsoAuthenticationTransaction::STATUS_PENDING,
+            SsoAuthenticationTransaction::STATUS_AWAITING_CALLBACK,
+            SsoAuthenticationTransaction::STATUS_CALLBACK_RESERVED,
+            SsoAuthenticationTransaction::STATUS_HANDOFF_ISSUED,
+        ];
+    }
+
     protected function eraseTransactionRecoverableSecrets(SsoAuthenticationTransaction $transaction): void
     {
         $transaction->forceFill([

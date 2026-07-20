@@ -17,6 +17,7 @@ use Modules\Identity\Http\Controllers\SecurityPolicyController;
 use Modules\Identity\Http\Controllers\SecuritySettingsController;
 use Modules\Identity\Http\Controllers\SsoAuthController;
 use Modules\Identity\Http\Controllers\SsoConfigController;
+use Modules\Identity\Http\Controllers\SsoGovernanceController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 use Modules\Identity\Http\Middleware\EnterpriseSsoTransitionHeaders;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
@@ -177,6 +178,31 @@ if ($addressing->isHost()) {
             Route::patch('/security/sso', [SsoConfigController::class, 'update'])
                 ->name('identity.sso.update');
 
+            Route::post('/security/sso/versions/{versionId}/validate', [SsoGovernanceController::class, 'validateVersion'])
+                ->name('identity.sso.versions.validate');
+            Route::post('/security/sso/versions/{versionId}/test-only', [SsoGovernanceController::class, 'markTestOnly'])
+                ->name('identity.sso.versions.test-only');
+            Route::post('/security/sso/versions/{versionId}/approve', [SsoGovernanceController::class, 'approveVersion'])
+                ->name('identity.sso.versions.approve');
+            Route::post('/security/sso/versions/{versionId}/activate', [SsoGovernanceController::class, 'activateVersion'])
+                ->name('identity.sso.versions.activate');
+            Route::post('/security/sso/versions/{versionId}/disable', [SsoGovernanceController::class, 'disableVersion'])
+                ->name('identity.sso.versions.disable');
+            Route::post('/security/sso/versions/{versionId}/revoke-secret', [SsoGovernanceController::class, 'revokeSecret'])
+                ->name('identity.sso.versions.revoke-secret');
+            Route::post('/security/sso/versions/{versionId}/recover', [SsoGovernanceController::class, 'recover'])
+                ->name('identity.sso.versions.recover');
+            Route::post('/security/sso/rollout', [SsoGovernanceController::class, 'setRollout'])
+                ->name('identity.sso.rollout');
+            Route::post('/security/sso/kill-switch/pause-tenant', [SsoGovernanceController::class, 'pauseTenant'])
+                ->name('identity.sso.kill-switch.pause-tenant');
+            Route::post('/security/sso/kill-switch/security-disable', [SsoGovernanceController::class, 'securityDisable'])
+                ->name('identity.sso.kill-switch.security-disable');
+            Route::post('/security/sso/kill-switch/pause-platform', [SsoGovernanceController::class, 'pausePlatform'])
+                ->name('identity.sso.kill-switch.pause-platform');
+            Route::post('/security/sso/kill-switch/disable-platform', [SsoGovernanceController::class, 'disablePlatform'])
+                ->name('identity.sso.kill-switch.disable-platform');
+
             Route::get('/security/settings', [SecuritySettingsController::class, 'show'])
                 ->name('identity.security-settings.show');
             Route::patch('/security/settings/policies', [SecuritySettingsController::class, 'updatePolicies'])
@@ -290,6 +316,31 @@ Route::prefix('t/{tenant}')
             ->name('identity.sso.show');
         Route::patch('/security/sso', [SsoConfigController::class, 'update'])
             ->name('identity.sso.update');
+
+        Route::post('/security/sso/versions/{versionId}/validate', [SsoGovernanceController::class, 'validateVersion'])
+            ->name('identity.sso.versions.validate');
+        Route::post('/security/sso/versions/{versionId}/test-only', [SsoGovernanceController::class, 'markTestOnly'])
+            ->name('identity.sso.versions.test-only');
+        Route::post('/security/sso/versions/{versionId}/approve', [SsoGovernanceController::class, 'approveVersion'])
+            ->name('identity.sso.versions.approve');
+        Route::post('/security/sso/versions/{versionId}/activate', [SsoGovernanceController::class, 'activateVersion'])
+            ->name('identity.sso.versions.activate');
+        Route::post('/security/sso/versions/{versionId}/disable', [SsoGovernanceController::class, 'disableVersion'])
+            ->name('identity.sso.versions.disable');
+        Route::post('/security/sso/versions/{versionId}/revoke-secret', [SsoGovernanceController::class, 'revokeSecret'])
+            ->name('identity.sso.versions.revoke-secret');
+        Route::post('/security/sso/versions/{versionId}/recover', [SsoGovernanceController::class, 'recover'])
+            ->name('identity.sso.versions.recover');
+        Route::post('/security/sso/rollout', [SsoGovernanceController::class, 'setRollout'])
+            ->name('identity.sso.rollout');
+        Route::post('/security/sso/kill-switch/pause-tenant', [SsoGovernanceController::class, 'pauseTenant'])
+            ->name('identity.sso.kill-switch.pause-tenant');
+        Route::post('/security/sso/kill-switch/security-disable', [SsoGovernanceController::class, 'securityDisable'])
+            ->name('identity.sso.kill-switch.security-disable');
+        Route::post('/security/sso/kill-switch/pause-platform', [SsoGovernanceController::class, 'pausePlatform'])
+            ->name('identity.sso.kill-switch.pause-platform');
+        Route::post('/security/sso/kill-switch/disable-platform', [SsoGovernanceController::class, 'disablePlatform'])
+            ->name('identity.sso.kill-switch.disable-platform');
 
         Route::get('/security/settings', [SecuritySettingsController::class, 'show'])
             ->name('identity.security-settings.show');
