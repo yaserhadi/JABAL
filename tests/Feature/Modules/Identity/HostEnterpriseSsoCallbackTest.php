@@ -15,6 +15,7 @@ use Modules\Identity\Services\SsoAuthService;
 use Modules\Identity\Services\SsoConfigService;
 use Modules\Identity\Support\Sso\SsoAuthorizationResponseParser;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
+use Modules\Identity\Support\Sso\SsoIdentityResolutionResult;
 use Modules\Identity\Support\Sso\SsoSecretCrypto;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantDomainProvisioner;
@@ -305,6 +306,11 @@ class HostEnterpriseSsoCallbackTest extends TestCase
         tenancy()->initialize($fixture['tenant']);
         $this->assertSame(0, TenantUserIdentity::query()->count());
         tenancy()->end();
+
+        $this->assertSame(
+            SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED,
+            $fixture['created']['transaction']->fresh()->failure_reason
+        );
     }
 
     #[Test]
