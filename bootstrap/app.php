@@ -170,6 +170,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
 
+        // BK-082: host-only SSO binding cookies are opaque proofs (not Laravel session payload).
+        $middleware->encryptCookies(except: [
+            \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
+            \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::AUTH_BINDING,
+        ]);
+
+        // BK-082 IH-7: IdP form_post posts to Auth Host without a Laravel CSRF token.
+        $middleware->validateCsrfTokens(except: [
+            'auth/enterprise-sso/callback',
+        ]);
+
         $middleware->redirectGuestsTo([AuthenticationRedirects::class, 'guestRedirect']);
         $middleware->redirectUsersTo([AuthenticationRedirects::class, 'authenticatedRedirect']);
     })

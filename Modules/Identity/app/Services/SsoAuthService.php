@@ -13,6 +13,7 @@ use Facile\OpenIDClient\Token\TokenSetInterface;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\URL;
 use Modules\Identity\Exceptions\SsoSecurityException;
+use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Identity\Support\Sso\FacileOidcAuthorizationGateway;
 use Modules\Identity\Support\Sso\LaravelSessionAuthSessionAdapter;
 use Modules\Identity\Support\Sso\OidcAuthorizationGateway;
@@ -42,15 +43,15 @@ class SsoAuthService
         protected Session $session,
     ) {}
 
-    public function assertTenantMayStartSso(Tenant $tenant): void
+    public function assertTenantMayStartSso(Tenant $tenant, ?string $actorUserId = null): void
     {
-        if ($tenant->status !== 'active') {
-            throw new SsoSecurityException('Tenant is not active.');
-        }
-
-        if (! $this->configService->isOperationalForTenant($tenant)) {
-            throw new SsoSecurityException('Tenant SSO is not enabled or not fully configured.');
-        }
+        app(SsoOperationalGate::class)->assertMayProceed(
+            $tenant,
+            SsoOperationalGate::STAGE_INITIATION,
+            null,
+            $actorUserId,
+            allowTestOnly: false,
+        );
     }
 
     /**
@@ -108,6 +109,10 @@ class SsoAuthService
 
     public function callbackRedirectUri(): string
     {
+        if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+            return URL::route('identity.enterprise-sso.callback', [], true);
+        }
+
         return URL::route('identity.sso.callback', [], true);
     }
 
@@ -132,6 +137,32 @@ class SsoAuthService
             'nonce' => $authSession->getNonce(),
             'code_challenge' => $prepared['code_challenge'],
             'code_challenge_method' => $prepared['code_challenge_method'],
+            'redirect_uri' => $redirectUri,
+        ]);
+    }
+
+    /**
+     * BK-082 Host: build authorize URL from central transaction materials (no Path Laravel session).
+     *
+     * @param  array{state: string, nonce: string, pkce_challenge: string}  $materials
+     */
+    public function buildHostAuthorizationRedirectUrl(Tenant $tenant, array $materials): string
+    {
+        $this->assertTenantMayStartSso($tenant);
+
+        $redirectUri = $this->resolveRedirectUri($tenant);
+        $client = $this->buildOpenIdClient($tenant, $redirectUri);
+        $config = $this->configService->getForTenant($tenant);
+        $scopes = is_array($config['scopes'] ?? null)
+            ? $config['scopes']
+            : config('identity.sso.default_scopes', ['openid', 'profile', 'email']);
+
+        return $this->createAuthorizationGateway()->getAuthorizationUri($client, [
+            'scope' => implode(' ', $scopes),
+            'state' => $materials['state'],
+            'nonce' => $materials['nonce'],
+            'code_challenge' => $materials['pkce_challenge'],
+            'code_challenge_method' => 'S256',
             'redirect_uri' => $redirectUri,
         ]);
     }
@@ -198,6 +229,10 @@ class SsoAuthService
 
     protected function resolveRedirectUri(Tenant $tenant): string
     {
+        if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
+            return $this->callbackRedirectUri();
+        }
+
         $config = $this->configService->getForTenant($tenant);
         $configured = $config['redirect_uri'] ?? null;
 
@@ -287,6 +322,92 @@ class SsoAuthService
             ->setClientMetadata($metadata)
             ->setHttpClient($this->createDiscoveryHttpClient())
             ->build();
+    }
+
+    /**
+     * BK-082 WS4: OpenID client from the transaction-bound IdP configuration version.
+     */
+    public function buildOpenIdClientFromVersion(
+        Tenant $tenant,
+        TenantSsoConfigVersion $version,
+        string $redirectUri,
+    ): \Facile\OpenIDClient\Client\ClientInterface {
+        if ((string) $version->tenant_id !== (string) $tenant->id) {
+            throw new SsoSecurityException('IdP configuration version tenant mismatch.');
+        }
+
+        $issuerUrl = is_string($version->issuer_url) ? $version->issuer_url : '';
+        $clientId = is_string($version->client_id) ? $version->client_id : '';
+        $secret = $this->configService->getDecryptedClientSecretForVersion($tenant, $version);
+
+        if ($issuerUrl === '' || $clientId === '' || $secret === null || $secret === '') {
+            throw new SsoSecurityException('Bound IdP configuration version credentials are incomplete.');
+        }
+
+        $configuredRedirect = is_string($version->redirect_uri) ? $version->redirect_uri : '';
+        if ($configuredRedirect !== '' && $configuredRedirect !== $redirectUri) {
+            throw new SsoSecurityException('Bound redirect_uri does not match Auth Host callback.');
+        }
+
+        $issuer = $this->buildIssuerFromConfiguredUrl($issuerUrl);
+
+        $metadata = ClientMetadata::fromArray([
+            'client_id' => $clientId,
+            'client_secret' => $secret,
+            'redirect_uris' => [$redirectUri],
+            'response_types' => ['code'],
+            'token_endpoint_auth_method' => 'client_secret_post',
+        ]);
+
+        return (new ClientBuilder)
+            ->setIssuer($issuer)
+            ->setClientMetadata($metadata)
+            ->setHttpClient($this->createDiscoveryHttpClient())
+            ->build();
+    }
+
+    /**
+     * BK-082 WS4: Auth Host token exchange using central AuthSession materials (no Path session).
+     *
+     * @param  array{code: string, state: string}  $params
+     */
+    public function exchangeHostAuthorizationCode(
+        Tenant $tenant,
+        TenantSsoConfigVersion $version,
+        string $redirectUri,
+        array $params,
+        AuthSessionInterface $authSession,
+    ): TokenSetInterface {
+        $client = $this->buildOpenIdClientFromVersion($tenant, $version, $redirectUri);
+
+        return $this->createAuthorizationGateway()->callback(
+            $client,
+            [
+                'code' => $params['code'],
+                'state' => $params['state'],
+            ],
+            $redirectUri,
+            $authSession,
+        );
+    }
+
+    public function buildIssuerFromConfiguredUrl(string $configuredIssuer): IssuerInterface
+    {
+        $safeIssuer = $this->issuerValidator->validateConfiguredIssuer($configuredIssuer);
+
+        $metadataBuilder = (new MetadataProviderBuilder)
+            ->setHttpClient($this->createDiscoveryHttpClient());
+
+        $issuer = (new IssuerBuilder)
+            ->setMetadataProviderBuilder($metadataBuilder)
+            ->build($safeIssuer);
+
+        $this->issuerValidator->assertDiscoveredIssuerMatches(
+            $safeIssuer,
+            (string) $issuer->getMetadata()->getIssuer()
+        );
+
+        return $issuer;
     }
 
     protected function createAuthorizationGateway(): OidcAuthorizationGateway

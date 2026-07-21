@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Modules\Identity\Events\UserRegistered;
 use Modules\Identity\Models\TenantUser;
-use Modules\Identity\Services\SsoConfigService;
+use Modules\Identity\Services\SsoOperationalExposureService;
 use Modules\Identity\Services\TenantLoginDiscoveryService;
 use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Tenancy\Events\TenantCreated;
@@ -32,14 +32,17 @@ class AuthController extends Controller
             abort(404);
         }
 
-        // BK-073: Host-mode Enterprise SSO UI gate — never advertise SSO until BK-082.
-        $ssoOperational = app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()
-            ? false
-            : app(SsoConfigService::class)->isOperationalForTenant($tenant);
+        $actorUserId = request()->user()?->getAuthIdentifier();
+        $actorUserId = is_string($actorUserId) ? $actorUserId : null;
+
+        $exposure = app(SsoOperationalExposureService::class);
+        $ssoOperational = $exposure->isExposedOnTenantLogin($tenant, $actorUserId);
+        $ssoStartUrl = $ssoOperational ? $exposure->startUrlForTenantLogin($tenant) : null;
 
         return Inertia::render('Auth/TenantLogin', [
             'tenant' => TenantInertiaProps::from($tenant),
             'ssoOperational' => $ssoOperational,
+            'ssoStartUrl' => $ssoStartUrl,
             'prefillEmail' => old('email', request()->query('email')),
         ]);
     }
@@ -165,6 +168,19 @@ class AuthController extends Controller
         $tip = $resolver->resolveTenantForRedirect($request);
         $resolver->clearIntended($request);
 
+        $tenantId = $tip instanceof Tenant ? (string) $tip->id : null;
+        if ($tenantId === null && tenancy()->initialized && tenancy()->tenant instanceof Tenant) {
+            $tenantId = (string) tenancy()->tenant->id;
+        }
+
+        // Clear Tenant-local SSO / MFA transient state before session invalidate.
+        \Modules\Identity\Support\Sso\SsoMfaContinuation::clear($request->session());
+        $request->session()->forget([
+            'mfa_verified_at',
+            'tenant_id',
+            \Modules\Identity\Support\Sso\SsoMfaContinuation::DEFER_USER_SESSION_KEY,
+        ]);
+
         Auth::guard('web')->logout();
         if (tenancy()->initialized) {
             tenancy()->end();
@@ -172,12 +188,27 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        if ($tip instanceof Tenant) {
-            // Active → tenant login; inactive → same login URL (existing showTenantLogin → 404). Never silent central.
-            return redirect()->to($resolver->loginUrl($tip));
+        if (is_string($tenantId) && $tenantId !== '') {
+            app(\Modules\Identity\Support\Sso\SsoSecurityAudit::class)->record('sso.logout.local', [
+                'tenant_id' => $tenantId,
+                'reason' => 'tenant_local_logout',
+            ]);
         }
 
-        return redirect()->route('login');
+        $secure = $request->isSecure();
+        $response = $tip instanceof Tenant
+            ? redirect()->to($resolver->loginUrl($tip))
+            : redirect()->route('login');
+
+        return $response
+            ->withCookie(\Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::clear(
+                \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
+                $secure,
+            ))
+            ->withCookie(\Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::clear(
+                \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::AUTH_BINDING,
+                $secure,
+            ));
     }
 
     /**

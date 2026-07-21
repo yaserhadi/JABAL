@@ -6,12 +6,18 @@ use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Modules\Identity\Models\SsoPlatformControl;
 use Modules\Identity\Models\TenantSsoConfig;
+use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Identity\Support\SecurityFeatureGate;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-008: Tenant SSO configuration (tenant layer). Secrets are write-only at API boundary.
+ * BK-008 / BK-082: Tenant SSO configuration (tenant layer).
+ *
+ * Material IdP fields are versioned (immutable after activation). Operational
+ * flags remain on the parent row. Secrets are write-only at the API boundary.
  */
 class SsoConfigService
 {
@@ -24,6 +30,26 @@ class SsoConfigService
         'client_id',
         'redirect_uri',
         'scopes',
+        'jwks_uri',
+        'logout_token_signing_algs',
+    ];
+
+    /** @var list<string> */
+    protected const MATERIAL_FIELDS = [
+        'provider_label',
+        'issuer_url',
+        'client_id',
+        'client_secret_encrypted',
+        'redirect_uri',
+        'scopes',
+        'jwks_uri',
+        'logout_token_signing_algs',
+    ];
+
+    /** @var list<string> */
+    protected const FLAG_FIELDS = [
+        'enabled',
+        'disabled_by_entitlement',
     ];
 
     public function __construct(
@@ -50,40 +76,123 @@ class SsoConfigService
         $this->assertActiveTenant($tenant);
 
         return $this->withTenantContext($tenant, function () use ($tenant, $data) {
-            $existing = $this->findRow($tenant);
-            $payload = Arr::only($data, self::PUBLIC_FIELDS);
+            return DB::connection('tenant')->transaction(function () use ($tenant, $data) {
+                $existing = $this->findRow($tenant);
+                $payload = Arr::only($data, self::PUBLIC_FIELDS);
 
-            if (array_key_exists('enabled', $payload) && $payload['enabled']) {
-                if ($existing?->disabled_by_entitlement) {
-                    abort(403, 'SSO cannot be enabled while disabled by entitlement.');
+                if (array_key_exists('enabled', $payload) && $payload['enabled']) {
+                    if ($existing?->disabled_by_entitlement) {
+                        abort(403, 'SSO cannot be enabled while disabled by entitlement.');
+                    }
+
+                    $this->assertSsoEntitlement($tenant);
                 }
 
-                $this->assertSsoEntitlement($tenant);
-            }
+                if (array_key_exists('client_secret', $data) && is_string($data['client_secret']) && $data['client_secret'] !== '') {
+                    $payload['client_secret_encrypted'] = Crypt::encryptString($data['client_secret']);
+                }
 
-            if (array_key_exists('client_secret', $data) && is_string($data['client_secret']) && $data['client_secret'] !== '') {
-                $payload['client_secret_encrypted'] = Crypt::encryptString($data['client_secret']);
-            }
+                unset($payload['client_secret']);
 
-            unset($payload['client_secret']);
+                $oldValues = $existing ? $this->auditSnapshot($existing) : null;
+                $flagPayload = Arr::only($payload, self::FLAG_FIELDS);
+                $materialPayload = Arr::only($payload, self::MATERIAL_FIELDS);
+                $secretProvided = array_key_exists('client_secret_encrypted', $materialPayload);
 
-            $oldValues = $existing ? $this->auditSnapshot($existing) : null;
+                if (! $existing) {
+                    $record = TenantSsoConfig::query()->create(array_merge([
+                        'tenant_id' => $tenant->id,
+                        'enabled' => false,
+                        'disabled_by_entitlement' => false,
+                        'rollout_state' => TenantSsoConfig::ROLLOUT_ENABLED,
+                        'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
+                    ], $payload));
 
-            if ($existing) {
-                $existing->update($payload);
+                    $version = $this->createActiveVersion($record, $this->materialSnapshotFromConfig($record));
+                    $record->forceFill(['active_version_id' => $version->id])->save();
+                    $record = $record->fresh();
+
+                    $this->logConfigChange($tenant, $record, false, $oldValues);
+
+                    return $record;
+                }
+
+                $materialChanged = $this->materialPayloadDiffers($existing, $materialPayload, $secretProvided);
+
+                if ($materialChanged) {
+                    $nextMaterial = $this->mergeMaterial($existing, $materialPayload, $secretProvided);
+                    $this->supersedeActiveVersion($existing);
+                    $version = $this->createActiveVersion($existing, $nextMaterial);
+                    $existing->forceFill(array_merge($nextMaterial, [
+                        'active_version_id' => $version->id,
+                    ], $flagPayload))->save();
+                } elseif ($flagPayload !== []) {
+                    $existing->forceFill($flagPayload)->save();
+                }
+
                 $record = $existing->fresh();
-            } else {
-                $record = TenantSsoConfig::query()->create(array_merge([
-                    'tenant_id' => $tenant->id,
-                    'enabled' => false,
-                    'disabled_by_entitlement' => false,
-                    'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
-                ], $payload));
+                $this->logConfigChange($tenant, $record, true, $oldValues);
+
+                return $record;
+            });
+        });
+    }
+
+    /**
+     * Bindable IdP configuration version id for Authentication Transactions (D15).
+     */
+    public function getActiveVersionId(Tenant $tenant): ?string
+    {
+        return $this->withTenantContext($tenant, function () use ($tenant) {
+            $config = $this->findRow($tenant);
+            $id = $config?->active_version_id;
+            if (! is_string($id) || $id === '') {
+                return null;
             }
 
-            $this->logConfigChange($tenant, $record, $existing !== null, $oldValues);
+            $version = TenantSsoConfigVersion::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($id)
+                ->first();
 
-            return $record;
+            if (! $version instanceof TenantSsoConfigVersion) {
+                return null;
+            }
+
+            if ($version->mayServeNewProductionLogin() || $version->isTestOnly()) {
+                return $id;
+            }
+
+            return null;
+        });
+    }
+
+    public function getActiveVersion(Tenant $tenant): ?TenantSsoConfigVersion
+    {
+        return $this->withTenantContext($tenant, function () use ($tenant) {
+            $config = $this->findRow($tenant);
+
+            if (! $config?->active_version_id) {
+                return null;
+            }
+
+            return TenantSsoConfigVersion::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($config->active_version_id)
+                ->first();
+        });
+    }
+
+    /**
+     * Resolve a version for Host transaction binding. Fail closed on tenant mismatch.
+     */
+    public function findVersionForTenant(Tenant $tenant, string $versionId): ?TenantSsoConfigVersion
+    {
+        return $this->withTenantContext($tenant, function () use ($tenant, $versionId) {
+            return TenantSsoConfigVersion::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($versionId)
+                ->first();
         });
     }
 
@@ -97,19 +206,55 @@ class SsoConfigService
             return false;
         }
 
+        if (SsoPlatformControl::current()->disable_enterprise_sso) {
+            return false;
+        }
+
         return $this->withTenantContext($tenant, function () use ($tenant) {
             $record = $this->findRow($tenant);
+            if (! $record) {
+                return false;
+            }
 
-            return (bool) ($record?->enabled)
-                && ! (bool) ($record?->disabled_by_entitlement)
-                && filled($record?->issuer_url)
-                && filled($record?->client_id)
-                && filled($record?->client_secret_encrypted);
+            $rollout = (string) ($record->rollout_state ?: TenantSsoConfig::ROLLOUT_ENABLED);
+            if (in_array($rollout, [
+                TenantSsoConfig::ROLLOUT_DISABLED,
+                TenantSsoConfig::ROLLOUT_SECURITY_DISABLED,
+                TenantSsoConfig::ROLLOUT_PAUSED,
+            ], true)) {
+                return false;
+            }
+
+            if (! (bool) $record->enabled
+                || (bool) $record->disabled_by_entitlement
+                || ! filled($record->issuer_url)
+                || ! filled($record->client_id)
+                || ! filled($record->client_secret_encrypted)
+                || ! filled($record->active_version_id)) {
+                return false;
+            }
+
+            $version = TenantSsoConfigVersion::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($record->active_version_id)
+                ->first();
+
+            if (! $version instanceof TenantSsoConfigVersion) {
+                return false;
+            }
+
+            // Test-only / pilot remain "configured" but are not generally operational.
+            if ($version->isTestOnly() || $rollout === TenantSsoConfig::ROLLOUT_TEST_ONLY) {
+                return false;
+            }
+
+            return $version->mayServeNewProductionLogin();
         });
     }
 
     /**
      * BK-008: Disable SSO when plan loses sso_available — preserve config/secrets; no session revoke.
+     * Does not create a new IdP configuration version (operational flag only).
      */
     public function disableForEntitlementLoss(Tenant $tenant): bool
     {
@@ -176,6 +321,26 @@ class SsoConfigService
         });
     }
 
+    /**
+     * Decrypt client secret from a bound IdP configuration version (WS4 Host token exchange).
+     */
+    public function getDecryptedClientSecretForVersion(Tenant $tenant, TenantSsoConfigVersion $version): ?string
+    {
+        return $this->withTenantContext($tenant, function () use ($tenant, $version) {
+            if ((string) $version->tenant_id !== (string) $tenant->id) {
+                return null;
+            }
+
+            $encrypted = $version->getAttributes()['client_secret_encrypted'] ?? null;
+
+            if (! is_string($encrypted) || $encrypted === '') {
+                return null;
+            }
+
+            return Crypt::decryptString($encrypted);
+        });
+    }
+
     public function getConfiguredIssuer(Tenant $tenant): ?string
     {
         return $this->withTenantContext($tenant, function () use ($tenant) {
@@ -188,6 +353,123 @@ class SsoConfigService
     protected function findRow(Tenant $tenant): ?TenantSsoConfig
     {
         return TenantSsoConfig::query()->where('tenant_id', $tenant->id)->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $material
+     */
+    protected function createActiveVersion(TenantSsoConfig $config, array $material): TenantSsoConfigVersion
+    {
+        $nextNumber = (int) TenantSsoConfigVersion::query()
+            ->where('config_id', $config->id)
+            ->max('version_number');
+
+        return TenantSsoConfigVersion::query()->create([
+            'tenant_id' => $config->tenant_id,
+            'config_id' => $config->id,
+            'version_number' => $nextNumber + 1,
+            'status' => TenantSsoConfigVersion::STATUS_ACTIVE,
+            'provider_label' => $material['provider_label'] ?? null,
+            'issuer_url' => $material['issuer_url'] ?? null,
+            'client_id' => $material['client_id'] ?? null,
+            'client_secret_encrypted' => $material['client_secret_encrypted'] ?? null,
+            'redirect_uri' => $material['redirect_uri'] ?? null,
+            'jwks_uri' => $material['jwks_uri'] ?? null,
+            'logout_token_signing_algs' => $material['logout_token_signing_algs']
+                ?? config('identity.sso.default_logout_token_signing_algs', ['RS256']),
+            'scopes' => $material['scopes'] ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
+            'activated_at' => now(),
+            'validated_at' => now(),
+            'approved_at' => now(),
+            'superseded_at' => null,
+        ]);
+    }
+
+    protected function supersedeActiveVersion(TenantSsoConfig $config): void
+    {
+        if (! $config->active_version_id) {
+            return;
+        }
+
+        $active = TenantSsoConfigVersion::query()
+            ->where('config_id', $config->id)
+            ->whereKey($config->active_version_id)
+            ->first();
+
+        if (! $active || $active->status !== TenantSsoConfigVersion::STATUS_ACTIVE) {
+            return;
+        }
+
+        $active->forceFill([
+            'status' => TenantSsoConfigVersion::STATUS_SUPERSEDED,
+            'superseded_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function materialSnapshotFromConfig(TenantSsoConfig $config): array
+    {
+        return [
+            'provider_label' => $config->provider_label,
+            'issuer_url' => $config->issuer_url,
+            'client_id' => $config->client_id,
+            'client_secret_encrypted' => $config->getAttributes()['client_secret_encrypted'] ?? null,
+            'redirect_uri' => $config->redirect_uri,
+            'jwks_uri' => $config->jwks_uri,
+            'logout_token_signing_algs' => $config->logout_token_signing_algs,
+            'scopes' => $config->scopes,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $materialPayload
+     * @return array<string, mixed>
+     */
+    protected function mergeMaterial(TenantSsoConfig $existing, array $materialPayload, bool $secretProvided): array
+    {
+        $merged = $this->materialSnapshotFromConfig($existing);
+
+        foreach (self::MATERIAL_FIELDS as $field) {
+            if ($field === 'client_secret_encrypted') {
+                if ($secretProvided) {
+                    $merged[$field] = $materialPayload[$field];
+                }
+
+                continue;
+            }
+
+            if (array_key_exists($field, $materialPayload)) {
+                $merged[$field] = $materialPayload[$field];
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param  array<string, mixed>  $materialPayload
+     */
+    protected function materialPayloadDiffers(TenantSsoConfig $existing, array $materialPayload, bool $secretProvided): bool
+    {
+        if ($secretProvided) {
+            return true;
+        }
+
+        if ($materialPayload === []) {
+            return false;
+        }
+
+        $current = $this->materialSnapshotFromConfig($existing);
+
+        foreach ($materialPayload as $field => $value) {
+            if (($current[$field] ?? null) != $value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -204,6 +486,9 @@ class SsoConfigService
             'redirect_uri' => $record->redirect_uri,
             'scopes' => $record->scopes ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
             'has_client_secret' => filled($record->getAttributes()['client_secret_encrypted'] ?? null),
+            'active_version_id' => $record->active_version_id,
+            'rollout_state' => $record->rollout_state ?? TenantSsoConfig::ROLLOUT_ENABLED,
+            'pending_version_id' => $record->pending_version_id,
         ];
     }
 
@@ -221,6 +506,9 @@ class SsoConfigService
             'redirect_uri' => null,
             'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
             'has_client_secret' => false,
+            'active_version_id' => null,
+            'rollout_state' => TenantSsoConfig::ROLLOUT_DISABLED,
+            'pending_version_id' => null,
         ];
     }
 
@@ -238,6 +526,7 @@ class SsoConfigService
             'redirect_uri' => $record->redirect_uri,
             'scopes' => $record->scopes,
             'has_client_secret' => filled($record->getAttributes()['client_secret_encrypted'] ?? null),
+            'active_version_id' => $record->active_version_id,
         ];
     }
 
@@ -272,6 +561,17 @@ class SsoConfigService
         if (! $this->featureGate->isSsoAvailable($tenant)) {
             abort(403, 'SSO is not available for this tenant plan.');
         }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function runInTenantContext(Tenant $tenant, callable $callback)
+    {
+        return $this->withTenantContext($tenant, $callback);
     }
 
     /**

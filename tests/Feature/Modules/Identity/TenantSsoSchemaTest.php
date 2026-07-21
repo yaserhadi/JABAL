@@ -32,7 +32,9 @@ class TenantSsoSchemaTest extends TestCase
     public function test_tenant_migrations_create_sso_tables(): void
     {
         $this->assertTrue(Schema::connection('tenant')->hasTable('tenant_sso_config'));
+        $this->assertTrue(Schema::connection('tenant')->hasTable('tenant_sso_config_versions'));
         $this->assertTrue(Schema::connection('tenant')->hasTable('tenant_user_identities'));
+        $this->assertTrue(Schema::connection('tenant')->hasColumn('tenant_sso_config', 'active_version_id'));
     }
 
     public function test_tenant_sso_config_enforces_one_row_per_tenant(): void

@@ -6,13 +6,20 @@ use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoBackChannelLogoutController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoCallbackController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoHandoffController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoInitiateController;
+use Modules\Identity\Http\Controllers\EnterpriseSsoStartController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Controllers\SecurityPolicyController;
 use Modules\Identity\Http\Controllers\SecuritySettingsController;
 use Modules\Identity\Http\Controllers\SsoAuthController;
 use Modules\Identity\Http\Controllers\SsoConfigController;
+use Modules\Identity\Http\Controllers\SsoGovernanceController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
+use Modules\Identity\Http\Middleware\EnterpriseSsoTransitionHeaders;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
 
 /*
@@ -59,8 +66,22 @@ if ($addressing->isHost()) {
         });
     });
 
-    // Auth Host ONLY — Enterprise SSO callback
+    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback (WS4); legacy Path-style callback stays 404-gated
     $registrar->onAuthHost(function () {
+        Route::middleware(['web', 'guest', 'throttle:sso-enterprise-initiate', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::get('auth/enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
+                ->name('identity.enterprise-sso.initiate');
+        });
+        Route::middleware(['web', 'guest', 'throttle:sso-enterprise-callback', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::match(['get', 'post'], 'auth/enterprise-sso/callback', EnterpriseSsoCallbackController::class)
+                ->name('identity.enterprise-sso.callback');
+        });
+        // Back-Channel Logout: no session cookie dependency; Auth Host only.
+        Route::middleware(['throttle:sso-enterprise-bclogout', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::post('auth/enterprise-sso/backchannel-logout', EnterpriseSsoBackChannelLogoutController::class)
+                ->name('identity.enterprise-sso.backchannel-logout');
+        });
+
         Route::middleware('guest')->group(function () {
             Route::get('auth/sso/callback', [SsoAuthController::class, 'callback'])
                 ->name('identity.sso.callback');
@@ -69,6 +90,16 @@ if ($addressing->isHost()) {
 
     // Tenant Host — wildcard {tenant_label} is NOT a resolver
     $registrar->onTenantHost(function () {
+        Route::middleware(['web', 'guest', 'throttle:sso-enterprise-start', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::get('/auth/enterprise-sso/start', EnterpriseSsoStartController::class)
+                ->name('identity.enterprise-sso.start');
+        });
+
+        Route::middleware(['web', 'throttle:sso-enterprise-handoff', EnterpriseSsoTransitionHeaders::class])->group(function () {
+            Route::get('/auth/enterprise-sso/handoff', EnterpriseSsoHandoffController::class)
+                ->name('identity.enterprise-sso.handoff');
+        });
+
         Route::middleware(['web', 'guest'])->group(function () {
             Route::get('/login', [AuthController::class, 'showTenantLogin'])->name('tenant.login');
             Route::post('/login', [AuthController::class, 'tenantLogin'])->name('tenant.login.submit');
@@ -79,12 +110,15 @@ if ($addressing->isHost()) {
         Route::middleware([
             'web',
             'auth',
+            'throttle:sso-enterprise-mfa',
             EnsureUserBelongsToTenant::class,
+            EnterpriseSsoTransitionHeaders::class,
         ])->group(function () {
             Route::get('/security/mfa/enroll', [MfaController::class, 'showEnroll'])->name('identity.mfa.enroll');
             Route::post('/security/mfa/enroll', [MfaController::class, 'confirmEnroll'])->name('identity.mfa.enroll.confirm');
             Route::get('/security/mfa/challenge', [MfaController::class, 'showChallenge'])->name('identity.mfa.challenge');
             Route::post('/security/mfa/challenge', [MfaController::class, 'verifyChallenge'])->name('identity.mfa.challenge.verify');
+            Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');
         });
 
         Route::middleware([
@@ -143,6 +177,31 @@ if ($addressing->isHost()) {
                 ->name('identity.sso.show');
             Route::patch('/security/sso', [SsoConfigController::class, 'update'])
                 ->name('identity.sso.update');
+
+            Route::post('/security/sso/versions/{versionId}/validate', [SsoGovernanceController::class, 'validateVersion'])
+                ->name('identity.sso.versions.validate');
+            Route::post('/security/sso/versions/{versionId}/test-only', [SsoGovernanceController::class, 'markTestOnly'])
+                ->name('identity.sso.versions.test-only');
+            Route::post('/security/sso/versions/{versionId}/approve', [SsoGovernanceController::class, 'approveVersion'])
+                ->name('identity.sso.versions.approve');
+            Route::post('/security/sso/versions/{versionId}/activate', [SsoGovernanceController::class, 'activateVersion'])
+                ->name('identity.sso.versions.activate');
+            Route::post('/security/sso/versions/{versionId}/disable', [SsoGovernanceController::class, 'disableVersion'])
+                ->name('identity.sso.versions.disable');
+            Route::post('/security/sso/versions/{versionId}/revoke-secret', [SsoGovernanceController::class, 'revokeSecret'])
+                ->name('identity.sso.versions.revoke-secret');
+            Route::post('/security/sso/versions/{versionId}/recover', [SsoGovernanceController::class, 'recover'])
+                ->name('identity.sso.versions.recover');
+            Route::post('/security/sso/rollout', [SsoGovernanceController::class, 'setRollout'])
+                ->name('identity.sso.rollout');
+            Route::post('/security/sso/kill-switch/pause-tenant', [SsoGovernanceController::class, 'pauseTenant'])
+                ->name('identity.sso.kill-switch.pause-tenant');
+            Route::post('/security/sso/kill-switch/security-disable', [SsoGovernanceController::class, 'securityDisable'])
+                ->name('identity.sso.kill-switch.security-disable');
+            Route::post('/security/sso/kill-switch/pause-platform', [SsoGovernanceController::class, 'pausePlatform'])
+                ->name('identity.sso.kill-switch.pause-platform');
+            Route::post('/security/sso/kill-switch/disable-platform', [SsoGovernanceController::class, 'disablePlatform'])
+                ->name('identity.sso.kill-switch.disable-platform');
 
             Route::get('/security/settings', [SecuritySettingsController::class, 'show'])
                 ->name('identity.security-settings.show');
@@ -257,6 +316,31 @@ Route::prefix('t/{tenant}')
             ->name('identity.sso.show');
         Route::patch('/security/sso', [SsoConfigController::class, 'update'])
             ->name('identity.sso.update');
+
+        Route::post('/security/sso/versions/{versionId}/validate', [SsoGovernanceController::class, 'validateVersion'])
+            ->name('identity.sso.versions.validate');
+        Route::post('/security/sso/versions/{versionId}/test-only', [SsoGovernanceController::class, 'markTestOnly'])
+            ->name('identity.sso.versions.test-only');
+        Route::post('/security/sso/versions/{versionId}/approve', [SsoGovernanceController::class, 'approveVersion'])
+            ->name('identity.sso.versions.approve');
+        Route::post('/security/sso/versions/{versionId}/activate', [SsoGovernanceController::class, 'activateVersion'])
+            ->name('identity.sso.versions.activate');
+        Route::post('/security/sso/versions/{versionId}/disable', [SsoGovernanceController::class, 'disableVersion'])
+            ->name('identity.sso.versions.disable');
+        Route::post('/security/sso/versions/{versionId}/revoke-secret', [SsoGovernanceController::class, 'revokeSecret'])
+            ->name('identity.sso.versions.revoke-secret');
+        Route::post('/security/sso/versions/{versionId}/recover', [SsoGovernanceController::class, 'recover'])
+            ->name('identity.sso.versions.recover');
+        Route::post('/security/sso/rollout', [SsoGovernanceController::class, 'setRollout'])
+            ->name('identity.sso.rollout');
+        Route::post('/security/sso/kill-switch/pause-tenant', [SsoGovernanceController::class, 'pauseTenant'])
+            ->name('identity.sso.kill-switch.pause-tenant');
+        Route::post('/security/sso/kill-switch/security-disable', [SsoGovernanceController::class, 'securityDisable'])
+            ->name('identity.sso.kill-switch.security-disable');
+        Route::post('/security/sso/kill-switch/pause-platform', [SsoGovernanceController::class, 'pausePlatform'])
+            ->name('identity.sso.kill-switch.pause-platform');
+        Route::post('/security/sso/kill-switch/disable-platform', [SsoGovernanceController::class, 'disablePlatform'])
+            ->name('identity.sso.kill-switch.disable-platform');
 
         Route::get('/security/settings', [SecuritySettingsController::class, 'show'])
             ->name('identity.security-settings.show');

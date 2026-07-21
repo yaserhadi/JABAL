@@ -10,12 +10,19 @@ use Modules\Tenancy\Models\Tenant;
 
 class SessionRegistryService
 {
-    public function register(TenantUser $user, Request $request, ?string $sessionId): UserSession
+    public function register(TenantUser $user, Request $request, ?string $sessionId, array $federation = []): UserSession
     {
         return UserSession::create([
             'tenant_id' => $user->tenant_id ?? tenancy()->tenant?->id,
             'user_id' => $user->id,
             'session_id' => $sessionId,
+            'idp_sid' => isset($federation['idp_sid']) && is_string($federation['idp_sid']) ? $federation['idp_sid'] : null,
+            'idp_issuer' => isset($federation['idp_issuer']) && is_string($federation['idp_issuer']) ? $federation['idp_issuer'] : null,
+            'identity_link_id' => isset($federation['identity_link_id']) && is_string($federation['identity_link_id']) ? $federation['identity_link_id'] : null,
+            'idp_configuration_version_id' => isset($federation['idp_configuration_version_id']) && is_string($federation['idp_configuration_version_id'])
+                ? $federation['idp_configuration_version_id']
+                : null,
+            'correlation_id' => isset($federation['correlation_id']) && is_string($federation['correlation_id']) ? $federation['correlation_id'] : null,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'device_label' => $this->parseDeviceLabel($request->userAgent() ?? ''),
@@ -98,6 +105,41 @@ class SessionRegistryService
         }
 
         return $query->update(['revoked_at' => now()]);
+    }
+
+    public function revokeActiveByIdpSid(Tenant $tenant, string $issuer, string $sid, string $idpConfigurationVersionId): int
+    {
+        return UserSession::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('idp_sid', $sid)
+            ->where('idp_issuer', $issuer)
+            ->where('idp_configuration_version_id', $idpConfigurationVersionId)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
+    }
+
+    public function revokeActiveByIdentityLink(
+        Tenant $tenant,
+        string $identityLinkId,
+        string $issuer,
+        string $idpConfigurationVersionId,
+    ): int {
+        return UserSession::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('identity_link_id', $identityLinkId)
+            ->where('idp_issuer', $issuer)
+            ->where('idp_configuration_version_id', $idpConfigurationVersionId)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
+    }
+
+    public function revokeActiveByIdpConfigurationVersion(Tenant $tenant, string $idpConfigurationVersionId): int
+    {
+        return UserSession::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('idp_configuration_version_id', $idpConfigurationVersionId)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
     }
 
     public function cleanup(int $olderThanDays): int

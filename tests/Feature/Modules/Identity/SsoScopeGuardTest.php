@@ -60,12 +60,18 @@ class SsoScopeGuardTest extends TestCase
     public function no_refresh_token_persistence_in_identity_module(): void
     {
         $identityModule = base_path('Modules/Identity');
+        $redactionAllowlist = [
+            'SsoObservabilityRedactor.php',
+        ];
         foreach (File::allFiles($identityModule) as $file) {
             if ($file->getExtension() !== 'php') {
                 continue;
             }
 
             $basename = $file->getFilename();
+            if (in_array($basename, $redactionAllowlist, true)) {
+                continue;
+            }
             if (! str_starts_with($basename, 'Sso') && ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Sso'.DIRECTORY_SEPARATOR)) {
                 continue;
             }
@@ -79,7 +85,28 @@ class SsoScopeGuardTest extends TestCase
     public function no_central_sso_tables(): void
     {
         $schema = DB::connection('central')->getSchemaBuilder();
+
+        // Tenant-layer SSO config/identity tables must never appear on central.
         $this->assertFalse($schema->hasTable('tenant_sso_config'));
         $this->assertFalse($schema->hasTable('tenant_user_identities'));
+
+        // BK-082 / DEC-0024 named allowlist: Identity-owned Authentication Transaction + Handoff only.
+        $this->assertTrue(
+            $schema->hasTable('sso_authentication_transactions'),
+            'Central Authentication Transaction store is required for Host Enterprise SSO.'
+        );
+        $this->assertTrue(
+            $schema->hasTable('sso_tenant_handoffs'),
+            'Central Tenant Handoff store is required for Host Enterprise SSO.'
+        );
+    }
+
+    #[Test]
+    public function authorization_code_must_not_be_persisted_in_central_sso_schema(): void
+    {
+        $schema = DB::connection('central')->getSchemaBuilder();
+        $this->assertFalse($schema->hasColumn('sso_authentication_transactions', 'authorization_code'));
+        $this->assertFalse($schema->hasColumn('sso_authentication_transactions', 'auth_code'));
+        $this->assertFalse($schema->hasColumn('sso_tenant_handoffs', 'authorization_code'));
     }
 }

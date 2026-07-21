@@ -60,7 +60,7 @@ class SsoTenantLoginTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function tenant_login_hides_operational_sso_under_host_profile(): void
+    public function tenant_login_shows_operational_sso_under_host_profile_when_gate_passes(): void
     {
         $tenant = Tenant::factory()->create([
             'status' => 'active',
@@ -81,7 +81,7 @@ class SsoTenantLoginTest extends TestCase
             ->assertInertia(
                 fn ($page) => $page
                     ->component('Auth/TenantLogin')
-                    ->where('ssoOperational', false)
+                    ->where('ssoOperational', true)
             );
     }
 
