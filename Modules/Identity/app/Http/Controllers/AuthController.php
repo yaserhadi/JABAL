@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Modules\Identity\Events\UserRegistered;
 use Modules\Identity\Models\TenantUser;
-use Modules\Identity\Services\SsoConfigService;
+use Modules\Identity\Services\SsoOperationalExposureService;
 use Modules\Identity\Services\TenantLoginDiscoveryService;
 use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Tenancy\Events\TenantCreated;
@@ -32,14 +32,17 @@ class AuthController extends Controller
             abort(404);
         }
 
-        // BK-073: Host-mode Enterprise SSO UI gate — never advertise SSO until BK-082.
-        $ssoOperational = app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()
-            ? false
-            : app(SsoConfigService::class)->isOperationalForTenant($tenant);
+        $actorUserId = request()->user()?->getAuthIdentifier();
+        $actorUserId = is_string($actorUserId) ? $actorUserId : null;
+
+        $exposure = app(SsoOperationalExposureService::class);
+        $ssoOperational = $exposure->isExposedOnTenantLogin($tenant, $actorUserId);
+        $ssoStartUrl = $ssoOperational ? $exposure->startUrlForTenantLogin($tenant) : null;
 
         return Inertia::render('Auth/TenantLogin', [
             'tenant' => TenantInertiaProps::from($tenant),
             'ssoOperational' => $ssoOperational,
+            'ssoStartUrl' => $ssoStartUrl,
             'prefillEmail' => old('email', request()->query('email')),
         ]);
     }

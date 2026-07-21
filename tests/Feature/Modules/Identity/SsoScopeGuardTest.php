@@ -60,12 +60,18 @@ class SsoScopeGuardTest extends TestCase
     public function no_refresh_token_persistence_in_identity_module(): void
     {
         $identityModule = base_path('Modules/Identity');
+        $redactionAllowlist = [
+            'SsoObservabilityRedactor.php',
+        ];
         foreach (File::allFiles($identityModule) as $file) {
             if ($file->getExtension() !== 'php') {
                 continue;
             }
 
             $basename = $file->getFilename();
+            if (in_array($basename, $redactionAllowlist, true)) {
+                continue;
+            }
             if (! str_starts_with($basename, 'Sso') && ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Sso'.DIRECTORY_SEPARATOR)) {
                 continue;
             }

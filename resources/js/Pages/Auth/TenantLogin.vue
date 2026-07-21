@@ -22,16 +22,16 @@
                                 </v-alert>
 
                                 <v-btn
-                                    v-if="ssoOperational"
+                                    v-if="ssoOperational && ssoStartUrl"
                                     color="primary"
                                     block
                                     class="mb-4"
-                                    :href="ssoRedirectUrl"
+                                    :href="ssoStartUrl"
                                 >
                                     Sign in with SSO
                                 </v-btn>
 
-                                <v-divider v-if="ssoOperational" class="my-4" />
+                                <v-divider v-if="ssoOperational && ssoStartUrl" class="my-4" />
 
                                 <v-form @submit.prevent="submit">
                                     <v-text-field
@@ -98,6 +98,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    ssoStartUrl: {
+        type: String,
+        default: null,
+    },
     prefillEmail: {
         type: String,
         default: '',
@@ -117,10 +121,6 @@ onMounted(() => {
 });
 
 const tenantKey = computed(() => tenantEntry(props.tenant));
-
-const ssoRedirectUrl = computed(() =>
-    route('identity.sso.redirect', { tenant: tenantKey.value })
-);
 
 const submit = () => {
     form.post(route('tenant.login.submit', { tenant: tenantKey.value }), {

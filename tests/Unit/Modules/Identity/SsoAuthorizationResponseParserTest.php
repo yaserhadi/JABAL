@@ -71,6 +71,16 @@ class SsoAuthorizationResponseParserTest extends TestCase
     }
 
     #[Test]
+    public function rejects_duplicate_form_post_body_parameters(): void
+    {
+        $this->expectException(SsoSecurityException::class);
+        $request = Request::create('/cb', 'POST', [], [], [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+        ], 'state=a&state=b&code=x');
+        app(SsoAuthorizationResponseParser::class)->parse($request, 'form_post');
+    }
+
+    #[Test]
     public function query_mode_rejects_post(): void
     {
         $this->expectException(SsoSecurityException::class);

@@ -58,8 +58,15 @@ class SsoApplicationControlTest extends TestCase
     #[Test]
     public function sso_code_has_no_token_persistence(): void
     {
+        $redactionAllowlist = [
+            'SsoObservabilityRedactor.php',
+        ];
+
         foreach ($this->ssoPhpFiles() as $file) {
             $basename = $file->getFilename();
+            if (in_array($basename, $redactionAllowlist, true)) {
+                continue;
+            }
             if (! str_starts_with($basename, 'Sso') && ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Sso'.DIRECTORY_SEPARATOR)) {
                 continue;
             }
@@ -77,8 +84,22 @@ class SsoApplicationControlTest extends TestCase
     #[Test]
     public function sso_runtime_code_does_not_read_central_connection(): void
     {
+        // BK-082 / DEC-0024: central is authoritative for Auth Txn, Handoff, BC Logout events,
+        // and platform kill-switch controls — not for Tenant SSO config runtime data.
+        $centralAllowlist = [
+            'SsoBackChannelLogoutService.php',
+            'SsoKillSwitchService.php',
+            'SsoPlatformControl.php',
+            'SsoBackchannelLogoutEvent.php',
+            'SsoAuthenticationTransaction.php',
+            'SsoTenantHandoff.php',
+        ];
+
         foreach ($this->ssoPhpFiles() as $file) {
             $basename = $file->getFilename();
+            if (in_array($basename, $centralAllowlist, true)) {
+                continue;
+            }
             if (! str_starts_with($basename, 'Sso') && ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Sso'.DIRECTORY_SEPARATOR)) {
                 continue;
             }

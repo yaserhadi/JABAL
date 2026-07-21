@@ -2,6 +2,7 @@
 
 namespace Modules\Identity\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,12 +11,13 @@ use Modules\Identity\Services\HostEnterpriseSsoInitiationService;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-082 WS3: Tenant Host Enterprise SSO start (continuation cookie + Auth Host redirect).
+ * BK-082 WS3/WS9: Tenant Host Enterprise SSO start (continuation cookie + Auth Host redirect).
  */
 class EnterpriseSsoStartController extends Controller
 {
     public function __construct(
         protected HostEnterpriseSsoInitiationService $initiation,
+        protected TenantEntryUrlResolver $entryUrls,
     ) {}
 
     public function __invoke(Request $request): RedirectResponse
@@ -28,8 +30,9 @@ class EnterpriseSsoStartController extends Controller
         try {
             return $this->initiation->startOnTenantHost($tenant, $request);
         } catch (SsoSecurityException) {
+            // Generic, non-enumerating failure — password form remains available; no auto-fallback.
             return redirect()
-                ->route('tenant.login')
+                ->to($this->entryUrls->loginUrl($tenant))
                 ->withErrors(['email' => __('Single sign-on is not available for this organization.')]);
         }
     }
