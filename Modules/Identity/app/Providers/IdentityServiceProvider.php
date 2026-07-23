@@ -53,6 +53,7 @@ class IdentityServiceProvider extends ServiceProvider
                 $app->make(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class),
             ),
         );
+        $this->app->singleton(\Modules\Identity\Support\Sso\Credentials\IdpCredentialAccessService::class);
     }
 
     /**
