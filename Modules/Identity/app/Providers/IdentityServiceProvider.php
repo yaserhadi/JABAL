@@ -27,8 +27,10 @@ class IdentityServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
+        $this->registerLocalSealedBindings();
+        $this->registerLocalSealedInRegistry();
 
-        // BK-098: seal after boot so only register()-phase providers may bind.
+        // BK-098: seal after boot so only boot-time providers may bind.
         $this->app->booted(function (): void {
             $this->app->make(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class)->seal();
         });
@@ -43,13 +45,85 @@ class IdentityServiceProvider extends ServiceProvider
         $this->app->register(RouteServiceProvider::class);
         $this->app->singleton(\PragmaRX\Google2FA\Google2FA::class, fn () => new \PragmaRX\Google2FA\Google2FA);
 
-        // BK-098 foundation: registry + resolver only — no local_sealed adapter yet.
+        // BK-098: registry + resolver; local_sealed adapters bound in boot after config merge.
         $this->app->singleton(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class);
         $this->app->singleton(
             \Modules\Identity\Support\Sso\Credentials\IdpCredentialResolver::class,
             fn ($app) => new \Modules\Identity\Support\Sso\Credentials\IdpCredentialResolver(
                 $app->make(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class),
             ),
+        );
+    }
+
+    /**
+     * Bind local_sealed engine + least-privilege Runtime/Management adapters.
+     */
+    protected function registerLocalSealedBindings(): void
+    {
+        $this->app->singleton(
+            \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedEngine::class,
+            function () {
+                $cfg = config('identity.secrets.local_sealed', []);
+
+                return new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedEngine(
+                    new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedPathResolver(
+                        (string) ($cfg['store_path'] ?? ''),
+                        public_path(),
+                    ),
+                    new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedKeySource(
+                        isset($cfg['unseal_key_file']) ? (string) $cfg['unseal_key_file'] : null,
+                    ),
+                    (string) config('identity.secrets.runtime_class', ''),
+                    array_values(config('identity.secrets.allowed_runtime_classes_for_local_sealed', ['local', 'testing'])),
+                );
+            },
+        );
+
+        $this->app->singleton(
+            \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedRuntime::class,
+            fn ($app) => new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedRuntime(
+                $app->make(\Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedEngine::class),
+            ),
+        );
+
+        $this->app->singleton(
+            \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedManagement::class,
+            fn ($app) => new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedManagement(
+                $app->make(\Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedEngine::class),
+            ),
+        );
+    }
+
+    /**
+     * Register local_sealed only when explicitly enabled and runtime-class allowlisted.
+     * Production / unknown / missing runtime class → do not register (fail closed).
+     */
+    protected function registerLocalSealedInRegistry(): void
+    {
+        if (! config('identity.secrets.local_sealed.enabled')) {
+            return;
+        }
+
+        $runtimeClass = strtolower(trim((string) config('identity.secrets.runtime_class', '')));
+        $allowed = array_map(
+            'strtolower',
+            array_values(config('identity.secrets.allowed_runtime_classes_for_local_sealed', [])),
+        );
+
+        if ($runtimeClass === '' || $runtimeClass === 'production' || ! in_array($runtimeClass, $allowed, true)) {
+            return;
+        }
+
+        $registry = $this->app->make(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class);
+        if ($registry->isSealed() || $registry->hasRuntime('local_sealed')) {
+            return;
+        }
+
+        $registry->registerRuntime(
+            $this->app->make(\Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedRuntime::class),
+        );
+        $registry->registerManagement(
+            $this->app->make(\Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedManagement::class),
         );
     }
 
