@@ -137,7 +137,7 @@ final class IdpCredentialResolver
             throw CredentialResolutionException::failClosed('environment_mismatch');
         }
 
-        if ($runtimeClass === 'production' && in_array($scope, ['local', 'testing'], true)) {
+        if ($runtimeClass === 'production' && in_array($scope, ['local', 'development', 'test', 'controlled_uat'], true)) {
             throw CredentialResolutionException::failClosed('production_prohibited_credential_scope');
         }
     }

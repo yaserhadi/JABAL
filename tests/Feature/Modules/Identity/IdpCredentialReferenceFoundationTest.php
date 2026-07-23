@@ -32,12 +32,13 @@ class IdpCredentialReferenceFoundationTest extends TestCase
     {
         parent::setUp();
         config([
-            'identity.secrets.runtime_class' => 'testing',
-            'identity.secrets.known_runtime_classes' => ['local', 'testing', 'staging', 'production'],
+            'identity.secrets.runtime_class' => 'test',
+            'identity.secrets.known_runtime_classes' => ['local', 'development', 'test', 'controlled_uat', 'production'],
             'identity.secrets.environment_scopes_by_runtime_class' => [
                 'local' => ['local'],
-                'testing' => ['testing', 'local'],
-                'staging' => ['staging'],
+                'development' => ['development', 'local'],
+                'test' => ['test', 'local'],
+                'controlled_uat' => ['controlled_uat'],
                 'production' => ['production'],
             ],
         ]);
@@ -421,7 +422,7 @@ class IdpCredentialReferenceFoundationTest extends TestCase
             'credential_provider' => 'local_sealed',
             'credential_reference' => 'enterprise-sso/'.$tenant->id.'/v/client-secret',
             'credential_type' => 'oidc_client_secret',
-            'credential_environment_scope' => 'testing',
+            'credential_environment_scope' => 'test',
             'credential_status' => 'active',
         ], $overrides);
 

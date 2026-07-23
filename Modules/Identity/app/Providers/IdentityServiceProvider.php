@@ -72,9 +72,14 @@ class IdentityServiceProvider extends ServiceProvider
                     ),
                     new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedKeySource(
                         isset($cfg['unseal_key_file']) ? (string) $cfg['unseal_key_file'] : null,
+                        (string) ($cfg['store_path'] ?? ''),
+                        public_path(),
                     ),
                     (string) config('identity.secrets.runtime_class', ''),
-                    array_values(config('identity.secrets.allowed_runtime_classes_for_local_sealed', ['local', 'testing'])),
+                    array_values(config('identity.secrets.allowed_runtime_classes_for_local_sealed', [
+                        'local', 'development', 'test', 'controlled_uat',
+                    ])),
+                    (bool) config('identity.secrets.production_state_active', false),
                 );
             },
         );

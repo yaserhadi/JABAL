@@ -3,28 +3,51 @@
 /**
  * BK-098: Provider-neutral secret runtime wiring + local_sealed adapter.
  * Production use of local_sealed remains prohibited under BK-098.
+ *
+ * SECRET_RUNTIME_CLASS is independent of Laravel APP_ENV labels.
  */
 return [
     'runtime_class' => env('SECRET_RUNTIME_CLASS'),
 
+    /*
+    | Owner-locked classification values (literal):
+    | local | development | test | controlled_uat | production
+    */
     'known_runtime_classes' => [
         'local',
-        'testing',
-        'staging',
+        'development',
+        'test',
+        'controlled_uat',
         'production',
     ],
 
     'environment_scopes_by_runtime_class' => [
         'local' => ['local'],
-        'testing' => ['testing', 'local'],
-        'staging' => ['staging'],
+        'development' => ['development', 'local'],
+        'test' => ['test', 'local'],
+        'controlled_uat' => ['controlled_uat'],
         'production' => ['production'],
     ],
 
+    /*
+    | local_sealed allowlist — explicit non-production only.
+    */
     'allowed_runtime_classes_for_local_sealed' => [
         'local',
-        'testing',
+        'development',
+        'test',
+        'controlled_uat',
     ],
+
+    /*
+    | Independent production-state guard (misconfiguration safety net).
+    | When true, local_sealed denies even if SECRET_RUNTIME_CLASS is non-production.
+    */
+    'production_state_active' => (bool) (
+        env('LOCAL_SEALED_FORCE_PRODUCTION_GUARD', false)
+        || strtolower((string) env('APP_ENV', '')) === 'production'
+        || strtolower((string) env('APP_ENV', '')) === 'prod'
+    ),
 
     'registered_providers' => [
         // populated at boot when local_sealed.enabled and runtime allowlisted

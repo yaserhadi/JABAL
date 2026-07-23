@@ -12,6 +12,7 @@ final class LocalSealedPathResolver
     public function __construct(
         private readonly string $storeRoot,
         private readonly string $publicRoot,
+        private readonly FilesystemGuard $fs = new FilesystemGuard,
     ) {}
 
     public function assertStoreConfigured(): string
@@ -20,12 +21,16 @@ final class LocalSealedPathResolver
             throw LocalSealedException::failClosed('missing_or_invalid_store_path');
         }
 
-        if (! is_dir($this->storeRoot)) {
+        if (! $this->fs->isDir($this->storeRoot)) {
             throw LocalSealedException::failClosed('missing_or_invalid_store_path');
         }
 
-        $root = realpath($this->storeRoot);
-        $public = realpath($this->publicRoot);
+        if ($this->fs->isLink($this->storeRoot)) {
+            throw LocalSealedException::failClosed('symlink_escape');
+        }
+
+        $root = $this->fs->realpath($this->storeRoot);
+        $public = $this->fs->realpath($this->publicRoot);
 
         if ($root === false) {
             throw LocalSealedException::failClosed('missing_or_invalid_store_path');
@@ -36,6 +41,10 @@ final class LocalSealedPathResolver
 
         if ($root === $public || str_starts_with($root, rtrim($public, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
             throw LocalSealedException::failClosed('store_inside_web_root');
+        }
+
+        if ($this->fs->hasOverlyBroadPermissions($root)) {
+            throw LocalSealedException::failClosed('store_permissions_too_open');
         }
 
         return $root;
@@ -54,7 +63,7 @@ final class LocalSealedPathResolver
         $candidate = $root.DIRECTORY_SEPARATOR.$relative;
 
         $parent = dirname($candidate);
-        if (! is_dir($parent) && ! mkdir($parent, 0700, true) && ! is_dir($parent)) {
+        if (! $this->fs->isDir($parent) && ! mkdir($parent, 0700, true) && ! $this->fs->isDir($parent)) {
             throw LocalSealedException::failClosed('store_mkdir_failed');
         }
 
@@ -72,25 +81,69 @@ final class LocalSealedPathResolver
     {
         $root ??= $this->assertStoreConfigured();
 
-        if (is_link($candidate)) {
-            throw LocalSealedException::failClosed('symlink_escape');
-        }
+        // Walk every existing component from candidate up to (and including) store root.
+        $this->assertComponentChainNotLinked($candidate, $root);
 
         $parent = dirname($candidate);
-        if (is_link($parent)) {
+        if ($this->fs->isLink($parent)) {
             throw LocalSealedException::failClosed('symlink_escape');
         }
 
-        $parentReal = realpath($parent);
+        $parentReal = $this->fs->realpath($parent);
         if ($parentReal === false || ! $this->isUnder($parentReal, $root)) {
             throw LocalSealedException::failClosed('symlink_escape');
         }
 
-        if (file_exists($candidate) && ! is_link($candidate)) {
-            $real = realpath($candidate);
+        if ($this->fs->isLink($candidate)) {
+            throw LocalSealedException::failClosed('symlink_escape');
+        }
+
+        if ($this->fs->isFile($candidate) || $this->fs->isDir($candidate)) {
+            $real = $this->fs->realpath($candidate);
             if ($real === false || ! $this->isUnder($real, $root)) {
                 throw LocalSealedException::failClosed('symlink_escape');
             }
+        }
+    }
+
+    /**
+     * Temp write destinations must also stay under the sealed store root.
+     */
+    public function assertTempPathAllowed(string $tmpPath, string $root): void
+    {
+        if ($this->fs->isLink($tmpPath)) {
+            throw LocalSealedException::failClosed('symlink_escape');
+        }
+
+        $this->assertComponentChainNotLinked($tmpPath, $root);
+
+        $parent = dirname($tmpPath);
+        $parentReal = $this->fs->realpath($parent);
+        if ($parentReal === false || ! $this->isUnder($parentReal, $root)) {
+            throw LocalSealedException::failClosed('symlink_escape');
+        }
+    }
+
+    private function assertComponentChainNotLinked(string $path, string $root): void
+    {
+        $normalizedRoot = rtrim($root, DIRECTORY_SEPARATOR);
+        $current = $path;
+
+        for ($i = 0; $i < 128; $i++) {
+            if ($this->fs->isLink($current)) {
+                throw LocalSealedException::failClosed('symlink_escape');
+            }
+
+            $normalized = rtrim($current, DIRECTORY_SEPARATOR);
+            if ($normalized === $normalizedRoot) {
+                break;
+            }
+
+            $parent = dirname($current);
+            if ($parent === $current) {
+                break;
+            }
+            $current = $parent;
         }
     }
 
