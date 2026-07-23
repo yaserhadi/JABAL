@@ -7,19 +7,23 @@ namespace Modules\Identity\Support\Sso\Credentials;
  */
 final class SecretReference
 {
+    public readonly string $provider;
+
     public function __construct(
-        public readonly string $provider,
+        string $provider,
         public readonly string $reference,
         public readonly string $credentialType,
         public readonly ?string $versionPolicy = null,
         public readonly ?string $environmentScope = null,
         public readonly ?string $status = null,
     ) {
-        if ($provider === '' || $reference === '' || $credentialType === '') {
+        $this->provider = SecretProviderKey::canonicalize($provider);
+
+        if ($this->reference === '' || $this->credentialType === '') {
             throw new \InvalidArgumentException('SecretReference requires provider, reference, and credentialType.');
         }
 
-        if ($this->looksLikeFilesystemPath($reference)) {
+        if ($this->looksLikeFilesystemPath($this->reference)) {
             throw new \InvalidArgumentException('SecretReference must be an opaque logical key, not a filesystem path.');
         }
     }

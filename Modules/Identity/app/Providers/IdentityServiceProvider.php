@@ -27,6 +27,11 @@ class IdentityServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
+
+        // BK-098: seal after boot so only register()-phase providers may bind.
+        $this->app->booted(function (): void {
+            $this->app->make(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class)->seal();
+        });
     }
 
     /**
