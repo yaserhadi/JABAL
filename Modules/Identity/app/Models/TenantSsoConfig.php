@@ -11,10 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-008 / BK-082: Tenant-owned OIDC SSO configuration (tenant data layer).
+ * BK-008 / BK-082 / BK-098: Tenant-owned OIDC SSO configuration (tenant data layer).
  *
  * Material IdP settings are versioned via TenantSsoConfigVersion (active_version_id).
  * Operational flags and WS8 rollout/kill state remain on this parent row.
+ *
+ * BK-098: Do not add operational credential_provider / credential_reference on this
+ * parent. Version rows own reference metadata; parent holds active_version_id only.
  */
 class TenantSsoConfig extends Model
 {

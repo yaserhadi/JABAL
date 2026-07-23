@@ -373,6 +373,16 @@ class SsoConfigService
             'issuer_url' => $material['issuer_url'] ?? null,
             'client_id' => $material['client_id'] ?? null,
             'client_secret_encrypted' => $material['client_secret_encrypted'] ?? null,
+            // BK-098 foundation: new active versions stay on legacy until explicit cutover.
+            'credential_source' => $material['credential_source']
+                ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED,
+            'credential_provider' => $material['credential_provider'] ?? null,
+            'credential_reference' => $material['credential_reference'] ?? null,
+            'credential_type' => $material['credential_type'] ?? null,
+            'credential_version_policy' => $material['credential_version_policy'] ?? null,
+            'credential_environment_scope' => $material['credential_environment_scope'] ?? null,
+            'credential_status' => $material['credential_status'] ?? null,
+            'credential_last_verified_at' => $material['credential_last_verified_at'] ?? null,
             'redirect_uri' => $material['redirect_uri'] ?? null,
             'jwks_uri' => $material['jwks_uri'] ?? null,
             'logout_token_signing_algs' => $material['logout_token_signing_algs']

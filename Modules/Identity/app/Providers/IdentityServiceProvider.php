@@ -37,6 +37,15 @@ class IdentityServiceProvider extends ServiceProvider
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
         $this->app->singleton(\PragmaRX\Google2FA\Google2FA::class, fn () => new \PragmaRX\Google2FA\Google2FA);
+
+        // BK-098 foundation: registry + resolver only — no local_sealed adapter yet.
+        $this->app->singleton(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class);
+        $this->app->singleton(
+            \Modules\Identity\Support\Sso\Credentials\IdpCredentialResolver::class,
+            fn ($app) => new \Modules\Identity\Support\Sso\Credentials\IdpCredentialResolver(
+                $app->make(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class),
+            ),
+        );
     }
 
     /**

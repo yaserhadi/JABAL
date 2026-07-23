@@ -10,10 +10,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 /**
- * BK-082: Immutable IdP configuration version (DEC-0024 D15 / D30 / WS8 lifecycle).
+ * BK-082 / BK-098: Immutable IdP configuration version (DEC-0024 D15 / D30 / WS8 lifecycle).
  *
  * Material fields MUST NOT be edited after leaving draft. Non-draft rows only allow
- * lifecycle column updates (status timestamps / disable reason / secret revoke).
+ * lifecycle column updates (status timestamps / disable reason / secret revoke) and
+ * non-secret credential verification metadata (BK-098).
+ *
+ * Operational credential authority for reference mode lives only on this version row
+ * (credential_* columns). Parent TenantSsoConfig must not hold a second operational ref.
  */
 class TenantSsoConfigVersion extends Model
 {
@@ -34,6 +38,10 @@ class TenantSsoConfigVersion extends Model
     public const STATUS_DISABLED = 'disabled';
 
     public const STATUS_SUPERSEDED = 'superseded';
+
+    public const CREDENTIAL_SOURCE_LEGACY_ENCRYPTED = 'legacy_encrypted';
+
+    public const CREDENTIAL_SOURCE_REFERENCE = 'reference';
 
     /** @var list<string> */
     public const LIFECYCLE_STATUSES = [
@@ -63,6 +71,14 @@ class TenantSsoConfigVersion extends Model
         'issuer_url',
         'client_id',
         'client_secret_encrypted',
+        'credential_source',
+        'credential_provider',
+        'credential_reference',
+        'credential_type',
+        'credential_version_policy',
+        'credential_environment_scope',
+        'credential_status',
+        'credential_last_verified_at',
         'redirect_uri',
         'jwks_uri',
         'logout_token_signing_algs',
@@ -89,6 +105,7 @@ class TenantSsoConfigVersion extends Model
         'superseded_at' => 'datetime',
         'disabled_at' => 'datetime',
         'secret_revoked_at' => 'datetime',
+        'credential_last_verified_at' => 'datetime',
         'version_number' => 'integer',
     ];
 
@@ -111,6 +128,9 @@ class TenantSsoConfigVersion extends Model
                 'disable_reason',
                 'activated_at',
                 'updated_at',
+                // BK-098: non-secret verification / revoke status only (not provider/reference/source)
+                'credential_last_verified_at',
+                'credential_status',
             ];
 
             foreach (array_keys($model->getDirty()) as $attribute) {

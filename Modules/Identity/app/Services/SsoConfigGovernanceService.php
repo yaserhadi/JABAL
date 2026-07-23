@@ -247,6 +247,15 @@ class SsoConfigGovernanceService
                 'client_id' => $material['client_id'] ?? $config->client_id,
                 'client_secret_encrypted' => $material['client_secret_encrypted']
                     ?? ($config->getAttributes()['client_secret_encrypted'] ?? null),
+                'credential_source' => $material['credential_source']
+                    ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED,
+                'credential_provider' => $material['credential_provider'] ?? null,
+                'credential_reference' => $material['credential_reference'] ?? null,
+                'credential_type' => $material['credential_type'] ?? null,
+                'credential_version_policy' => $material['credential_version_policy'] ?? null,
+                'credential_environment_scope' => $material['credential_environment_scope'] ?? null,
+                'credential_status' => $material['credential_status'] ?? null,
+                'credential_last_verified_at' => $material['credential_last_verified_at'] ?? null,
                 'redirect_uri' => $material['redirect_uri'] ?? $config->redirect_uri,
                 'jwks_uri' => $material['jwks_uri'] ?? $config->jwks_uri,
                 'logout_token_signing_algs' => $material['logout_token_signing_algs']
