@@ -110,8 +110,10 @@ class DisableSsoOnEntitlementLossTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function host_redirect_is_unavailable_after_entitlement_loss(): void
+    public function host_path_era_redirect_unavailable_after_entitlement_loss(): void
     {
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('identity.sso.redirect'));
+
         [$tenant] = $this->createTenantWithEnabledSso();
         app(\Modules\Tenancy\Services\TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
@@ -129,8 +131,10 @@ class DisableSsoOnEntitlementLossTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function host_callback_is_unavailable_after_entitlement_loss(): void
+    public function host_path_era_callback_unavailable_after_entitlement_loss(): void
     {
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('identity.sso.callback'));
+
         [$tenant] = $this->createTenantWithEnabledSso();
 
         app(SubscriptionService::class)->changePlan($tenant->id, $this->basicPlan->code);

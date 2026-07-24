@@ -66,7 +66,7 @@ if ($addressing->isHost()) {
         });
     });
 
-    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback (WS4); legacy Path-style callback stays 404-gated
+    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback (WS4)
     $registrar->onAuthHost(function () {
         Route::middleware(['web', 'guest', 'throttle:sso-enterprise-initiate', EnterpriseSsoTransitionHeaders::class])->group(function () {
             Route::get('auth/enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
@@ -81,11 +81,7 @@ if ($addressing->isHost()) {
             Route::post('auth/enterprise-sso/backchannel-logout', EnterpriseSsoBackChannelLogoutController::class)
                 ->name('identity.enterprise-sso.backchannel-logout');
         });
-
-        Route::middleware('guest')->group(function () {
-            Route::get('auth/sso/callback', [SsoAuthController::class, 'callback'])
-                ->name('identity.sso.callback');
-        });
+        // BK-103: Path-era identity.sso.callback is not registered on Host (absence ⇒ 404).
     });
 
     // Tenant Host — wildcard {tenant_label} is NOT a resolver
@@ -103,8 +99,7 @@ if ($addressing->isHost()) {
         Route::middleware(['web', 'guest'])->group(function () {
             Route::get('/login', [AuthController::class, 'showTenantLogin'])->name('tenant.login');
             Route::post('/login', [AuthController::class, 'tenantLogin'])->name('tenant.login.submit');
-            Route::get('/auth/sso/redirect', [SsoAuthController::class, 'redirect'])
-                ->name('identity.sso.redirect');
+            // BK-103: Path-era identity.sso.redirect is not registered on Host (absence ⇒ 404).
         });
 
         Route::middleware([

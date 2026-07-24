@@ -379,8 +379,10 @@ class HostEnterpriseSsoCallbackTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function legacy_host_callback_remains_404_and_ws4_has_no_auth_login(): void
+    public function path_era_callback_is_unregistered_on_host_and_ws4_has_no_auth_login(): void
     {
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('identity.sso.callback'));
+
         $mock = Mockery::mock(SsoAuthService::class);
         $mock->shouldNotReceive('completeCallback');
         $mock->shouldNotReceive('exchangeHostAuthorizationCode');

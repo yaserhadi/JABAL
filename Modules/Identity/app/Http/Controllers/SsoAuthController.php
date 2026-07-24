@@ -21,7 +21,7 @@ class SsoAuthController extends Controller
 
     public function redirect(Request $request, ?Tenant $tenant = null): RedirectResponse
     {
-        // BK-073: Host-mode Enterprise SSO is negatively gated until BK-082.
+        // Defense-in-depth: Path-era SSO start is Path-profile only (not registered on Host).
         if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
             abort(404);
         }
@@ -44,8 +44,7 @@ class SsoAuthController extends Controller
 
     public function callback(Request $request): RedirectResponse
     {
-        // BK-073: Host-mode Enterprise SSO is unavailable until BK-082.
-        // Fail before state parsing, Tenant initialization, nonce/PKCE, or provider calls.
+        // Defense-in-depth: Path-era SSO callback is Path-profile only (not registered on Host).
         if (app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost()) {
             abort(404);
         }
