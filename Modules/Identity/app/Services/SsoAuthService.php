@@ -273,7 +273,7 @@ class SsoAuthService
 
         $safeIssuer = $this->issuerValidator->validateConfiguredIssuer($configuredIssuer);
 
-        return $this->identityResolver->resolve($tenant, $claims, $safeIssuer);
+        return $this->identityResolver->resolveExistingLinkOnly($tenant, $claims, $safeIssuer);
     }
 
     /**

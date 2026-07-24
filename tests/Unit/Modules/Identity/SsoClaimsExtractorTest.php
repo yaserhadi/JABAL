@@ -32,7 +32,7 @@ class SsoClaimsExtractorTest extends TestCase
 
         $this->assertSame('https://idp.example.com', $claims->issuer);
         $this->assertSame('user-123', $claims->subject);
-        $this->assertTrue($claims->emailVerifiedForFirstLink());
+        $this->assertTrue($claims->emailVerified);
     }
 
     #[Test]
@@ -95,6 +95,6 @@ class SsoClaimsExtractorTest extends TestCase
         ]);
 
         $this->assertSame('member@example.com', $claims->email);
-        $this->assertTrue($claims->emailVerifiedForFirstLink());
+        $this->assertTrue($claims->emailVerified);
     }
 }

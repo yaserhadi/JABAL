@@ -222,10 +222,12 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::get('register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('register', [AuthController::class, 'register']);
-
-    Route::get('auth/sso/callback', [SsoAuthController::class, 'callback'])
-        ->name('identity.sso.callback');
 });
+
+// BK-097: callback must be reachable while authenticated so D12 ordinary session
+// gates can deny different-user / wrong-binding without principal replacement.
+Route::get('auth/sso/callback', [SsoAuthController::class, 'callback'])
+    ->name('identity.sso.callback');
 
 Route::prefix('t/{tenant}')
     ->middleware(['web', 'guest'])

@@ -38,7 +38,11 @@ class SsoScopeGuardTest extends TestCase
         $this->assertStringNotContainsString('User::create', $source);
         $this->assertStringNotContainsString('Membership::query()->create', $source);
         $this->assertStringNotContainsString('Membership::create', $source);
-        $this->assertStringContainsString('TenantUserIdentity::query()->create', $source);
+        $this->assertStringNotContainsString('TenantUserIdentity::query()->create', $source);
+        $this->assertStringNotContainsString('TenantUserIdentity::create', $source);
+        $this->assertStringNotContainsString('updateOrCreate', $source);
+        $this->assertStringNotContainsString('firstOrCreate', $source);
+        $this->assertStringNotContainsString('attemptFirstLink', $source);
     }
 
     #[Test]

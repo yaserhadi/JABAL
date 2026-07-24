@@ -164,14 +164,15 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
         $this->assertFalse($hostResult->succeeded());
         $this->assertSame(0, TenantUserIdentity::query()->count());
 
-        $pathResult = app(SsoIdentityResolver::class)->resolve(
+        // BK-097: Path shares existing-link-only — verified email must not create a link.
+        $pathResult = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
         );
-        $this->assertTrue($pathResult->succeeded());
-        $this->assertTrue($pathResult->createdLink);
-        $this->assertSame(1, TenantUserIdentity::query()->where('subject', $subject)->count());
+        $this->assertFalse($pathResult->succeeded());
+        $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $pathResult->failureReason);
+        $this->assertSame(0, TenantUserIdentity::query()->where('subject', $subject)->count());
         tenancy()->end();
     }
 
@@ -201,13 +202,13 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
         );
         $this->assertFalse($result->succeeded());
         $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $result->failureReason);
-        // Path resolve still exposes membership_inactive (C1 Path surface unchanged).
-        $path = app(SsoIdentityResolver::class)->resolve(
+        // BK-097: Path shares Host collapse reason (no C1 Path divergence).
+        $path = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
         );
-        $this->assertSame(SsoIdentityResolutionResult::REASON_MEMBERSHIP_INACTIVE, $path->failureReason);
+        $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $path->failureReason);
         tenancy()->end();
     }
 

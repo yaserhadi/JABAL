@@ -13,9 +13,4 @@ final class SsoValidatedClaims
         public readonly ?string $email,
         public readonly ?bool $emailVerified,
     ) {}
-
-    public function emailVerifiedForFirstLink(): bool
-    {
-        return $this->emailVerified === true;
-    }
 }
