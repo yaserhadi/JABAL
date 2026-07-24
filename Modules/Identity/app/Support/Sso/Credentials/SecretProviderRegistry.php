@@ -72,6 +72,17 @@ final class SecretProviderRegistry
         return isset($this->runtime[$key]);
     }
 
+    public function hasManagement(string $providerKey): bool
+    {
+        try {
+            $key = SecretProviderKey::canonicalize($providerKey);
+        } catch (InvalidArgumentException) {
+            return false;
+        }
+
+        return isset($this->management[$key]);
+    }
+
     /** @return list<string> */
     public function registeredRuntimeKeys(): array
     {

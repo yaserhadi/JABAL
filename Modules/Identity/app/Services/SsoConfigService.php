@@ -5,12 +5,14 @@ namespace Modules\Identity\Services;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Modules\Identity\Models\SsoPlatformControl;
 use Modules\Identity\Models\TenantSsoConfig;
 use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Identity\Support\SecurityFeatureGate;
+use Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry;
+use Modules\Identity\Support\Sso\Credentials\SecretReference;
 use Modules\Tenancy\Models\Tenant;
 
 /**
@@ -89,29 +91,25 @@ class SsoConfigService
                     $this->assertSsoEntitlement($tenant);
                 }
 
+                // BK-098 readiness: plaintext client_secret → sealed provision only (never ciphertext).
+                $forcedVersionId = null;
+                $provisionedCredential = null;
                 if (array_key_exists('client_secret', $data) && is_string($data['client_secret']) && $data['client_secret'] !== '') {
-                    // Active reference path: no new operational ciphertext writes (BK-098).
-                    if ($existing?->active_version_id) {
-                        $active = TenantSsoConfigVersion::query()
-                            ->where('tenant_id', $tenant->id)
-                            ->whereKey($existing->active_version_id)
-                            ->first();
-                        if ($active
-                            && $this->credentialAccess->credentialSource($active)
-                                === \Modules\Identity\Support\Sso\Credentials\IdpCredentialResolver::SOURCE_REFERENCE) {
-                            abort(422, 'Active reference credential cannot accept plaintext client_secret writes; re-provision via sealed management.');
-                        }
-                    }
-
-                    $payload['client_secret_encrypted'] = Crypt::encryptString($data['client_secret']);
+                    $forcedVersionId = (string) Str::uuid();
+                    $provisionedCredential = $this->provisionReferenceCredential(
+                        $tenant,
+                        $forcedVersionId,
+                        $data['client_secret'],
+                    );
                 }
-
                 unset($payload['client_secret']);
+                // Never accept operational ciphertext writes on the parent/material path.
+                unset($payload['client_secret_encrypted']);
 
                 $oldValues = $existing ? $this->auditSnapshot($existing) : null;
                 $flagPayload = Arr::only($payload, self::FLAG_FIELDS);
                 $materialPayload = Arr::only($payload, self::MATERIAL_FIELDS);
-                $secretProvided = array_key_exists('client_secret_encrypted', $materialPayload);
+                $secretProvided = $provisionedCredential !== null;
 
                 if (! $existing) {
                     $record = TenantSsoConfig::query()->create(array_merge([
@@ -120,10 +118,19 @@ class SsoConfigService
                         'disabled_by_entitlement' => false,
                         'rollout_state' => TenantSsoConfig::ROLLOUT_ENABLED,
                         'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
-                    ], $payload));
+                        'client_secret_encrypted' => null,
+                    ], Arr::except($payload, ['client_secret_encrypted'])));
 
-                    $version = $this->createActiveVersion($record, $this->materialSnapshotFromConfig($record));
-                    $record->forceFill(['active_version_id' => $version->id])->save();
+                    $material = array_merge(
+                        $this->materialSnapshotFromConfig($record),
+                        $provisionedCredential ?? [],
+                        ['client_secret_encrypted' => null],
+                    );
+                    $version = $this->createActiveVersion($record, $material, $forcedVersionId);
+                    $record->forceFill([
+                        'active_version_id' => $version->id,
+                        'client_secret_encrypted' => null,
+                    ])->save();
                     $record = $record->fresh();
 
                     $this->logConfigChange($tenant, $record, false, $oldValues);
@@ -135,12 +142,19 @@ class SsoConfigService
 
                 if ($materialChanged) {
                     $nextMaterial = $this->mergeMaterial($existing, $materialPayload, $secretProvided);
+                    if ($provisionedCredential !== null) {
+                        $nextMaterial = array_merge($nextMaterial, $provisionedCredential, [
+                            'client_secret_encrypted' => null,
+                        ]);
+                    }
                     $this->supersedeActiveVersion($existing);
-                    $version = $this->createActiveVersion($existing, $nextMaterial);
+                    $version = $this->createActiveVersion($existing, $nextMaterial, $forcedVersionId);
                     // Parent row holds operational mirror of MATERIAL_FIELDS only —
-                    // credential_* authority stays on the version (BK-098).
+                    // credential_* authority stays on the version (BK-098). Never write ciphertext.
+                    $parentMaterial = Arr::only($nextMaterial, self::MATERIAL_FIELDS);
+                    $parentMaterial['client_secret_encrypted'] = null;
                     $existing->forceFill(array_merge(
-                        Arr::only($nextMaterial, self::MATERIAL_FIELDS),
+                        $parentMaterial,
                         [
                             'active_version_id' => $version->id,
                         ],
@@ -417,13 +431,16 @@ class SsoConfigService
     /**
      * @param  array<string, mixed>  $material
      */
-    protected function createActiveVersion(TenantSsoConfig $config, array $material): TenantSsoConfigVersion
-    {
+    protected function createActiveVersion(
+        TenantSsoConfig $config,
+        array $material,
+        ?string $forcedId = null,
+    ): TenantSsoConfigVersion {
         $nextNumber = (int) TenantSsoConfigVersion::query()
             ->where('config_id', $config->id)
             ->max('version_number');
 
-        return TenantSsoConfigVersion::query()->create([
+        $attrs = [
             'tenant_id' => $config->tenant_id,
             'config_id' => $config->id,
             'version_number' => $nextNumber + 1,
@@ -431,10 +448,10 @@ class SsoConfigService
             'provider_label' => $material['provider_label'] ?? null,
             'issuer_url' => $material['issuer_url'] ?? null,
             'client_id' => $material['client_id'] ?? null,
-            'client_secret_encrypted' => $material['client_secret_encrypted'] ?? null,
-            // BK-098 foundation: new active versions stay on legacy until explicit cutover.
+            // Schema column retained; never authoritative after BK-098 readiness.
+            'client_secret_encrypted' => null,
             'credential_source' => $material['credential_source']
-                ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED,
+                ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE,
             'credential_provider' => $material['credential_provider'] ?? null,
             'credential_reference' => $material['credential_reference'] ?? null,
             'credential_type' => $material['credential_type'] ?? null,
@@ -451,7 +468,67 @@ class SsoConfigService
             'validated_at' => now(),
             'approved_at' => now(),
             'superseded_at' => null,
-        ]);
+        ];
+
+        if ($forcedId !== null && $forcedId !== '') {
+            $attrs['id'] = $forcedId;
+        }
+
+        return TenantSsoConfigVersion::query()->create($attrs);
+    }
+
+    /**
+     * Provision a local_sealed reference for a new config version id.
+     *
+     * @return array<string, mixed>
+     */
+    protected function provisionReferenceCredential(Tenant $tenant, string $versionId, string $plaintext): array
+    {
+        $registry = app(SecretProviderRegistry::class);
+        if (! $registry->hasManagement('local_sealed')) {
+            abort(503, 'IdP credential provider is not available for this runtime.');
+        }
+
+        $scope = $this->credentialEnvironmentScopeForRuntime();
+        $logical = 'enterprise-sso/'.$tenant->id.'/'.$versionId.'/client-secret';
+        $ref = new SecretReference(
+            'local_sealed',
+            $logical,
+            'oidc_client_secret',
+            'current',
+            $scope,
+            'active',
+        );
+
+        try {
+            $registry->management('local_sealed')->provision($ref, $plaintext);
+        } catch (\Throwable $e) {
+            abort(503, 'IdP credential provision failed.');
+        }
+
+        return [
+            'client_secret_encrypted' => null,
+            'credential_source' => TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE,
+            'credential_provider' => 'local_sealed',
+            'credential_reference' => $logical,
+            'credential_type' => 'oidc_client_secret',
+            'credential_version_policy' => 'current',
+            'credential_environment_scope' => $scope,
+            'credential_status' => 'active',
+        ];
+    }
+
+    protected function credentialEnvironmentScopeForRuntime(): string
+    {
+        $runtimeClass = strtolower(trim((string) config('identity.secrets.runtime_class', '')));
+
+        return match ($runtimeClass) {
+            'local' => 'local',
+            'development' => 'development',
+            'controlled_uat' => 'controlled_uat',
+            'test' => 'test',
+            default => 'test',
+        };
     }
 
     protected function supersedeActiveVersion(TenantSsoConfig $config): void
@@ -484,23 +561,22 @@ class SsoConfigService
             'provider_label' => $config->provider_label,
             'issuer_url' => $config->issuer_url,
             'client_id' => $config->client_id,
-            'client_secret_encrypted' => $config->getAttributes()['client_secret_encrypted'] ?? null,
+            'client_secret_encrypted' => null,
             'redirect_uri' => $config->redirect_uri,
             'jwks_uri' => $config->jwks_uri,
             'logout_token_signing_algs' => $config->logout_token_signing_algs,
             'scopes' => $config->scopes,
         ];
 
-        // BK-098: inherit version-owned credential authority so material updates
-        // do not silently demote an active reference version to legacy_encrypted.
+        // BK-098: inherit version-owned reference credential authority only.
         if ($config->active_version_id) {
             $active = TenantSsoConfigVersion::query()
                 ->where('config_id', $config->id)
                 ->whereKey($config->active_version_id)
                 ->first();
-            if ($active instanceof TenantSsoConfigVersion) {
-                $snapshot['credential_source'] = $active->credential_source
-                    ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED;
+            if ($active instanceof TenantSsoConfigVersion
+                && ($active->credential_source ?? null) === TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
+                $snapshot['credential_source'] = TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE;
                 $snapshot['credential_provider'] = $active->credential_provider;
                 $snapshot['credential_reference'] = $active->credential_reference;
                 $snapshot['credential_type'] = $active->credential_type;
@@ -508,14 +584,6 @@ class SsoConfigService
                 $snapshot['credential_environment_scope'] = $active->credential_environment_scope;
                 $snapshot['credential_status'] = $active->credential_status;
                 $snapshot['credential_last_verified_at'] = $active->credential_last_verified_at;
-                // Prefer version-row ciphertext for legacy; never invent parent as authority for reference.
-                if (($snapshot['credential_source'] ?? null)
-                    === TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
-                    $snapshot['client_secret_encrypted'] = null;
-                } else {
-                    $snapshot['client_secret_encrypted'] = $active->getAttributes()['client_secret_encrypted']
-                        ?? ($config->getAttributes()['client_secret_encrypted'] ?? null);
-                }
             }
         }
 
@@ -532,16 +600,7 @@ class SsoConfigService
 
         foreach (self::MATERIAL_FIELDS as $field) {
             if ($field === 'client_secret_encrypted') {
-                // Reference path: never accept new operational ciphertext via update merge.
-                if (($merged['credential_source'] ?? null)
-                    === TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
-                    $merged[$field] = null;
-
-                    continue;
-                }
-                if ($secretProvided) {
-                    $merged[$field] = $materialPayload[$field];
-                }
+                $merged[$field] = null;
 
                 continue;
             }
@@ -639,7 +698,7 @@ class SsoConfigService
     protected function publicHasCredential(TenantSsoConfig $record): bool
     {
         if (! $record->active_version_id) {
-            return filled($record->getAttributes()['client_secret_encrypted'] ?? null);
+            return false;
         }
 
         $version = TenantSsoConfigVersion::query()

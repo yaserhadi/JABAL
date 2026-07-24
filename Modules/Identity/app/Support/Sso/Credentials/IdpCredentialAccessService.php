@@ -2,16 +2,15 @@
 
 namespace Modules\Identity\Support\Sso\Credentials;
 
-use Illuminate\Support\Facades\Crypt;
 use Modules\Identity\Exceptions\SsoSecurityException;
 use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-098 cutover facade: version-owned credential resolution with controlled source transition.
+ * BK-098 readiness: version-owned credential resolution.
  *
  * - reference → IdpCredentialResolver only (no ciphertext fallback)
- * - legacy_encrypted → version-row Crypt decrypt only (never parent row)
+ * - legacy_encrypted → fail closed (not operational; demo data must be purged/reseeded)
  * - JWKS BC logout purpose must not be used to obtain a symmetric secret
  */
 final class IdpCredentialAccessService
@@ -43,24 +42,24 @@ final class IdpCredentialAccessService
 
         $source = $this->credentialSource($version);
 
-        if ($source === IdpCredentialResolver::SOURCE_REFERENCE) {
-            $result = $this->resolver->resolveForVersion($tenant, $version, $purpose, $clientAuthMethod);
-            if (! $result->ok) {
-                throw CredentialResolutionException::failClosed($result->reason ?? 'reference_resolve_failed');
-            }
-            $value = $result->consumeValue();
-            if ($value === null || $value === '') {
-                throw CredentialResolutionException::failClosed('empty_resolved_value');
-            }
-
-            return $value;
-        }
-
         if ($source === IdpCredentialResolver::SOURCE_LEGACY_ENCRYPTED) {
-            return $this->decryptLegacyVersionCiphertext($version);
+            throw CredentialResolutionException::failClosed('legacy_encrypted_not_operational');
         }
 
-        throw CredentialResolutionException::failClosed('unknown_credential_source');
+        if ($source !== IdpCredentialResolver::SOURCE_REFERENCE) {
+            throw CredentialResolutionException::failClosed('unknown_credential_source');
+        }
+
+        $result = $this->resolver->resolveForVersion($tenant, $version, $purpose, $clientAuthMethod);
+        if (! $result->ok) {
+            throw CredentialResolutionException::failClosed($result->reason ?? 'reference_resolve_failed');
+        }
+        $value = $result->consumeValue();
+        if ($value === null || $value === '') {
+            throw CredentialResolutionException::failClosed('empty_resolved_value');
+        }
+
+        return $value;
     }
 
     /**
@@ -70,53 +69,56 @@ final class IdpCredentialAccessService
     {
         $source = $this->credentialSource($version);
 
-        if ($source === IdpCredentialResolver::SOURCE_REFERENCE) {
-            if (($version->credential_status ?? null) !== IdpCredentialResolver::STATUS_ACTIVE) {
-                return false;
-            }
-            if (blank($version->credential_provider)
-                || blank($version->credential_reference)
-                || blank($version->credential_type)
-                || blank($version->credential_environment_scope)) {
-                return false;
-            }
-            if (! $this->registry->hasRuntime((string) $version->credential_provider)) {
-                return false;
-            }
-
-            try {
-                $ref = SecretReference::fromVersionAttributes(
-                    (string) $version->credential_provider,
-                    (string) $version->credential_reference,
-                    (string) $version->credential_type,
-                    $version->credential_version_policy,
-                    $version->credential_environment_scope,
-                    $version->credential_status,
-                );
-
-                return $this->registry->runtime($ref->provider)->exists($ref);
-            } catch (\Throwable) {
-                return false;
-            }
+        if ($source !== IdpCredentialResolver::SOURCE_REFERENCE) {
+            return false;
         }
 
-        if ($source === IdpCredentialResolver::SOURCE_LEGACY_ENCRYPTED) {
-            return filled($version->getAttributes()['client_secret_encrypted'] ?? null)
-                && $version->secret_revoked_at === null;
+        if (($version->credential_status ?? null) !== IdpCredentialResolver::STATUS_ACTIVE) {
+            return false;
+        }
+        if (blank($version->credential_provider)
+            || blank($version->credential_reference)
+            || blank($version->credential_type)
+            || blank($version->credential_environment_scope)) {
+            return false;
+        }
+        if (! $this->registry->hasRuntime((string) $version->credential_provider)) {
+            return false;
         }
 
-        return false;
+        try {
+            $ref = SecretReference::fromVersionAttributes(
+                (string) $version->credential_provider,
+                (string) $version->credential_reference,
+                (string) $version->credential_type,
+                $version->credential_version_policy,
+                $version->credential_environment_scope,
+                $version->credential_status,
+            );
+
+            return $this->registry->runtime($ref->provider)->exists($ref);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
      * Fail closed if a reference version is incomplete before activation / operational use.
+     * Legacy encrypted versions are never activatable.
      *
      * @throws CredentialResolutionException
+     * @throws SsoSecurityException
      */
-    public function assertReferenceVersionReady(TenantSsoConfigVersion $version): void
+    public function assertOperationalCredentialReady(TenantSsoConfigVersion $version): void
     {
-        if ($this->credentialSource($version) !== IdpCredentialResolver::SOURCE_REFERENCE) {
-            return;
+        $source = $this->credentialSource($version);
+
+        if ($source === IdpCredentialResolver::SOURCE_LEGACY_ENCRYPTED) {
+            throw new SsoSecurityException('Legacy encrypted credential versions cannot become operational.');
+        }
+
+        if ($source !== IdpCredentialResolver::SOURCE_REFERENCE) {
+            throw CredentialResolutionException::failClosed('unknown_credential_source');
         }
 
         if (($version->credential_status ?? null) !== IdpCredentialResolver::STATUS_ACTIVE) {
@@ -133,35 +135,16 @@ final class IdpCredentialAccessService
         }
     }
 
+    /**
+     * @deprecated Use assertOperationalCredentialReady()
+     */
+    public function assertReferenceVersionReady(TenantSsoConfigVersion $version): void
+    {
+        $this->assertOperationalCredentialReady($version);
+    }
+
     public function credentialSource(TenantSsoConfigVersion $version): string
     {
         return (string) ($version->credential_source ?? IdpCredentialResolver::SOURCE_LEGACY_ENCRYPTED);
-    }
-
-    /**
-     * @throws SsoSecurityException
-     */
-    private function decryptLegacyVersionCiphertext(TenantSsoConfigVersion $version): string
-    {
-        if ($version->secret_revoked_at !== null) {
-            throw new SsoSecurityException('IdP credential has been revoked.');
-        }
-
-        $encrypted = $version->getAttributes()['client_secret_encrypted'] ?? null;
-        if (! is_string($encrypted) || $encrypted === '') {
-            throw new SsoSecurityException('Legacy IdP client secret is not configured on the version.');
-        }
-
-        try {
-            $plain = Crypt::decryptString($encrypted);
-        } catch (\Throwable) {
-            throw new SsoSecurityException('Legacy IdP client secret could not be decrypted.');
-        }
-
-        if ($plain === '') {
-            throw new SsoSecurityException('Legacy IdP client secret is empty.');
-        }
-
-        return $plain;
     }
 }

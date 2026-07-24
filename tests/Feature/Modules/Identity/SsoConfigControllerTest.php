@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Crypt;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantSsoConfig;
+use Modules\Identity\Services\SsoConfigService;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
 use PHPUnit\Framework\Attributes\Test;
@@ -77,12 +78,11 @@ class SsoConfigControllerTest extends TestCase
     public function get_returns_safe_config_only(): void
     {
         tenancy()->initialize($this->tenant);
-        TenantSsoConfig::query()->create([
-            'tenant_id' => $this->tenant->id,
+        app(SsoConfigService::class)->update($this->tenant, [
             'enabled' => true,
             'issuer_url' => self::SAFE_ISSUER,
             'client_id' => 'client-id',
-            'client_secret_encrypted' => Crypt::encryptString('hidden-secret'),
+            'client_secret' => 'hidden-secret',
             'scopes' => ['openid', 'profile', 'email'],
         ]);
         tenancy()->end();
@@ -219,14 +219,15 @@ class SsoConfigControllerTest extends TestCase
     public function enabling_blocked_when_disabled_by_entitlement_is_true(): void
     {
         tenancy()->initialize($this->tenant);
-        TenantSsoConfig::query()->create([
-            'tenant_id' => $this->tenant->id,
+        app(SsoConfigService::class)->update($this->tenant, [
             'enabled' => false,
-            'disabled_by_entitlement' => true,
             'issuer_url' => self::SAFE_ISSUER,
             'client_id' => 'client-id',
-            'client_secret_encrypted' => Crypt::encryptString('secret'),
+            'client_secret' => 'secret',
             'scopes' => ['openid', 'profile', 'email'],
+        ]);
+        TenantSsoConfig::query()->where('tenant_id', $this->tenant->id)->update([
+            'disabled_by_entitlement' => true,
         ]);
         tenancy()->end();
 

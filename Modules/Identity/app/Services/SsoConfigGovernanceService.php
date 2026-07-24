@@ -143,10 +143,12 @@ class SsoConfigGovernanceService
 
                 $version = TenantSsoConfigVersion::query()->whereKey($version->id)->lockForUpdate()->firstOrFail();
 
-                if (($version->credential_source ?? 'legacy_encrypted') === 'reference') {
-                    app(\Modules\Identity\Support\Sso\Credentials\IdpCredentialAccessService::class)
-                        ->assertReferenceVersionReady($version);
+                if (($version->credential_source ?? 'legacy_encrypted') === 'legacy_encrypted') {
+                    throw new SsoSecurityException('Legacy encrypted credential versions cannot be activated.');
                 }
+
+                app(\Modules\Identity\Support\Sso\Credentials\IdpCredentialAccessService::class)
+                    ->assertOperationalCredentialReady($version);
 
                 $version->forceFill([
                     'status' => TenantSsoConfigVersion::STATUS_ACTIVE,
@@ -162,12 +164,9 @@ class SsoConfigGovernanceService
                     'jwks_uri' => $version->jwks_uri,
                     'logout_token_signing_algs' => $version->logout_token_signing_algs,
                     'scopes' => $version->scopes,
+                    // Never mirror ciphertext onto parent (BK-098 readiness).
+                    'client_secret_encrypted' => null,
                 ];
-
-                // Reference path: do not write operational ciphertext onto parent (BK-098).
-                if (($version->credential_source ?? 'legacy_encrypted') !== 'reference') {
-                    $material['client_secret_encrypted'] = $version->getAttributes()['client_secret_encrypted'] ?? null;
-                }
 
                 $config->forceFill(array_merge($material, [
                     'active_version_id' => $version->id,
@@ -247,16 +246,42 @@ class SsoConfigGovernanceService
                 ->where('config_id', $config->id)
                 ->max('version_number');
 
+            // Inherit active reference credential metadata when cloning material without a new secret.
+            if ($config->active_version_id
+                && ! array_key_exists('credential_source', $material)
+                && ! array_key_exists('credential_reference', $material)) {
+                $active = TenantSsoConfigVersion::query()
+                    ->where('config_id', $config->id)
+                    ->whereKey($config->active_version_id)
+                    ->first();
+                if ($active
+                    && ($active->credential_source ?? null) === TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
+                    $material['credential_source'] = TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE;
+                    $material['credential_provider'] = $active->credential_provider;
+                    $material['credential_reference'] = $active->credential_reference;
+                    $material['credential_type'] = $active->credential_type;
+                    $material['credential_version_policy'] = $active->credential_version_policy;
+                    $material['credential_environment_scope'] = $active->credential_environment_scope;
+                    $material['credential_status'] = $active->credential_status;
+                    $material['credential_last_verified_at'] = $active->credential_last_verified_at;
+                }
+            }
+
             $credentialSource = (string) ($material['credential_source']
-                ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED);
-            // Reference drafts must not inherit parent ciphertext as a silent fallback.
-            $legacyCipher = null;
-            if ($credentialSource !== TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
-                $legacyCipher = $material['client_secret_encrypted']
-                    ?? ($config->getAttributes()['client_secret_encrypted'] ?? null);
-            } elseif (array_key_exists('client_secret_encrypted', $material)) {
-                // Explicit null/omit only — ignore non-null ciphertext on reference drafts.
-                $legacyCipher = null;
+                ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE);
+
+            if ($credentialSource === TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED) {
+                throw new SsoSecurityException('Cannot create drafts with legacy encrypted credentials.');
+            }
+
+            if ($credentialSource === TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
+                if (blank($material['credential_provider'] ?? null)
+                    || blank($material['credential_reference'] ?? null)
+                    || blank($material['credential_type'] ?? null)
+                    || blank($material['credential_environment_scope'] ?? null)
+                    || ($material['credential_status'] ?? null) !== 'active') {
+                    throw new SsoSecurityException('Reference drafts require complete credential metadata.');
+                }
             }
 
             $version = TenantSsoConfigVersion::query()->create([
@@ -267,7 +292,7 @@ class SsoConfigGovernanceService
                 'provider_label' => $material['provider_label'] ?? $config->provider_label,
                 'issuer_url' => $material['issuer_url'] ?? $config->issuer_url,
                 'client_id' => $material['client_id'] ?? $config->client_id,
-                'client_secret_encrypted' => $legacyCipher,
+                'client_secret_encrypted' => null,
                 'credential_source' => $credentialSource,
                 'credential_provider' => $material['credential_provider'] ?? null,
                 'credential_reference' => $material['credential_reference'] ?? null,

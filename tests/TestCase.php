@@ -40,9 +40,33 @@ abstract class TestCase extends BaseTestCase
             );
         }
 
+        $this->ensureLocalSealedTestStore();
+
         parent::setUp();
 
         $this->withoutVite();
+    }
+
+    /**
+     * BK-098: create local_sealed store + unseal key before app boot so provider can register.
+     */
+    protected function ensureLocalSealedTestStore(): void
+    {
+        $root = dirname(__DIR__);
+        $store = $root.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'framework'.DIRECTORY_SEPARATOR.'testing'.DIRECTORY_SEPARATOR.'local_sealed_store';
+        $keyFile = $root.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'framework'.DIRECTORY_SEPARATOR.'testing'.DIRECTORY_SEPARATOR.'local_sealed_unseal.key';
+
+        if (! is_dir($store) && ! mkdir($store, 0700, true) && ! is_dir($store)) {
+            throw new \RuntimeException('Unable to create local_sealed test store at '.$store);
+        }
+
+        if (! is_file($keyFile)) {
+            $key = random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
+            if (file_put_contents($keyFile, base64_encode($key)) === false) {
+                throw new \RuntimeException('Unable to write local_sealed test unseal key.');
+            }
+            @chmod($keyFile, 0600);
+        }
     }
 
     protected function afterRefreshingDatabase()

@@ -46,7 +46,7 @@ class IdpCredentialReferenceFoundationTest extends TestCase
     }
 
     #[Test]
-    public function new_versions_default_to_legacy_encrypted_credential_source(): void
+    public function new_versions_default_to_reference_credential_source(): void
     {
         $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
@@ -62,7 +62,9 @@ class IdpCredentialReferenceFoundationTest extends TestCase
             ]);
 
             $version = TenantSsoConfigVersion::query()->findOrFail($service->getActiveVersionId($tenant));
-            $this->assertSame(TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED, $version->credential_source);
+            $this->assertSame(TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE, $version->credential_source);
+            $this->assertSame('local_sealed', $version->credential_provider);
+            $this->assertNull($version->getAttributes()['client_secret_encrypted'] ?? null);
 
             $parent = TenantSsoConfig::query()->where('tenant_id', $tenant->id)->firstOrFail();
             $this->assertFalse(array_key_exists('credential_provider', $parent->getAttributes()));
@@ -328,7 +330,6 @@ class IdpCredentialReferenceFoundationTest extends TestCase
         $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
         $service = app(SsoConfigService::class);
-        $this->withStubProvider();
 
         tenancy()->initialize($tenant);
         try {
@@ -339,6 +340,20 @@ class IdpCredentialReferenceFoundationTest extends TestCase
                 'client_secret' => 'secret-v1',
             ]);
             $version = TenantSsoConfigVersion::query()->findOrFail($service->getActiveVersionId($tenant));
+            \Illuminate\Support\Facades\DB::connection('tenant')
+                ->table('tenant_sso_config_versions')
+                ->where('id', $version->id)
+                ->update([
+                    'credential_source' => TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED,
+                    'credential_provider' => null,
+                    'credential_reference' => null,
+                    'credential_type' => null,
+                    'credential_environment_scope' => null,
+                    'credential_status' => null,
+                ]);
+            $version = $version->fresh();
+
+            $this->withStubProvider();
 
             try {
                 app(IdpCredentialResolver::class)->resolveForVersion(
@@ -433,16 +448,16 @@ class IdpCredentialReferenceFoundationTest extends TestCase
 
     private function withStubProvider(): void
     {
-        $registry = app(SecretProviderRegistry::class);
-        if ($registry->isSealed()) {
-            $registry->unsealForTesting();
-        }
+        $fresh = new SecretProviderRegistry;
+        $fresh->registerRuntime($this->countingRuntime('local_sealed'));
+        $fresh->seal();
 
-        if (! $registry->hasRuntime('local_sealed')) {
-            $registry->registerRuntime($this->countingRuntime('local_sealed'));
-        }
-
-        $registry->seal();
+        // Isolate foundation resolver tests from boot-registered local_sealed engine.
+        $this->app->instance(SecretProviderRegistry::class, $fresh);
+        $this->app->instance(
+            IdpCredentialResolver::class,
+            new IdpCredentialResolver($fresh),
+        );
     }
 
     private function stubRuntime(string $key): SecretProviderRuntime

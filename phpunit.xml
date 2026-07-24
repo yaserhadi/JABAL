@@ -56,5 +56,10 @@
         <env name="TENANCY_PLATFORM_HOST" value="localhost"/>
         <env name="TENANCY_AUTH_HOST" value="localhost"/>
         <env name="APP_URL" value="http://localhost"/>
+        <!-- BK-098: enable local_sealed for Identity SSO tests (non-production runtime class). -->
+        <env name="SECRET_RUNTIME_CLASS" value="test"/>
+        <env name="LOCAL_SEALED_ENABLED" value="true"/>
+        <env name="LOCAL_SEALED_STORE_PATH" value="storage/framework/testing/local_sealed_store"/>
+        <env name="LOCAL_SEALED_UNSEAL_KEY_FILE" value="storage/framework/testing/local_sealed_unseal.key"/>
     </php>
 </phpunit>

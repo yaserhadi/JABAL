@@ -18,7 +18,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::connection('tenant')->table('tenant_sso_config_versions', function (Blueprint $table) {
-            $table->string('credential_source', 32)->default('legacy_encrypted')->after('client_secret_encrypted');
+            $table->string('credential_source', 32)->default('reference')->after('client_secret_encrypted');
             $table->string('credential_provider', 64)->nullable()->after('credential_source');
             $table->string('credential_reference', 512)->nullable()->after('credential_provider');
             $table->string('credential_type', 64)->nullable()->after('credential_reference');
@@ -28,9 +28,22 @@ return new class extends Migration
             $table->timestamp('credential_last_verified_at')->nullable()->after('credential_status');
         });
 
-        DB::connection('tenant')->table('tenant_sso_config_versions')->update([
-            'credential_source' => 'legacy_encrypted',
-        ]);
+        // Historical rows with leftover ciphertext are marked legacy (non-operational under readiness).
+        // Fresh installs have no rows; demo DBs should purge + reseed rather than migrate secrets.
+        DB::connection('tenant')->table('tenant_sso_config_versions')
+            ->whereNotNull('client_secret_encrypted')
+            ->where('client_secret_encrypted', '!=', '')
+            ->update([
+                'credential_source' => 'legacy_encrypted',
+            ]);
+
+        DB::connection('tenant')->table('tenant_sso_config_versions')
+            ->where(function ($q) {
+                $q->whereNull('client_secret_encrypted')->orWhere('client_secret_encrypted', '');
+            })
+            ->update([
+                'credential_source' => 'reference',
+            ]);
     }
 
     public function down(): void

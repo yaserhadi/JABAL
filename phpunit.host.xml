@@ -53,5 +53,10 @@
         <env name="TENANCY_AUTH_HOST" value="auth.jabal.test" force="true"/>
         <env name="TENANCY_API_HOST" value="api.jabal.test" force="true"/>
         <env name="APP_URL" value="https://platform.jabal.test" force="true"/>
+        <!-- BK-098: enable local_sealed for Host Identity SSO tests. -->
+        <env name="SECRET_RUNTIME_CLASS" value="test" force="true"/>
+        <env name="LOCAL_SEALED_ENABLED" value="true" force="true"/>
+        <env name="LOCAL_SEALED_STORE_PATH" value="storage/framework/testing/local_sealed_store" force="true"/>
+        <env name="LOCAL_SEALED_UNSEAL_KEY_FILE" value="storage/framework/testing/local_sealed_unseal.key" force="true"/>
     </php>
 </phpunit>

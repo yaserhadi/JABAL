@@ -65,15 +65,23 @@ class IdentityServiceProvider extends ServiceProvider
             \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedEngine::class,
             function () {
                 $cfg = config('identity.secrets.local_sealed', []);
+                $storePath = (string) ($cfg['store_path'] ?? '');
+                if ($storePath !== '' && ! preg_match('#^([A-Za-z]:[\\\\/]|/)#', $storePath)) {
+                    $storePath = base_path($storePath);
+                }
+                $keyFile = isset($cfg['unseal_key_file']) ? (string) $cfg['unseal_key_file'] : null;
+                if (is_string($keyFile) && $keyFile !== '' && ! preg_match('#^([A-Za-z]:[\\\\/]|/)#', $keyFile)) {
+                    $keyFile = base_path($keyFile);
+                }
 
                 return new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedEngine(
                     new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedPathResolver(
-                        (string) ($cfg['store_path'] ?? ''),
+                        $storePath,
                         public_path(),
                     ),
                     new \Modules\Identity\Support\Sso\Credentials\LocalSealed\LocalSealedKeySource(
-                        isset($cfg['unseal_key_file']) ? (string) $cfg['unseal_key_file'] : null,
-                        (string) ($cfg['store_path'] ?? ''),
+                        $keyFile,
+                        $storePath,
                         public_path(),
                     ),
                     (string) config('identity.secrets.runtime_class', ''),
@@ -140,6 +148,7 @@ class IdentityServiceProvider extends ServiceProvider
     {
         $this->commands([
             \Modules\Identity\Console\CleanupSsoTransientDataCommand::class,
+            \Modules\Identity\Console\PurgeLegacySsoDemoCredentialsCommand::class,
         ]);
     }
 
