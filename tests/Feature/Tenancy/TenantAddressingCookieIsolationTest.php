@@ -195,7 +195,7 @@ class TenantAddressingCookieIsolationTest extends TestCase
         auth('web')->logout();
         $this->flushSession();
 
-        // Auth Host callback — Host SSO negative-gated (404); must not complete authentication.
+        // Auth Host Path-era callback is unregistered on Host (BK-103) — must 404 without auth.
         $callback = $this->call(
             'GET',
             'https://auth.jabal.test/auth/sso/callback?code=x&state=y',
@@ -205,6 +205,7 @@ class TenantAddressingCookieIsolationTest extends TestCase
             ]
         );
 
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('identity.sso.callback'));
         $this->assertSame(404, $callback->status());
         $this->assertGuest('web');
     }

@@ -127,18 +127,18 @@ class TenantAddressingHostResolutionTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_host_mode_sso_redirect_returns_404(): void
+    public function test_host_mode_path_era_sso_routes_unregistered_and_404(): void
     {
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('identity.sso.redirect'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('identity.sso.callback'));
+
         $tenant = Tenant::factory()->create(['slug' => 'nossogate', 'status' => 'active']);
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         $this->withServerVariables(['HTTP_HOST' => 'nossogate.jabal.test'])
             ->get('http://nossogate.jabal.test/auth/sso/redirect')
             ->assertNotFound();
-    }
 
-    public function test_host_mode_sso_callback_returns_404_before_provider_flow(): void
-    {
         $this->mock(SsoAuthService::class, function ($mock) {
             $mock->shouldNotReceive('completeCallback');
         });

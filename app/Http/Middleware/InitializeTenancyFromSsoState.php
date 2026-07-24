@@ -13,9 +13,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * BK-008: Initialize tenancy for OIDC callback from encrypted state only (never query tenant_id).
  *
- * BK-073 Host profile: never calls tenancy()->initialize().
- * Parses state for validation against already-resolved context when present;
- * Path profile retains initializing role (callback is Path-mode SSO surface).
+ * Path profile: initializes tenancy for auth/sso/callback.
+ * Host profile: Path-era callback is not registered (BK-103); skip Path init and pass through
+ * so the request remains an unregistered-route 404 without touching Tenant context.
  */
 class InitializeTenancyFromSsoState
 {
@@ -29,10 +29,9 @@ class InitializeTenancyFromSsoState
             return $next($request);
         }
 
-        // BK-073: Host-mode positive Enterprise SSO is unavailable until BK-082.
-        // Reject before parsing state or touching Tenant/provider transaction context.
+        // BK-103 SSO-LG-005: Host does not own Path callback tenancy initialization.
         if ($this->addressing->isHost()) {
-            abort(404);
+            return $next($request);
         }
 
         $state = $request->query('state');

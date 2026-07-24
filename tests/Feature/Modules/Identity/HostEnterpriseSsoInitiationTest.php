@@ -324,8 +324,17 @@ class HostEnterpriseSsoInitiationTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function legacy_host_sso_redirect_and_callback_remain_404(): void
+    public function path_era_sso_routes_are_unregistered_on_host_and_remain_404(): void
     {
+        $this->assertFalse(
+            \Illuminate\Support\Facades\Route::has('identity.sso.redirect'),
+            'Path-era identity.sso.redirect must not be registered on Host'
+        );
+        $this->assertFalse(
+            \Illuminate\Support\Facades\Route::has('identity.sso.callback'),
+            'Path-era identity.sso.callback must not be registered on Host'
+        );
+
         $tenant = $this->createHostTenantWithSso();
         $host = $tenant->slug.'.jabal.test';
 
@@ -338,6 +347,7 @@ class HostEnterpriseSsoInitiationTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) {
             $mock->shouldNotReceive('completeCallback');
             $mock->shouldNotReceive('buildHostAuthorizationRedirectUrl');
+            $mock->shouldNotReceive('buildAuthorizationRedirectUrl');
         });
 
         $this->call(
