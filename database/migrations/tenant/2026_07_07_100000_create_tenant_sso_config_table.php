@@ -21,7 +21,6 @@ return new class extends Migration
             $table->string('provider_label')->nullable();
             $table->text('issuer_url')->nullable();
             $table->string('client_id')->nullable();
-            $table->text('client_secret_encrypted')->nullable();
             $table->string('redirect_uri')->nullable();
             $table->json('scopes')->nullable();
             $table->timestamps();

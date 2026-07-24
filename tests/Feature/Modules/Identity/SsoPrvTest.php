@@ -5,7 +5,6 @@ namespace Tests\Feature\Modules\Identity;
 use App\Models\User;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -119,7 +118,6 @@ class SsoPrvTest extends TestCase
                 'enabled' => true,
                 'issuer_url' => 'https://dedicated-idp.example.com',
                 'client_id' => 'client-id',
-                'client_secret_encrypted' => Crypt::encryptString('secret'),
             ]
         );
         $identity = TenantUserIdentity::query()->create([

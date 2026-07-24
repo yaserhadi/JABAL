@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 
 /**
  * BK-082 / DEC-0024 D15+D30 foundation: immutable IdP configuration versions + active pointer.
+ * BK-098: no client_secret_encrypted — credentials are reference-only via later metadata columns.
  */
 return new class extends Migration
 {
@@ -24,7 +25,6 @@ return new class extends Migration
             $table->string('provider_label')->nullable();
             $table->text('issuer_url')->nullable();
             $table->string('client_id')->nullable();
-            $table->text('client_secret_encrypted')->nullable();
             $table->string('redirect_uri')->nullable();
             $table->json('scopes')->nullable();
             $table->timestamp('activated_at')->nullable();
@@ -57,7 +57,6 @@ return new class extends Migration
                 'provider_label' => $row->provider_label,
                 'issuer_url' => $row->issuer_url,
                 'client_id' => $row->client_id,
-                'client_secret_encrypted' => $row->client_secret_encrypted,
                 'redirect_uri' => $row->redirect_uri,
                 'scopes' => $row->scopes,
                 'activated_at' => $now,

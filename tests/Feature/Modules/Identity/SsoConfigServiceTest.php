@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use Illuminate\Support\Facades\Crypt;
 use Modules\Identity\Models\TenantSsoConfig;
 use Modules\Identity\Services\SsoConfigService;
 use Modules\Tenancy\Models\Tenant;
@@ -21,12 +20,11 @@ class SsoConfigServiceTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        TenantSsoConfig::query()->create([
-            'tenant_id' => $tenant->id,
+        app(SsoConfigService::class)->update($tenant, [
             'enabled' => true,
             'issuer_url' => 'https://idp.example.com',
             'client_id' => 'client-id',
-            'client_secret_encrypted' => Crypt::encryptString('super-secret'),
+            'client_secret' => 'super-secret',
         ]);
 
         $payload = app(SsoConfigService::class)->getForTenant($tenant);
@@ -38,7 +36,7 @@ class SsoConfigServiceTest extends TestCase
     }
 
     #[Test]
-    public function update_encrypts_client_secret_write_only(): void
+    public function update_provisions_reference_credential_write_only(): void
     {
         $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
@@ -52,7 +50,8 @@ class SsoConfigServiceTest extends TestCase
         ]);
 
         $this->assertTrue($record->enabled);
-        $this->assertSame('write-only-secret', app(SsoConfigService::class)->getDecryptedClientSecret($tenant));
+        $this->assertArrayNotHasKey('client_secret_encrypted', $record->getAttributes());
+        $this->assertSame('write-only-secret', app(SsoConfigService::class)->resolveClientSecretForTenant($tenant));
         $public = app(SsoConfigService::class)->getForTenant($tenant);
         tenancy()->end();
 
@@ -99,7 +98,7 @@ class SsoConfigServiceTest extends TestCase
         $service = app(SsoConfigService::class);
         $this->assertTrue($service->disableForEntitlementLoss($tenant));
         $this->assertFalse($service->isOperationalForTenant($tenant));
-        $this->assertSame('preserved-secret', $service->getDecryptedClientSecret($tenant));
+        $this->assertSame('preserved-secret', $service->resolveClientSecretForTenant($tenant));
 
         $public = $service->getForTenant($tenant);
         $this->assertFalse($public['enabled']);
@@ -114,14 +113,14 @@ class SsoConfigServiceTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        TenantSsoConfig::query()->create([
-            'tenant_id' => $tenant->id,
+        app(SsoConfigService::class)->update($tenant, [
             'enabled' => false,
-            'disabled_by_entitlement' => true,
             'issuer_url' => 'https://idp.example.com',
             'client_id' => 'client-id',
-            'client_secret_encrypted' => Crypt::encryptString('secret'),
-            'scopes' => ['openid', 'profile', 'email'],
+            'client_secret' => 'secret',
+        ]);
+        TenantSsoConfig::query()->where('tenant_id', $tenant->id)->update([
+            'disabled_by_entitlement' => true,
         ]);
         tenancy()->end();
 

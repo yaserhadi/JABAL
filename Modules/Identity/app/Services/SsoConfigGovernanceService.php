@@ -142,6 +142,10 @@ class SsoConfigGovernanceService
                 }
 
                 $version = TenantSsoConfigVersion::query()->whereKey($version->id)->lockForUpdate()->firstOrFail();
+
+                app(\Modules\Identity\Support\Sso\Credentials\IdpCredentialAccessService::class)
+                    ->assertOperationalCredentialReady($version);
+
                 $version->forceFill([
                     'status' => TenantSsoConfigVersion::STATUS_ACTIVE,
                     'activated_at' => now(),
@@ -152,7 +156,6 @@ class SsoConfigGovernanceService
                     'provider_label' => $version->provider_label,
                     'issuer_url' => $version->issuer_url,
                     'client_id' => $version->client_id,
-                    'client_secret_encrypted' => $version->getAttributes()['client_secret_encrypted'] ?? null,
                     'redirect_uri' => $version->redirect_uri,
                     'jwks_uri' => $version->jwks_uri,
                     'logout_token_signing_algs' => $version->logout_token_signing_algs,
@@ -237,6 +240,33 @@ class SsoConfigGovernanceService
                 ->where('config_id', $config->id)
                 ->max('version_number');
 
+            // Inherit active credential metadata when cloning material without a new secret.
+            if ($config->active_version_id && ! array_key_exists('credential_reference', $material)) {
+                $active = TenantSsoConfigVersion::query()
+                    ->where('config_id', $config->id)
+                    ->whereKey($config->active_version_id)
+                    ->first();
+                if ($active
+                    && filled($active->credential_provider)
+                    && filled($active->credential_reference)) {
+                    $material['credential_provider'] = $active->credential_provider;
+                    $material['credential_reference'] = $active->credential_reference;
+                    $material['credential_type'] = $active->credential_type;
+                    $material['credential_version_policy'] = $active->credential_version_policy;
+                    $material['credential_environment_scope'] = $active->credential_environment_scope;
+                    $material['credential_status'] = $active->credential_status;
+                    $material['credential_last_verified_at'] = $active->credential_last_verified_at;
+                }
+            }
+
+            if (blank($material['credential_provider'] ?? null)
+                || blank($material['credential_reference'] ?? null)
+                || blank($material['credential_type'] ?? null)
+                || blank($material['credential_environment_scope'] ?? null)
+                || ($material['credential_status'] ?? null) !== 'active') {
+                throw new SsoSecurityException('Drafts require complete credential reference metadata.');
+            }
+
             $version = TenantSsoConfigVersion::query()->create([
                 'tenant_id' => $config->tenant_id,
                 'config_id' => $config->id,
@@ -245,8 +275,13 @@ class SsoConfigGovernanceService
                 'provider_label' => $material['provider_label'] ?? $config->provider_label,
                 'issuer_url' => $material['issuer_url'] ?? $config->issuer_url,
                 'client_id' => $material['client_id'] ?? $config->client_id,
-                'client_secret_encrypted' => $material['client_secret_encrypted']
-                    ?? ($config->getAttributes()['client_secret_encrypted'] ?? null),
+                'credential_provider' => $material['credential_provider'],
+                'credential_reference' => $material['credential_reference'],
+                'credential_type' => $material['credential_type'],
+                'credential_version_policy' => $material['credential_version_policy'] ?? null,
+                'credential_environment_scope' => $material['credential_environment_scope'],
+                'credential_status' => $material['credential_status'],
+                'credential_last_verified_at' => $material['credential_last_verified_at'] ?? null,
                 'redirect_uri' => $material['redirect_uri'] ?? $config->redirect_uri,
                 'jwks_uri' => $material['jwks_uri'] ?? $config->jwks_uri,
                 'logout_token_signing_algs' => $material['logout_token_signing_algs']

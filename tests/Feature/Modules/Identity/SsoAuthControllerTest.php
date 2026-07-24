@@ -84,7 +84,6 @@ class SsoAuthControllerTest extends TestCase
             'disabled_by_entitlement' => false,
             'issuer_url' => 'https://login.microsoftonline.com/tenant/v2.0',
             'client_id' => 'client-id',
-            'client_secret_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString('client-secret'),
             'scopes' => ['openid', 'profile', 'email'],
         ]);
         tenancy()->end();
@@ -323,7 +322,6 @@ class SsoAuthControllerTest extends TestCase
             'disabled_by_entitlement' => true,
             'issuer_url' => 'https://login.microsoftonline.com/tenant/v2.0',
             'client_id' => 'client-id',
-            'client_secret_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString('client-secret'),
             'scopes' => ['openid', 'profile', 'email'],
         ]);
         tenancy()->end();

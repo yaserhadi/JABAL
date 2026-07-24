@@ -163,7 +163,24 @@ class SsoKillSwitchService
                 ->whereKey($versionId)
                 ->firstOrFail();
 
+            $registry = app(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class);
+            if (filled($version->credential_provider) && $registry->hasManagement((string) $version->credential_provider)) {
+                try {
+                    $ref = \Modules\Identity\Support\Sso\Credentials\SecretReference::fromVersionAttributes(
+                        (string) $version->credential_provider,
+                        (string) $version->credential_reference,
+                        (string) $version->credential_type,
+                        $version->credential_version_policy,
+                        $version->credential_environment_scope,
+                        $version->credential_status,
+                    );
+                    $registry->management($ref->provider)->revoke($ref);
+                } catch (\Throwable) {
+                    // Still stamp revoke fail-closed for login; sealed revoke best-effort.
+                }
+            }
             $version->forceFill([
+                'credential_status' => 'revoked',
                 'secret_revoked_at' => now(),
             ])->save();
 
