@@ -8,15 +8,10 @@ use Modules\Tenancy\Models\Tenant;
 /**
  * Fail-closed IdP credential resolver for version-owned secret references.
  *
- * Never reads parent ciphertext / client_secret_encrypted.
- * Does not register local_sealed (foundation / corrections phase).
+ * Reference-only: never reads database ciphertext.
  */
 final class IdpCredentialResolver
 {
-    public const SOURCE_LEGACY_ENCRYPTED = 'legacy_encrypted';
-
-    public const SOURCE_REFERENCE = 'reference';
-
     public const STATUS_ACTIVE = 'active';
 
     public function __construct(
@@ -37,7 +32,7 @@ final class IdpCredentialResolver
         ?string $clientAuthMethod = null,
     ): SecretResolutionResult {
         $this->assertVersionAuthority($tenant, $version);
-        $this->assertReferenceSource($version);
+        $this->assertCompleteReferenceMetadata($version);
         $this->assertActiveStatus($version);
         $this->assertEnvironmentScope($version);
         $this->assertPurposeCompatibility($version, $purpose, $clientAuthMethod);
@@ -60,17 +55,12 @@ final class IdpCredentialResolver
         ?string $clientAuthMethod = null,
     ): void {
         $this->assertVersionAuthority($tenant, $version);
-        $this->assertReferenceSource($version);
+        $this->assertCompleteReferenceMetadata($version);
         $this->assertActiveStatus($version);
         $this->assertEnvironmentScope($version);
         $this->assertPurposeCompatibility($version, $purpose, $clientAuthMethod);
         $reference = $this->buildReferenceFromVersion($version);
         $this->assertProviderRegistered($reference->provider);
-    }
-
-    public function usesReferenceSource(TenantSsoConfigVersion $version): bool
-    {
-        return ($version->credential_source ?? self::SOURCE_LEGACY_ENCRYPTED) === self::SOURCE_REFERENCE;
     }
 
     private function assertVersionAuthority(Tenant $tenant, TenantSsoConfigVersion $version): void
@@ -80,18 +70,8 @@ final class IdpCredentialResolver
         }
     }
 
-    private function assertReferenceSource(TenantSsoConfigVersion $version): void
+    private function assertCompleteReferenceMetadata(TenantSsoConfigVersion $version): void
     {
-        $source = $version->credential_source ?? self::SOURCE_LEGACY_ENCRYPTED;
-
-        if ($source === self::SOURCE_LEGACY_ENCRYPTED) {
-            throw CredentialResolutionException::failClosed('legacy_encrypted_source_not_resolved_here');
-        }
-
-        if ($source !== self::SOURCE_REFERENCE) {
-            throw CredentialResolutionException::failClosed('unknown_credential_source');
-        }
-
         if (blank($version->credential_provider) || blank($version->credential_reference) || blank($version->credential_type)) {
             throw CredentialResolutionException::failClosed('incomplete_reference_metadata');
         }

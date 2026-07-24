@@ -163,33 +163,26 @@ class SsoKillSwitchService
                 ->whereKey($versionId)
                 ->firstOrFail();
 
-            $access = app(\Modules\Identity\Support\Sso\Credentials\IdpCredentialAccessService::class);
-            if ($access->credentialSource($version) === \Modules\Identity\Support\Sso\Credentials\IdpCredentialResolver::SOURCE_REFERENCE) {
-                $registry = app(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class);
-                if ($registry->hasRuntime((string) $version->credential_provider)) {
-                    try {
-                        $ref = \Modules\Identity\Support\Sso\Credentials\SecretReference::fromVersionAttributes(
-                            (string) $version->credential_provider,
-                            (string) $version->credential_reference,
-                            (string) $version->credential_type,
-                            $version->credential_version_policy,
-                            $version->credential_environment_scope,
-                            $version->credential_status,
-                        );
-                        $registry->management($ref->provider)->revoke($ref);
-                    } catch (\Throwable) {
-                        // Still stamp revoke fail-closed for login; sealed revoke best-effort.
-                    }
+            $registry = app(\Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry::class);
+            if (filled($version->credential_provider) && $registry->hasManagement((string) $version->credential_provider)) {
+                try {
+                    $ref = \Modules\Identity\Support\Sso\Credentials\SecretReference::fromVersionAttributes(
+                        (string) $version->credential_provider,
+                        (string) $version->credential_reference,
+                        (string) $version->credential_type,
+                        $version->credential_version_policy,
+                        $version->credential_environment_scope,
+                        $version->credential_status,
+                    );
+                    $registry->management($ref->provider)->revoke($ref);
+                } catch (\Throwable) {
+                    // Still stamp revoke fail-closed for login; sealed revoke best-effort.
                 }
-                $version->forceFill([
-                    'credential_status' => 'revoked',
-                    'secret_revoked_at' => now(),
-                ])->save();
-            } else {
-                $version->forceFill([
-                    'secret_revoked_at' => now(),
-                ])->save();
             }
+            $version->forceFill([
+                'credential_status' => 'revoked',
+                'secret_revoked_at' => now(),
+            ])->save();
 
             $this->audit->record('sso.governance.secret_revoked', [
                 'tenant_id' => (string) $tenant->id,

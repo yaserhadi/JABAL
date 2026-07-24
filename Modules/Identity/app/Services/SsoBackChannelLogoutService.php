@@ -149,7 +149,7 @@ class SsoBackChannelLogoutService
         string $alg,
     ): ?string {
         if ($alg === 'HS256') {
-            $secret = $this->configService->getHs256LogoutSecretForVersion($tenant, $version);
+            $secret = $this->configService->resolveHs256LogoutSecretForVersion($tenant, $version);
             if ($secret === null || $secret === '') {
                 return 'hs256_secret_missing';
             }

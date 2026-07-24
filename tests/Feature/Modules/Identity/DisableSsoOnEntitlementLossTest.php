@@ -62,7 +62,7 @@ class DisableSsoOnEntitlementLossTest extends TestCase
         $this->assertTrue($record->disabled_by_entitlement);
         $this->assertSame('https://example.com', $record->issuer_url);
         $this->assertSame('client-id', $record->client_id);
-        $this->assertSame($secret, app(SsoConfigService::class)->getDecryptedClientSecret($tenant));
+        $this->assertSame($secret, app(SsoConfigService::class)->resolveClientSecretForTenant($tenant));
     }
 
     #[Test]
@@ -215,7 +215,7 @@ class DisableSsoOnEntitlementLossTest extends TestCase
 
         $this->assertTrue($record->disabled_by_entitlement);
         $this->assertFalse($record->enabled);
-        $this->assertSame($secret, app(SsoConfigService::class)->getDecryptedClientSecret($tenant));
+        $this->assertSame($secret, app(SsoConfigService::class)->resolveClientSecretForTenant($tenant));
     }
 
     /**

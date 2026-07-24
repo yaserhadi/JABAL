@@ -59,20 +59,22 @@ class TenantSsoSchemaTest extends TestCase
         }
     }
 
-    public function test_tenant_sso_config_hides_encrypted_secret_from_serialization(): void
+    public function test_tenant_sso_config_schema_has_no_ciphertext_column(): void
     {
         $user = $this->registerTenantUser('SSO Secret', 'sso-secret-'.uniqid().'@example.com');
         $tenant = $user->personalTenant();
 
         tenancy()->initialize($tenant);
         try {
-            $config = TenantSsoConfig::query()->create([
-                'tenant_id' => $tenant->id,
-                'client_secret_encrypted' => 'encrypted-blob-not-for-api',
-            ]);
-
-            $array = $config->fresh()->toArray();
-            $this->assertArrayNotHasKey('client_secret_encrypted', $array);
+            $this->assertFalse(
+                \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('tenant_sso_config', 'client_secret_encrypted')
+            );
+            $this->assertFalse(
+                \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('tenant_sso_config_versions', 'client_secret_encrypted')
+            );
+            $this->assertFalse(
+                \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('tenant_sso_config_versions', 'credential_source')
+            );
         } finally {
             tenancy()->end();
         }

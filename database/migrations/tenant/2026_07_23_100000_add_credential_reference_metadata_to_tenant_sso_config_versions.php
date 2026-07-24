@@ -2,11 +2,10 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * BK-098 foundation: version-owned credential reference metadata (no sealed store yet).
+ * BK-098: version-owned opaque credential reference metadata (reference-only; no ciphertext).
  *
  * Operational credential authority lives on tenant_sso_config_versions only.
  * Parent tenant_sso_config must not gain a second operational secret reference.
@@ -18,8 +17,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::connection('tenant')->table('tenant_sso_config_versions', function (Blueprint $table) {
-            $table->string('credential_source', 32)->default('reference')->after('client_secret_encrypted');
-            $table->string('credential_provider', 64)->nullable()->after('credential_source');
+            $table->string('credential_provider', 64)->nullable()->after('client_id');
             $table->string('credential_reference', 512)->nullable()->after('credential_provider');
             $table->string('credential_type', 64)->nullable()->after('credential_reference');
             $table->string('credential_version_policy', 64)->nullable()->after('credential_type');
@@ -27,30 +25,12 @@ return new class extends Migration
             $table->string('credential_status', 32)->nullable()->after('credential_environment_scope');
             $table->timestamp('credential_last_verified_at')->nullable()->after('credential_status');
         });
-
-        // Historical rows with leftover ciphertext are marked legacy (non-operational under readiness).
-        // Fresh installs have no rows; demo DBs should purge + reseed rather than migrate secrets.
-        DB::connection('tenant')->table('tenant_sso_config_versions')
-            ->whereNotNull('client_secret_encrypted')
-            ->where('client_secret_encrypted', '!=', '')
-            ->update([
-                'credential_source' => 'legacy_encrypted',
-            ]);
-
-        DB::connection('tenant')->table('tenant_sso_config_versions')
-            ->where(function ($q) {
-                $q->whereNull('client_secret_encrypted')->orWhere('client_secret_encrypted', '');
-            })
-            ->update([
-                'credential_source' => 'reference',
-            ]);
     }
 
     public function down(): void
     {
         Schema::connection('tenant')->table('tenant_sso_config_versions', function (Blueprint $table) {
             $table->dropColumn([
-                'credential_source',
                 'credential_provider',
                 'credential_reference',
                 'credential_type',

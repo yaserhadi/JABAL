@@ -66,17 +66,12 @@ class TenantSsoConfig extends Model
         'provider_label',
         'issuer_url',
         'client_id',
-        'client_secret_encrypted',
         'redirect_uri',
         'jwks_uri',
         'logout_token_signing_algs',
         'scopes',
         'active_version_id',
         'pending_version_id',
-    ];
-
-    protected $hidden = [
-        'client_secret_encrypted',
     ];
 
     protected $casts = [

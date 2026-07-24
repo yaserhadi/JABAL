@@ -20,7 +20,6 @@ final class SsoObservabilityRedactor
         'id_token',
         'logout_token',
         'client_secret',
-        'client_secret_encrypted',
         'credential_reference',
         'unseal_key',
         'plaintext',

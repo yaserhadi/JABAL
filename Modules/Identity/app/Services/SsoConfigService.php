@@ -41,7 +41,6 @@ class SsoConfigService
         'provider_label',
         'issuer_url',
         'client_id',
-        'client_secret_encrypted',
         'redirect_uri',
         'scopes',
         'jwks_uri',
@@ -91,7 +90,7 @@ class SsoConfigService
                     $this->assertSsoEntitlement($tenant);
                 }
 
-                // BK-098 readiness: plaintext client_secret → sealed provision only (never ciphertext).
+                // BK-098: plaintext client_secret → sealed provision only (metadata on version).
                 $forcedVersionId = null;
                 $provisionedCredential = null;
                 if (array_key_exists('client_secret', $data) && is_string($data['client_secret']) && $data['client_secret'] !== '') {
@@ -103,8 +102,6 @@ class SsoConfigService
                     );
                 }
                 unset($payload['client_secret']);
-                // Never accept operational ciphertext writes on the parent/material path.
-                unset($payload['client_secret_encrypted']);
 
                 $oldValues = $existing ? $this->auditSnapshot($existing) : null;
                 $flagPayload = Arr::only($payload, self::FLAG_FIELDS);
@@ -118,18 +115,15 @@ class SsoConfigService
                         'disabled_by_entitlement' => false,
                         'rollout_state' => TenantSsoConfig::ROLLOUT_ENABLED,
                         'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
-                        'client_secret_encrypted' => null,
-                    ], Arr::except($payload, ['client_secret_encrypted'])));
+                    ], $payload));
 
                     $material = array_merge(
                         $this->materialSnapshotFromConfig($record),
                         $provisionedCredential ?? [],
-                        ['client_secret_encrypted' => null],
                     );
                     $version = $this->createActiveVersion($record, $material, $forcedVersionId);
                     $record->forceFill([
                         'active_version_id' => $version->id,
-                        'client_secret_encrypted' => null,
                     ])->save();
                     $record = $record->fresh();
 
@@ -143,18 +137,12 @@ class SsoConfigService
                 if ($materialChanged) {
                     $nextMaterial = $this->mergeMaterial($existing, $materialPayload, $secretProvided);
                     if ($provisionedCredential !== null) {
-                        $nextMaterial = array_merge($nextMaterial, $provisionedCredential, [
-                            'client_secret_encrypted' => null,
-                        ]);
+                        $nextMaterial = array_merge($nextMaterial, $provisionedCredential);
                     }
                     $this->supersedeActiveVersion($existing);
                     $version = $this->createActiveVersion($existing, $nextMaterial, $forcedVersionId);
-                    // Parent row holds operational mirror of MATERIAL_FIELDS only —
-                    // credential_* authority stays on the version (BK-098). Never write ciphertext.
-                    $parentMaterial = Arr::only($nextMaterial, self::MATERIAL_FIELDS);
-                    $parentMaterial['client_secret_encrypted'] = null;
                     $existing->forceFill(array_merge(
-                        $parentMaterial,
+                        Arr::only($nextMaterial, self::MATERIAL_FIELDS),
                         [
                             'active_version_id' => $version->id,
                         ],
@@ -343,10 +331,10 @@ class SsoConfigService
     }
 
     /**
-     * Resolve IdP client secret via active version (BK-098 cutover — never parent ciphertext).
+     * Resolve IdP client secret via active version (BK-098 — sealed provider only).
      * Internal use by SsoAuthService only — never expose via GET/Inertia.
      */
-    public function getDecryptedClientSecret(Tenant $tenant): ?string
+    public function resolveClientSecretForTenant(Tenant $tenant): ?string
     {
         return $this->withTenantContext($tenant, function () use ($tenant) {
             $row = $this->findRow($tenant);
@@ -377,9 +365,9 @@ class SsoConfigService
     }
 
     /**
-     * Resolve IdP client secret for a bound IdP configuration version (BK-098 cutover).
+     * Resolve IdP client secret for a bound IdP configuration version (BK-098).
      */
-    public function getDecryptedClientSecretForVersion(Tenant $tenant, TenantSsoConfigVersion $version): ?string
+    public function resolveClientSecretForVersion(Tenant $tenant, TenantSsoConfigVersion $version): ?string
     {
         return $this->withTenantContext($tenant, function () use ($tenant, $version) {
             try {
@@ -398,7 +386,7 @@ class SsoConfigService
     /**
      * HS256 Back-Channel Logout credential (purpose-aware; no JWKS path).
      */
-    public function getHs256LogoutSecretForVersion(Tenant $tenant, TenantSsoConfigVersion $version): ?string
+    public function resolveHs256LogoutSecretForVersion(Tenant $tenant, TenantSsoConfigVersion $version): ?string
     {
         return $this->withTenantContext($tenant, function () use ($tenant, $version) {
             try {
@@ -448,10 +436,6 @@ class SsoConfigService
             'provider_label' => $material['provider_label'] ?? null,
             'issuer_url' => $material['issuer_url'] ?? null,
             'client_id' => $material['client_id'] ?? null,
-            // Schema column retained; never authoritative after BK-098 readiness.
-            'client_secret_encrypted' => null,
-            'credential_source' => $material['credential_source']
-                ?? TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE,
             'credential_provider' => $material['credential_provider'] ?? null,
             'credential_reference' => $material['credential_reference'] ?? null,
             'credential_type' => $material['credential_type'] ?? null,
@@ -507,8 +491,6 @@ class SsoConfigService
         }
 
         return [
-            'client_secret_encrypted' => null,
-            'credential_source' => TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE,
             'credential_provider' => 'local_sealed',
             'credential_reference' => $logical,
             'credential_type' => 'oidc_client_secret',
@@ -561,22 +543,21 @@ class SsoConfigService
             'provider_label' => $config->provider_label,
             'issuer_url' => $config->issuer_url,
             'client_id' => $config->client_id,
-            'client_secret_encrypted' => null,
             'redirect_uri' => $config->redirect_uri,
             'jwks_uri' => $config->jwks_uri,
             'logout_token_signing_algs' => $config->logout_token_signing_algs,
             'scopes' => $config->scopes,
         ];
 
-        // BK-098: inherit version-owned reference credential authority only.
+        // Inherit version-owned reference credential authority.
         if ($config->active_version_id) {
             $active = TenantSsoConfigVersion::query()
                 ->where('config_id', $config->id)
                 ->whereKey($config->active_version_id)
                 ->first();
             if ($active instanceof TenantSsoConfigVersion
-                && ($active->credential_source ?? null) === TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE) {
-                $snapshot['credential_source'] = TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE;
+                && filled($active->credential_provider)
+                && filled($active->credential_reference)) {
                 $snapshot['credential_provider'] = $active->credential_provider;
                 $snapshot['credential_reference'] = $active->credential_reference;
                 $snapshot['credential_type'] = $active->credential_type;
@@ -599,12 +580,6 @@ class SsoConfigService
         $merged = $this->materialSnapshotFromConfig($existing);
 
         foreach (self::MATERIAL_FIELDS as $field) {
-            if ($field === 'client_secret_encrypted') {
-                $merged[$field] = null;
-
-                continue;
-            }
-
             if (array_key_exists($field, $materialPayload)) {
                 $merged[$field] = $materialPayload[$field];
             }

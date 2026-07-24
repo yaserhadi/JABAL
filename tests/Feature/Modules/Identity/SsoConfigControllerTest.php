@@ -5,7 +5,6 @@ namespace Tests\Feature\Modules\Identity;
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
-use Illuminate\Support\Facades\Crypt;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantSsoConfig;
 use Modules\Identity\Services\SsoConfigService;
@@ -150,7 +149,7 @@ class SsoConfigControllerTest extends TestCase
         tenancy()->initialize($this->tenant);
         $this->assertSame(
             'keep-me-secret',
-            app(\Modules\Identity\Services\SsoConfigService::class)->getDecryptedClientSecret($this->tenant)
+            app(\Modules\Identity\Services\SsoConfigService::class)->resolveClientSecretForTenant($this->tenant)
         );
         tenancy()->end();
     }

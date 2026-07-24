@@ -46,7 +46,7 @@ class IdpCredentialReferenceFoundationTest extends TestCase
     }
 
     #[Test]
-    public function new_versions_default_to_reference_credential_source(): void
+    public function new_versions_store_reference_metadata_without_ciphertext_column(): void
     {
         $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
@@ -62,12 +62,14 @@ class IdpCredentialReferenceFoundationTest extends TestCase
             ]);
 
             $version = TenantSsoConfigVersion::query()->findOrFail($service->getActiveVersionId($tenant));
-            $this->assertSame(TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE, $version->credential_source);
             $this->assertSame('local_sealed', $version->credential_provider);
-            $this->assertNull($version->getAttributes()['client_secret_encrypted'] ?? null);
+            $this->assertNotEmpty($version->credential_reference);
+            $this->assertArrayNotHasKey('client_secret_encrypted', $version->getAttributes());
+            $this->assertArrayNotHasKey('credential_source', $version->getAttributes());
 
             $parent = TenantSsoConfig::query()->where('tenant_id', $tenant->id)->firstOrFail();
             $this->assertFalse(array_key_exists('credential_provider', $parent->getAttributes()));
+            $this->assertArrayNotHasKey('client_secret_encrypted', $parent->getAttributes());
         } finally {
             tenancy()->end();
         }
@@ -92,7 +94,6 @@ class IdpCredentialReferenceFoundationTest extends TestCase
             $version = TenantSsoConfigVersion::query()->findOrFail($service->getActiveVersionId($tenant));
             $this->expectException(LogicException::class);
             $version->update([
-                'credential_source' => TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE,
                 'credential_provider' => 'local_sealed',
                 'credential_reference' => 'enterprise-sso/t/v/client-secret',
                 'credential_type' => 'oidc_client_secret',
@@ -325,7 +326,7 @@ class IdpCredentialReferenceFoundationTest extends TestCase
     }
 
     #[Test]
-    public function legacy_source_fails_without_ciphertext_fallback_or_provider_call(): void
+    public function incomplete_reference_metadata_fails_closed_before_provider_call(): void
     {
         $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
@@ -344,7 +345,6 @@ class IdpCredentialReferenceFoundationTest extends TestCase
                 ->table('tenant_sso_config_versions')
                 ->where('id', $version->id)
                 ->update([
-                    'credential_source' => TenantSsoConfigVersion::CREDENTIAL_SOURCE_LEGACY_ENCRYPTED,
                     'credential_provider' => null,
                     'credential_reference' => null,
                     'credential_type' => null,
@@ -361,9 +361,9 @@ class IdpCredentialReferenceFoundationTest extends TestCase
                     $version,
                     CredentialPurpose::OidcClientAuth,
                 );
-                $this->fail('Expected legacy fail-closed');
+                $this->fail('Expected incomplete_reference_metadata');
             } catch (CredentialResolutionException $e) {
-                $this->assertStringContainsString('legacy_encrypted_source_not_resolved_here', $e->getMessage());
+                $this->assertStringContainsString('incomplete_reference_metadata', $e->getMessage());
                 $this->assertSame(0, $this->resolveCalls);
             }
         } finally {
@@ -433,7 +433,6 @@ class IdpCredentialReferenceFoundationTest extends TestCase
             'status' => TenantSsoConfigVersion::STATUS_DRAFT,
             'issuer_url' => 'https://idp.example.com',
             'client_id' => 'client-v1',
-            'credential_source' => TenantSsoConfigVersion::CREDENTIAL_SOURCE_REFERENCE,
             'credential_provider' => 'local_sealed',
             'credential_reference' => 'enterprise-sso/'.$tenant->id.'/v/client-secret',
             'credential_type' => 'oidc_client_secret',

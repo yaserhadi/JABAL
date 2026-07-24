@@ -50,8 +50,8 @@ class SsoConfigServiceTest extends TestCase
         ]);
 
         $this->assertTrue($record->enabled);
-        $this->assertNull($record->getAttributes()['client_secret_encrypted'] ?? null);
-        $this->assertSame('write-only-secret', app(SsoConfigService::class)->getDecryptedClientSecret($tenant));
+        $this->assertArrayNotHasKey('client_secret_encrypted', $record->getAttributes());
+        $this->assertSame('write-only-secret', app(SsoConfigService::class)->resolveClientSecretForTenant($tenant));
         $public = app(SsoConfigService::class)->getForTenant($tenant);
         tenancy()->end();
 
@@ -98,7 +98,7 @@ class SsoConfigServiceTest extends TestCase
         $service = app(SsoConfigService::class);
         $this->assertTrue($service->disableForEntitlementLoss($tenant));
         $this->assertFalse($service->isOperationalForTenant($tenant));
-        $this->assertSame('preserved-secret', $service->getDecryptedClientSecret($tenant));
+        $this->assertSame('preserved-secret', $service->resolveClientSecretForTenant($tenant));
 
         $public = $service->getForTenant($tenant);
         $this->assertFalse($public['enabled']);

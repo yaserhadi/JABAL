@@ -303,7 +303,7 @@ class SsoAuthService
         $issuer = $this->buildIssuer($tenant);
         $config = $this->configService->getForTenant($tenant);
         $clientId = $config['client_id'] ?? null;
-        $secret = $this->configService->getDecryptedClientSecret($tenant);
+        $secret = $this->configService->resolveClientSecretForTenant($tenant);
 
         if (! is_string($clientId) || $clientId === '' || $secret === null || $secret === '') {
             throw new SsoSecurityException('Tenant SSO client credentials are not configured.');
@@ -338,7 +338,7 @@ class SsoAuthService
 
         $issuerUrl = is_string($version->issuer_url) ? $version->issuer_url : '';
         $clientId = is_string($version->client_id) ? $version->client_id : '';
-        $secret = $this->configService->getDecryptedClientSecretForVersion($tenant, $version);
+        $secret = $this->configService->resolveClientSecretForVersion($tenant, $version);
 
         if ($issuerUrl === '' || $clientId === '' || $secret === null || $secret === '') {
             throw new SsoSecurityException('Bound IdP configuration version credentials are incomplete.');

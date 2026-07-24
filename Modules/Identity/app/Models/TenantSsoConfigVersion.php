@@ -39,10 +39,6 @@ class TenantSsoConfigVersion extends Model
 
     public const STATUS_SUPERSEDED = 'superseded';
 
-    public const CREDENTIAL_SOURCE_LEGACY_ENCRYPTED = 'legacy_encrypted';
-
-    public const CREDENTIAL_SOURCE_REFERENCE = 'reference';
-
     /** @var list<string> */
     public const LIFECYCLE_STATUSES = [
         self::STATUS_DRAFT,
@@ -70,8 +66,6 @@ class TenantSsoConfigVersion extends Model
         'provider_label',
         'issuer_url',
         'client_id',
-        'client_secret_encrypted',
-        'credential_source',
         'credential_provider',
         'credential_reference',
         'credential_type',
@@ -90,10 +84,6 @@ class TenantSsoConfigVersion extends Model
         'disabled_at',
         'secret_revoked_at',
         'disable_reason',
-    ];
-
-    protected $hidden = [
-        'client_secret_encrypted',
     ];
 
     protected $casts = [

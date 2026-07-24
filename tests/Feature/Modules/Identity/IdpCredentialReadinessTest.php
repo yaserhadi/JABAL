@@ -13,13 +13,13 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\TestCase;
 
-/** BK-098 Gate A readiness — local_sealed provision/resolve/rotate/revoke + no operational ciphertext. */
+/** BK-098 — local_sealed provision/resolve/rotate/revoke + reference-only schema. */
 class IdpCredentialReadinessTest extends TestCase
 {
     use GrantsSsoEntitlement;
 
     #[Test]
-    public function provision_resolve_rotate_revoke_and_no_ciphertext_authority(): void
+    public function provision_resolve_rotate_revoke_reference_only(): void
     {
         $tenant = Tenant::factory()->create();
         $this->grantSsoAvailable($tenant);
@@ -37,8 +37,8 @@ class IdpCredentialReadinessTest extends TestCase
             ]);
 
             $v1 = TenantSsoConfigVersion::query()->findOrFail($service->getActiveVersionId($tenant));
-            $this->assertSame('reference', $v1->credential_source);
-            $this->assertNull($v1->getAttributes()['client_secret_encrypted'] ?? null);
+            $this->assertSame('local_sealed', $v1->credential_provider);
+            $this->assertArrayNotHasKey('client_secret_encrypted', $v1->getAttributes());
             $this->assertSame(
                 'initial-secret',
                 $access->resolveClientSecret($tenant, $v1, CredentialPurpose::OidcClientAuth),
@@ -68,7 +68,7 @@ class IdpCredentialReadinessTest extends TestCase
 
             $registry->management('local_sealed')->revoke($ref);
             $v2->forceFill(['credential_status' => 'revoked'])->save();
-            $this->assertNull($service->getDecryptedClientSecret($tenant));
+            $this->assertNull($service->resolveClientSecretForTenant($tenant));
         } finally {
             tenancy()->end();
         }

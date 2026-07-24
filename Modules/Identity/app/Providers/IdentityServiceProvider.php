@@ -148,7 +148,6 @@ class IdentityServiceProvider extends ServiceProvider
     {
         $this->commands([
             \Modules\Identity\Console\CleanupSsoTransientDataCommand::class,
-            \Modules\Identity\Console\PurgeLegacySsoDemoCredentialsCommand::class,
         ]);
     }
 
