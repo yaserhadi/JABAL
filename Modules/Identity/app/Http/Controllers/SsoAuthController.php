@@ -7,11 +7,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Modules\Identity\Exceptions\SsoSecurityException;
+use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Services\SsoAuthService;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-008: OIDC redirect/callback — sole owner of Auth::login() for federated sign-in.
+ * Path OIDC redirect/callback — Path federated login authority (with Host handoff).
+ *
+ * BK-097: existing-link-only resolution via service; D12 ordinary session gates before login.
  */
 class SsoAuthController extends Controller
 {
@@ -72,12 +75,58 @@ class SsoAuthController extends Controller
                 ->withErrors(['email' => __('Unable to sign in with single sign-on.')]);
         }
 
-        Auth::guard('web')->login($result->user);
+        $user = $result->user;
+        $dashboard = app(\App\Http\Auth\TenantEntryUrlResolver::class)->dashboardUrl($tenant);
+
+        if (Auth::guard('web')->check()) {
+            if (! $this->isSameUserSameTenantContinuation($user, $tenant)) {
+                return redirect()
+                    ->route('login')
+                    ->withErrors(['email' => __('Unable to sign in with single sign-on.')]);
+            }
+
+            // Ordinary same-user continuation: no login, logout, regenerate, or assurance upgrade.
+            return redirect()->intended($dashboard);
+        }
+
+        Auth::guard('web')->login($user);
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect()->intended(
-            app(\App\Http\Auth\TenantEntryUrlResolver::class)->dashboardUrl($tenant)
-        );
+        return redirect()->intended($dashboard);
+    }
+
+    /**
+     * Fail-closed same-user / same-tenant comparison (BK-097 / D12 ordinary).
+     */
+    protected function isSameUserSameTenantContinuation(TenantUser $resolvedUser, Tenant $tenant): bool
+    {
+        $current = Auth::guard('web')->user();
+        if (! $current instanceof TenantUser) {
+            return false;
+        }
+
+        if ((string) Auth::guard('web')->id() !== (string) $resolvedUser->id) {
+            return false;
+        }
+
+        if ((string) $tenant->id !== (string) (tenancy()->tenant instanceof Tenant ? tenancy()->tenant->id : '')) {
+            return false;
+        }
+
+        if ((string) $current->tenant_id !== (string) $tenant->id) {
+            return false;
+        }
+
+        if ((string) $resolvedUser->tenant_id !== (string) $tenant->id) {
+            return false;
+        }
+
+        $sessionTenantId = session('tenant_id');
+        if ($sessionTenantId === null || (string) $sessionTenantId !== (string) $tenant->id) {
+            return false;
+        }
+
+        return true;
     }
 }

@@ -77,7 +77,7 @@ class SsoMfaStepUpTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) use ($user) {
             $mock->shouldReceive('completeCallback')
                 ->once()
-                ->andReturn(SsoIdentityResolutionResult::success($user, new TenantUserIdentity, false));
+                ->andReturn(SsoIdentityResolutionResult::success($user, new TenantUserIdentity));
         });
 
         $controller = file_get_contents(base_path('Modules/Identity/app/Http/Controllers/SsoAuthController.php'));
@@ -102,7 +102,7 @@ class SsoMfaStepUpTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) use ($user) {
             $mock->shouldReceive('completeCallback')
                 ->once()
-                ->andReturn(SsoIdentityResolutionResult::success($user, new TenantUserIdentity, false));
+                ->andReturn(SsoIdentityResolutionResult::success($user, new TenantUserIdentity));
         });
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))

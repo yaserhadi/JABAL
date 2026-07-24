@@ -60,6 +60,20 @@ class SsoAuthControllerTest extends TestCase
         tenancy()->end();
     }
 
+    /**
+     * Session-matrix helpers: skip runtime cookie/instance reset so actingAs + withSession
+     * remain visible to the Path SSO callback (mirrors Host handoff test style).
+     *
+     * @return list<class-string>
+     */
+    protected function pathSsoSessionMatrixMiddlewareToSkip(): array
+    {
+        return [
+            \App\Http\Middleware\ConfigureApplicationRuntime::class,
+            \App\Http\Middleware\ConfigureTenantSessionConnection::class,
+        ];
+    }
+
     #[Test]
     #[Group('path-profile-contract')]
     public function redirect_rejects_when_sso_disabled(): void
@@ -164,7 +178,7 @@ class SsoAuthControllerTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) {
             $mock->shouldReceive('completeCallback')
                 ->once()
-                ->andReturn(SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_NO_MATCH));
+                ->andReturn(SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED));
         });
 
         $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
@@ -198,7 +212,7 @@ class SsoAuthControllerTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) use ($user, $link) {
             $mock->shouldReceive('completeCallback')
                 ->once()
-                ->andReturn(SsoIdentityResolutionResult::success($user, $link, false));
+                ->andReturn(SsoIdentityResolutionResult::success($user, $link));
         });
 
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
@@ -212,6 +226,183 @@ class SsoAuthControllerTest extends TestCase
         $this->assertAuthenticatedAs($user, 'web');
         $this->assertSame($tenant->id, session('tenant_id'));
         $this->assertNotSame($beforeSessionId, $session->getId());
+    }
+
+    #[Test]
+    #[Group('path-profile-contract')]
+    public function callback_same_user_ordinary_continuation_does_not_regenerate_or_relogin(): void
+    {
+        [$tenant, $user] = $this->createOrgTenantWithMember();
+        $this->enableSsoForTenant($tenant);
+        $this->assignDashboardViewToUser($user, $tenant);
+
+        tenancy()->initialize($tenant);
+        $link = TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => 'https://login.microsoftonline.com/tenant/v2.0',
+            'subject' => 'sub-'.Str::uuid()->toString(),
+        ]);
+        tenancy()->end();
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->mock(SsoAuthService::class, function ($mock) use ($user, $link) {
+            $mock->shouldReceive('completeCallback')
+                ->once()
+                ->andReturn(SsoIdentityResolutionResult::success($user, $link));
+        });
+
+        $this->withoutMiddleware([
+            ...$this->pathSsoSessionMatrixMiddlewareToSkip(),
+            \Modules\Identity\Http\Middleware\EnsureMfaVerified::class,
+        ]);
+
+        $this->actingAs($user, 'web');
+        $this->withSession(['tenant_id' => $tenant->id, 'mfa_verified_at' => 'preserve-me']);
+
+        $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
+
+        $this->assertAuthenticatedAs($user, 'web');
+        // Prove no regenerate/re-login: MFA marker and tenant binding survive unchanged.
+        $this->assertSame('preserve-me', session('mfa_verified_at'));
+        $this->assertSame($tenant->id, session('tenant_id'));
+    }
+
+    #[Test]
+    #[Group('path-profile-contract')]
+    public function callback_different_user_denies_and_preserves_original_principal(): void
+    {
+        [$tenant, $user] = $this->createOrgTenantWithMember();
+        $this->enableSsoForTenant($tenant);
+
+        tenancy()->initialize($tenant);
+        $other = User::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Other User',
+            'email' => 'other-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $other->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $otherLink = TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $other->id,
+            'issuer' => 'https://login.microsoftonline.com/tenant/v2.0',
+            'subject' => 'sub-'.Str::uuid()->toString(),
+        ]);
+        tenancy()->end();
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->mock(SsoAuthService::class, function ($mock) use ($other, $otherLink) {
+            $mock->shouldReceive('completeCallback')
+                ->once()
+                ->andReturn(SsoIdentityResolutionResult::success($other, $otherLink));
+        });
+
+        $this->withoutMiddleware([
+            ...$this->pathSsoSessionMatrixMiddlewareToSkip(),
+            \Modules\Identity\Http\Middleware\EnsureMfaVerified::class,
+        ]);
+
+        $this->actingAs($user, 'web');
+        $this->withSession(['tenant_id' => $tenant->id]);
+
+        $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertAuthenticatedAs($user, 'web');
+        $this->assertSame($tenant->id, session('tenant_id'));
+    }
+
+    #[Test]
+    #[Group('path-profile-contract')]
+    public function callback_same_user_wrong_tenant_binding_denies_and_preserves_principal(): void
+    {
+        [$tenant, $user] = $this->createOrgTenantWithMember();
+        $this->enableSsoForTenant($tenant);
+
+        tenancy()->initialize($tenant);
+        $link = TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => 'https://login.microsoftonline.com/tenant/v2.0',
+            'subject' => 'sub-'.Str::uuid()->toString(),
+        ]);
+        tenancy()->end();
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->mock(SsoAuthService::class, function ($mock) use ($user, $link) {
+            $mock->shouldReceive('completeCallback')
+                ->once()
+                ->andReturn(SsoIdentityResolutionResult::success($user, $link));
+        });
+
+        $this->withoutMiddleware([
+            ...$this->pathSsoSessionMatrixMiddlewareToSkip(),
+            // Exercise controller D12 deny (not BK-073 conflict abort).
+            \App\Http\Middleware\RejectTenancyContextConflict::class,
+            \Modules\Identity\Http\Middleware\EnsureMfaVerified::class,
+        ]);
+
+        $this->actingAs($user, 'web');
+        $this->withSession(['tenant_id' => 'wrong-tenant-binding']);
+
+        $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertAuthenticatedAs($user, 'web');
+        $this->assertSame('wrong-tenant-binding', session('tenant_id'));
+    }
+
+    #[Test]
+    #[Group('path-profile-contract')]
+    public function callback_same_user_missing_tenant_binding_denies_and_preserves_principal(): void
+    {
+        [$tenant, $user] = $this->createOrgTenantWithMember();
+        $this->enableSsoForTenant($tenant);
+
+        tenancy()->initialize($tenant);
+        $link = TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => 'https://login.microsoftonline.com/tenant/v2.0',
+            'subject' => 'sub-'.Str::uuid()->toString(),
+        ]);
+        tenancy()->end();
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->mock(SsoAuthService::class, function ($mock) use ($user, $link) {
+            $mock->shouldReceive('completeCallback')
+                ->once()
+                ->andReturn(SsoIdentityResolutionResult::success($user, $link));
+        });
+
+        $this->withoutMiddleware([
+            ...$this->pathSsoSessionMatrixMiddlewareToSkip(),
+            \Modules\Identity\Http\Middleware\EnsureMfaVerified::class,
+        ]);
+
+        $this->actingAs($user, 'web');
+        $this->withSession(['probe' => 'no-tenant-binding']);
+
+        $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertAuthenticatedAs($user, 'web');
+        $this->assertNull(session('tenant_id'));
     }
 
     #[Test]
@@ -249,13 +440,38 @@ class SsoAuthControllerTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) {
             $mock->shouldReceive('completeCallback')
                 ->once()
-                ->andReturn(SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_NO_MATCH));
+                ->andReturn(SsoIdentityResolutionResult::failed(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED));
         });
 
         $response = $this->get('/auth/sso/callback?code='.$secretToken.'&state='.urlencode($state));
 
         $response->assertRedirect(route('login'));
         $this->assertStringNotContainsString($secretToken, $response->getContent() ?? '');
+    }
+
+    #[Test]
+    #[Group('path-profile-contract')]
+    public function callback_resolution_failure_never_logs_in_target_user(): void
+    {
+        [$tenant, $user] = $this->createOrgTenantWithMember();
+        $this->enableSsoForTenant($tenant);
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->mock(SsoAuthService::class, function ($mock) {
+            $mock->shouldReceive('completeCallback')
+                ->once()
+                ->andReturn(SsoIdentityResolutionResult::failed(
+                    SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED
+                ));
+        });
+
+        $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest('web');
+        $this->assertNotEquals($user->id, auth('web')->id());
     }
 
     #[Test]
@@ -297,7 +513,7 @@ class SsoAuthControllerTest extends TestCase
         $this->mock(SsoAuthService::class, function ($mock) use ($user) {
             $mock->shouldReceive('completeCallback')
                 ->once()
-                ->andReturn(SsoIdentityResolutionResult::success($user, new TenantUserIdentity, false));
+                ->andReturn(SsoIdentityResolutionResult::success($user, new TenantUserIdentity));
         });
 
         $this->withoutMiddleware(\Modules\Identity\Http\Middleware\EnsureMfaVerified::class);
@@ -356,12 +572,13 @@ class SsoAuthControllerTest extends TestCase
     }
 
     #[Test]
-    public function controller_is_only_location_with_auth_login_for_sso(): void
+    public function path_controller_owns_path_federated_login_not_sso_auth_service(): void
     {
         $controller = file_get_contents(base_path('Modules/Identity/app/Http/Controllers/SsoAuthController.php'));
         $service = file_get_contents(base_path('Modules/Identity/app/Services/SsoAuthService.php'));
 
-        $this->assertStringContainsString('Auth::guard', $controller);
+        $this->assertStringContainsString("Auth::guard('web')->login", $controller);
         $this->assertStringNotContainsString('Auth::login(', $service);
+        $this->assertStringNotContainsString("Auth::guard('web')->login", $service);
     }
 }
