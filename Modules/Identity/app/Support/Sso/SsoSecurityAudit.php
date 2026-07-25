@@ -25,6 +25,8 @@ final class SsoSecurityAudit
         'sessions_revoked',
         'event_id',
         'actor_user_id',
+        'invitation_id',
+        'enrollment_continuation_id',
     ];
 
     public function __construct(

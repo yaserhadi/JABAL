@@ -18,6 +18,8 @@ use Modules\Identity\Http\Controllers\SecuritySettingsController;
 use Modules\Identity\Http\Controllers\SsoAuthController;
 use Modules\Identity\Http\Controllers\SsoConfigController;
 use Modules\Identity\Http\Controllers\SsoGovernanceController;
+use Modules\Identity\Http\Controllers\WorkforceSsoEnrollmentCompleteController;
+use Modules\Identity\Http\Controllers\WorkforceSsoEnrollmentController;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 use Modules\Identity\Http\Middleware\EnterpriseSsoTransitionHeaders;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
@@ -102,6 +104,14 @@ if ($addressing->isHost()) {
             // BK-103: Path-era identity.sso.redirect is not registered on Host (absence ⇒ 404).
         });
 
+        // BK-099: invitation open (guest or auth) — local auth gate
+        // Param name enrollment_token avoids collision with domain/other {token} bindings.
+        Route::middleware(['web', 'throttle:60,1'])->group(function () {
+            Route::get('/security/sso/enrollment/invitations/{enrollment_token}', [WorkforceSsoEnrollmentController::class, 'openInvitation'])
+                ->where('enrollment_token', '[A-Za-z0-9]{64}')
+                ->name('identity.sso.enrollment.invitation');
+        });
+
         Route::middleware([
             'web',
             'auth',
@@ -114,6 +124,16 @@ if ($addressing->isHost()) {
             Route::get('/security/mfa/challenge', [MfaController::class, 'showChallenge'])->name('identity.mfa.challenge');
             Route::post('/security/mfa/challenge', [MfaController::class, 'verifyChallenge'])->name('identity.mfa.challenge.verify');
             Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');
+
+            // BK-099: post-login resume + start OIDC + enrollment complete
+            Route::get('/security/sso/enrollment/resume', [WorkforceSsoEnrollmentController::class, 'resume'])
+                ->name('identity.sso.enrollment.resume');
+            Route::post('/security/sso/enrollment/start', [WorkforceSsoEnrollmentController::class, 'start'])
+                ->middleware('throttle:sso-enterprise-start')
+                ->name('identity.sso.enrollment.start');
+            Route::get('/auth/enterprise-sso/enrollment/complete', WorkforceSsoEnrollmentCompleteController::class)
+                ->middleware(['throttle:sso-enterprise-handoff', EnterpriseSsoTransitionHeaders::class])
+                ->name('identity.sso.enrollment.complete');
         });
 
         Route::middleware([
@@ -172,6 +192,14 @@ if ($addressing->isHost()) {
                 ->name('identity.sso.show');
             Route::patch('/security/sso', [SsoConfigController::class, 'update'])
                 ->name('identity.sso.update');
+
+            // BK-099 Workforce SSO enrollment admin
+            Route::get('/security/sso/enrollments', [WorkforceSsoEnrollmentController::class, 'index'])
+                ->name('identity.sso.enrollments.index');
+            Route::post('/security/sso/enrollments', [WorkforceSsoEnrollmentController::class, 'store'])
+                ->name('identity.sso.enrollments.store');
+            Route::delete('/security/sso/enrollments/{invitationId}', [WorkforceSsoEnrollmentController::class, 'destroy'])
+                ->name('identity.sso.enrollments.destroy');
 
             Route::post('/security/sso/versions/{versionId}/validate', [SsoGovernanceController::class, 'validateVersion'])
                 ->name('identity.sso.versions.validate');

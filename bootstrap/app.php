@@ -174,6 +174,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: [
             \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
             \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::AUTH_BINDING,
+            \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::ENROLLMENT_LOGIN_RESUME,
+            \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::ENROLLMENT_BROWSER_BINDING,
         ]);
 
         // BK-082 IH-7: IdP form_post posts to Auth Host without a Laravel CSRF token.

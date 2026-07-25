@@ -10,6 +10,10 @@ return [
     'auth_transaction_ttl' => (int) env('SSO_AUTH_TRANSACTION_TTL', 600),
     'handoff_ttl' => (int) env('SSO_HANDOFF_TTL', 60),
     'auth_transaction_concurrency' => (int) env('SSO_AUTH_TRANSACTION_CONCURRENCY', 3),
+    // BK-099 Workforce SSO enrollment
+    'enrollment_invitation_ttl_days' => (int) env('SSO_ENROLLMENT_INVITATION_TTL_DAYS', 7),
+    'enrollment_login_resume_ttl' => (int) env('SSO_ENROLLMENT_LOGIN_RESUME_TTL', 600),
+    'enrollment_continuation_ttl' => (int) env('SSO_ENROLLMENT_CONTINUATION_TTL', 60),
     // BK-082 WS3 host-only browser binding cookie names (IH-3)
     'tenant_continuation_cookie' => 'jabal_sso_tenant_continuation',
     'auth_binding_cookie' => 'jabal_sso_auth_binding',

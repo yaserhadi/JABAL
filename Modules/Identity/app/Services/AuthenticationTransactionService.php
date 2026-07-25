@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
 use Modules\Identity\Models\SsoAuthenticationTransaction;
+use Modules\Identity\Models\SsoEnrollmentContinuation;
 use Modules\Identity\Models\SsoTenantHandoff;
 use Modules\Identity\Support\Sso\SsoSecretCrypto;
 use RuntimeException;
@@ -28,6 +29,11 @@ class AuthenticationTransactionService
         return (int) config('identity.sso.handoff_ttl', 60);
     }
 
+    public function enrollmentContinuationTtlSeconds(): int
+    {
+        return (int) config('identity.sso.enrollment_continuation_ttl', 60);
+    }
+
     public function concurrencyLimit(): int
     {
         return (int) config('identity.sso.auth_transaction_concurrency', 3);
@@ -43,6 +49,8 @@ class AuthenticationTransactionService
      *   expected_issuer?: ?string,
      *   domain_id?: ?string,
      *   purpose?: string,
+     *   enrollment_invitation_id?: ?string,
+     *   intended_user_id?: ?string,
      *   tenant_continuation_secret?: string,
      * }  $input
      * @return array{
@@ -95,6 +103,8 @@ class AuthenticationTransactionService
                 'idp_configuration_version_id' => $idpVersionId,
                 'expected_issuer' => $input['expected_issuer'] ?? null,
                 'purpose' => $input['purpose'] ?? SsoAuthenticationTransaction::PURPOSE_ORDINARY,
+                'enrollment_invitation_id' => $input['enrollment_invitation_id'] ?? null,
+                'intended_user_id' => $input['intended_user_id'] ?? null,
                 'state_lookup' => $stateLookup,
                 'state_secret_hash' => SsoSecretCrypto::proof($stateSecret),
                 'initiation_lookup' => $initiationLookup,
@@ -336,6 +346,191 @@ class AuthenticationTransactionService
             'handoff' => $handoff,
             'reference' => $handoff->id.'.'.$secret,
         ];
+    }
+
+    /**
+     * BK-099: issue enrollment continuation with encrypted issuer+subject (not login Handoff).
+     *
+     * Browser binding reuses Authentication Transaction tenant_continuation_secret_hash
+     * (Tenant Host cookie) — Auth Host never holds the plaintext binding.
+     *
+     * @param  array{
+     *   issuer: string,
+     *   subject: string,
+     *   invitation_id: string,
+     *   intended_user_id: string,
+     * }  $payload
+     * @return array{continuation: SsoEnrollmentContinuation, reference: string}
+     */
+    public function issueEnrollmentContinuation(SsoAuthenticationTransaction $transaction, array $payload): array
+    {
+        $secret = SsoSecretCrypto::opaqueToken(SsoSecretCrypto::HANDOFF_SECRET_BYTES);
+        $lookup = (string) Str::uuid();
+
+        $continuation = DB::connection('central')->transaction(function () use ($transaction, $payload, $secret, $lookup) {
+            $locked = SsoAuthenticationTransaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->purpose !== SsoAuthenticationTransaction::PURPOSE_WORKFORCE_SSO_ENROLLMENT) {
+                throw new LogicException('Enrollment continuation requires workforce enrollment purpose.');
+            }
+
+            if ($locked->status !== SsoAuthenticationTransaction::STATUS_CALLBACK_RESERVED) {
+                throw new LogicException('Enrollment continuation requires callback_reserved status.');
+            }
+
+            if ($locked->isExpired()) {
+                $this->markFailed($locked, 'expired');
+                throw new RuntimeException('Authentication transaction expired.');
+            }
+
+            if ($locked->tenant_continuation_secret_hash === null) {
+                throw new LogicException('Tenant continuation binding required before enrollment continuation.');
+            }
+
+            $continuation = SsoEnrollmentContinuation::query()->create([
+                'transaction_id' => $locked->id,
+                'tenant_id' => $locked->tenant_id,
+                'invitation_id' => (string) $payload['invitation_id'],
+                'intended_user_id' => (string) $payload['intended_user_id'],
+                'idp_configuration_version_id' => $locked->idp_configuration_version_id,
+                'destination_host' => $locked->destination_host,
+                'issuer_encrypted' => Crypt::encryptString((string) $payload['issuer']),
+                'subject_encrypted' => Crypt::encryptString((string) $payload['subject']),
+                'lookup' => $lookup,
+                'secret_hash' => SsoSecretCrypto::proof($secret),
+                'browser_binding_secret_hash' => $locked->tenant_continuation_secret_hash,
+                'status' => SsoEnrollmentContinuation::STATUS_PENDING,
+                'expires_at' => now()->addSeconds($this->enrollmentContinuationTtlSeconds()),
+            ]);
+
+            $this->eraseTransactionRecoverableSecrets($locked);
+            $locked->forceFill([
+                'status' => SsoAuthenticationTransaction::STATUS_HANDOFF_ISSUED,
+            ])->save();
+
+            return $continuation;
+        });
+
+        return [
+            'continuation' => $continuation,
+            'reference' => $lookup.'.'.$secret,
+        ];
+    }
+
+    public function findEnrollmentContinuationByReference(string $reference): ?SsoEnrollmentContinuation
+    {
+        [$lookup, $secret] = $this->splitOpaquePair($reference);
+
+        if ($lookup === null || $secret === null || ! Str::isUuid($lookup)) {
+            return null;
+        }
+
+        $continuation = SsoEnrollmentContinuation::query()->where('lookup', $lookup)->first();
+
+        if (! $continuation || $continuation->status !== SsoEnrollmentContinuation::STATUS_PENDING) {
+            return null;
+        }
+
+        if ($continuation->isExpired()) {
+            return null;
+        }
+
+        if (! SsoSecretCrypto::proofsMatch((string) $continuation->secret_hash, $secret)) {
+            return null;
+        }
+
+        return $continuation;
+    }
+
+    /**
+     * Atomic enrollment continuation consume. Returns decrypted issuer/subject payload or null.
+     *
+     * @return array{
+     *   continuation: SsoEnrollmentContinuation,
+     *   issuer: string,
+     *   subject: string,
+     * }|null
+     */
+    public function consumeEnrollmentContinuation(
+        string $reference,
+        string $tenantId,
+        string $destinationHost,
+        ?string $browserBindingSecret = null,
+    ): ?array {
+        [$lookup, $secret] = $this->splitOpaquePair($reference);
+
+        if ($lookup === null || $secret === null || ! Str::isUuid($lookup)) {
+            return null;
+        }
+
+        return DB::connection('central')->transaction(function () use ($lookup, $secret, $tenantId, $destinationHost, $browserBindingSecret) {
+            $locked = SsoEnrollmentContinuation::query()->where('lookup', $lookup)->lockForUpdate()->first();
+
+            if (! $locked || $locked->status !== SsoEnrollmentContinuation::STATUS_PENDING) {
+                return null;
+            }
+
+            if ($locked->isExpired()) {
+                $locked->forceFill([
+                    'status' => SsoEnrollmentContinuation::STATUS_EXPIRED,
+                ])->save();
+
+                return null;
+            }
+
+            if ($locked->tenant_id !== $tenantId || $locked->destination_host !== $destinationHost) {
+                return null;
+            }
+
+            if (! SsoSecretCrypto::proofsMatch((string) $locked->secret_hash, $secret)) {
+                return null;
+            }
+
+            if (is_string($locked->browser_binding_secret_hash) && $locked->browser_binding_secret_hash !== '') {
+                if (! is_string($browserBindingSecret) || $browserBindingSecret === '') {
+                    return null;
+                }
+                if (! SsoSecretCrypto::proofsMatch((string) $locked->browser_binding_secret_hash, $browserBindingSecret)) {
+                    return null;
+                }
+            }
+
+            $issuer = Crypt::decryptString((string) $locked->issuer_encrypted);
+            $subject = Crypt::decryptString((string) $locked->subject_encrypted);
+
+            $updated = SsoEnrollmentContinuation::query()
+                ->whereKey($locked->id)
+                ->where('status', SsoEnrollmentContinuation::STATUS_PENDING)
+                ->update([
+                    'status' => SsoEnrollmentContinuation::STATUS_CONSUMED,
+                    'consumed_at' => now(),
+                    'issuer_encrypted' => '',
+                    'subject_encrypted' => '',
+                    'secret_hash' => '',
+                    'browser_binding_secret_hash' => null,
+                    'updated_at' => now(),
+                ]);
+
+            if ($updated !== 1) {
+                return null;
+            }
+
+            $fresh = $locked->fresh();
+
+            $txn = SsoAuthenticationTransaction::query()->whereKey($fresh->transaction_id)->lockForUpdate()->first();
+            if ($txn) {
+                $txn->forceFill([
+                    'status' => SsoAuthenticationTransaction::STATUS_CONSUMED,
+                    'consumed_at' => now(),
+                ])->save();
+            }
+
+            return [
+                'continuation' => $fresh,
+                'issuer' => $issuer,
+                'subject' => $subject,
+            ];
+        });
     }
 
     /**

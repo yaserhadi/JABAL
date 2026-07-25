@@ -26,6 +26,8 @@ class IdentityServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
+        // Central Identity migrations only — tenant-layer files live under database/migrations/tenant
+        // (and a module mirror under database/migrations/tenant that must not load on central migrate).
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
         $this->registerLocalSealedBindings();
         $this->registerLocalSealedInRegistry();

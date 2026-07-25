@@ -35,6 +35,9 @@ class SsoAuthenticationTransaction extends Model
 
     public const PURPOSE_STEP_UP = 'step_up';
 
+    /** BK-099 Scenario B — Workforce SSO enrollment (not ordinary login). */
+    public const PURPOSE_WORKFORCE_SSO_ENROLLMENT = 'workforce_sso_enrollment';
+
     protected $connection = 'central';
 
     protected $table = 'sso_authentication_transactions';
@@ -53,6 +56,8 @@ class SsoAuthenticationTransaction extends Model
         'idp_configuration_version_id',
         'expected_issuer',
         'purpose',
+        'enrollment_invitation_id',
+        'intended_user_id',
         'state_lookup',
         'state_secret_hash',
         'initiation_lookup',
@@ -90,6 +95,11 @@ class SsoAuthenticationTransaction extends Model
     public function handoff(): HasOne
     {
         return $this->hasOne(SsoTenantHandoff::class, 'transaction_id');
+    }
+
+    public function enrollmentContinuation(): HasOne
+    {
+        return $this->hasOne(SsoEnrollmentContinuation::class, 'transaction_id');
     }
 
     public function isExpired(): bool

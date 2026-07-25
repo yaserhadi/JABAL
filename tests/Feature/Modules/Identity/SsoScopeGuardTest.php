@@ -103,6 +103,37 @@ class SsoScopeGuardTest extends TestCase
             $schema->hasTable('sso_tenant_handoffs'),
             'Central Tenant Handoff store is required for Host Enterprise SSO.'
         );
+        // BK-099: enrollment continuation is Identity-owned central store (not login Handoff).
+        $this->assertTrue(
+            $schema->hasTable('sso_enrollment_continuations'),
+            'Central enrollment continuation store is required for Workforce SSO enrollment.'
+        );
+    }
+
+    #[Test]
+    public function tenant_user_identity_create_paths_are_allowlisted(): void
+    {
+        $identityModule = base_path('Modules/Identity/app');
+        $allowlist = [
+            'WorkforceSsoEnrollmentAssociationService.php',
+        ];
+        $offenders = [];
+
+        foreach (\Illuminate\Support\Facades\File::allFiles($identityModule) as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            if (in_array($file->getFilename(), $allowlist, true)) {
+                continue;
+            }
+            $source = file_get_contents($file->getPathname());
+            if (str_contains($source, 'TenantUserIdentity::query()->create')
+                || str_contains($source, 'TenantUserIdentity::create')) {
+                $offenders[] = $file->getRelativePathname();
+            }
+        }
+
+        $this->assertSame([], $offenders, 'Unexpected TenantUserIdentity::create paths: '.implode(', ', $offenders));
     }
 
     #[Test]

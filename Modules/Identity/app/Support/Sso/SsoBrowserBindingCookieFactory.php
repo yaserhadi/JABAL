@@ -13,6 +13,12 @@ final class SsoBrowserBindingCookieFactory
 
     public const AUTH_BINDING = 'jabal_sso_auth_binding';
 
+    /** BK-099: browser binding for invitation → login resume. */
+    public const ENROLLMENT_LOGIN_RESUME = 'jabal_sso_enrollment_login_resume';
+
+    /** BK-099: browser binding for enrollment continuation consume. */
+    public const ENROLLMENT_BROWSER_BINDING = 'jabal_sso_enrollment_browser_binding';
+
     public static function make(string $name, string $value, int $ttlSeconds, bool $secure): Cookie
     {
         return new Cookie(

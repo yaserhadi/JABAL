@@ -119,6 +119,19 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
+        // BK-099: honor opaque enrollment login resume after local auth.
+        $resumeService = app(\Modules\Identity\Services\WorkforceSsoEnrollmentLoginResumeService::class);
+        $resumeToken = $resumeService->peekTokenFromRequest($request);
+        if ($resumeToken !== '') {
+            $binding = (string) $request->cookie(
+                \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::ENROLLMENT_BROWSER_BINDING,
+                ''
+            );
+            if ($binding !== '') {
+                return redirect()->to($resumeService->resumeUrl($tenant, $resumeToken));
+            }
+        }
+
         return app(TenantEntryUrlResolver::class)->redirectAfterLogin($request, $tenant);
     }
 

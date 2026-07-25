@@ -11,6 +11,7 @@ use Modules\Identity\Support\Sso\SsoAuthorizationResponseParser;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
 use Modules\Identity\Support\Sso\SsoIdentityResolutionResult;
 use Modules\Identity\Support\Sso\SsoIdentityResolver;
+use Modules\Identity\Support\Sso\SsoValidatedClaims;
 use Modules\Identity\Support\Sso\TransactionAuthSessionAdapter;
 use Modules\Tenancy\Models\Tenant;
 use Throwable;
@@ -152,6 +153,10 @@ class HostEnterpriseSsoCallbackService
             ? $reserved->expected_issuer
             : (string) $version->issuer_url;
 
+        if ($reserved->purpose === SsoAuthenticationTransaction::PURPOSE_WORKFORCE_SSO_ENROLLMENT) {
+            return $this->handleEnrollmentCallback($request, $reserved, $claims, $expectedIssuer);
+        }
+
         tenancy()->initialize($tenant);
         try {
             $resolution = $this->identityResolver->resolveExistingLinkOnly($tenant, $claims, $expectedIssuer);
@@ -196,6 +201,62 @@ class HostEnterpriseSsoCallbackService
         );
     }
 
+    /**
+     * BK-099: enrollment purpose — Facile-validated issuer+subject only; no link, no handoff, no session.
+     */
+    protected function handleEnrollmentCallback(
+        Request $request,
+        SsoAuthenticationTransaction $reserved,
+        SsoValidatedClaims $claims,
+        string $expectedIssuer,
+    ): RedirectResponse {
+        $normalizedExpected = rtrim(trim($expectedIssuer), '/');
+        $normalizedClaimsIssuer = rtrim(trim($claims->issuer), '/');
+
+        if ($normalizedExpected === '' || $normalizedExpected !== $normalizedClaimsIssuer) {
+            $this->transactions->failTerminal($reserved, 'issuer_mismatch');
+            abort(404);
+        }
+
+        if ($claims->subject === '') {
+            $this->transactions->failTerminal($reserved, 'subject_missing');
+            abort(404);
+        }
+
+        $invitationId = $reserved->enrollment_invitation_id;
+        $intendedUserId = $reserved->intended_user_id;
+        if (! is_string($invitationId) || $invitationId === '' || ! is_string($intendedUserId) || $intendedUserId === '') {
+            $this->transactions->failTerminal($reserved, 'enrollment_binding_missing');
+            abort(404);
+        }
+
+        try {
+            $this->operationalGate->assertMayProceed(
+                Tenant::query()->findOrFail($reserved->tenant_id),
+                SsoOperationalGate::STAGE_HANDOFF_ISSUE,
+                (string) $reserved->idp_configuration_version_id,
+            );
+            $issued = $this->transactions->issueEnrollmentContinuation($reserved, [
+                'issuer' => $normalizedClaimsIssuer,
+                'subject' => $claims->subject,
+                'invitation_id' => $invitationId,
+                'intended_user_id' => $intendedUserId,
+            ]);
+        } catch (SsoSecurityException $e) {
+            $this->transactions->failTerminal($reserved, 'enrollment_blocked_'.$e->getMessage());
+            abort(404);
+        } catch (Throwable) {
+            $this->transactions->failTerminal($reserved, 'enrollment_continuation_failed');
+            abort(404);
+        }
+
+        $completeUrl = $this->tenantEnrollmentCompleteUrl($reserved, $issued['reference']);
+
+        return redirect()->away($completeUrl)->withCookie(
+            SsoBrowserBindingCookieFactory::clear(SsoBrowserBindingCookieFactory::AUTH_BINDING, $request->isSecure())
+        );
+    }
+
     protected function redirectToTenantLogin(SsoAuthenticationTransaction $transaction): RedirectResponse
     {
         $scheme = $this->addressing->canonicalScheme() ?: 'https';
@@ -209,6 +270,14 @@ class HostEnterpriseSsoCallbackService
 
         return $scheme.'://'.$transaction->destination_host
             .'/auth/enterprise-sso/handoff?h='.rawurlencode($handoffReference);
+    }
+
+    protected function tenantEnrollmentCompleteUrl(SsoAuthenticationTransaction $transaction, string $continuationReference): string
+    {
+        $scheme = $this->addressing->canonicalScheme() ?: 'https';
+
+        return $scheme.'://'.$transaction->destination_host
+            .'/auth/enterprise-sso/enrollment/complete?c='.rawurlencode($continuationReference);
     }
 
     /**
