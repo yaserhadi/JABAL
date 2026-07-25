@@ -223,10 +223,11 @@ See [tests/README.md](tests/README.md) for detailed testing guidelines.
 
 ## Documentation
 
-- **[Tenant addressing / Host local setup](docs/reference/tenancy-environment.md)**: `TENANCY_ADDRESSING_PROFILE` (host|path), canonical origins, cookies, trusted proxies (BK-073 / DEC-0023)
 - **[Database Conventions](.cursor/memory/conventions/database-conventions.md)**: Naming, UUID usage, indexing, tenant scoping
 - **[API Conventions](.cursor/memory/conventions/api-conventions.md)**: Response format, versioning, authentication
 - **[Testing Guide](tests/README.md)**: Test structure, conventions, best practices
+- Tenant addressing architecture: `.cursor/memory/decisions/DEC-0023-tenant-addressing-domain-resolution.md` (agents; not a public docs/ path)
+- Optional local Host lab tips (advisory): `.cursor/memory/conventions/tenancy-addressing-local.md`
 
 ## Phase 1 Status
 
@@ -294,7 +295,7 @@ Jabal/
 
 ## Agent / development knowledge
 
-Execution authority for AI agents and architects lives in **`.cursor/`** (see `.cursor/memory/HANDOFF.md` and `AGENT_CONSTITUTION.md`). Legacy `docs/` was migrated and removed (Phase B, 2026-06-16). Human-facing documentation is a separate Phase C program.
+Execution authority for AI agents and architects lives in **`.cursor/`** (see `.cursor/memory/HANDOFF.md` and `AGENT_CONSTITUTION.md`). Legacy `docs/` was migrated and removed (Phase B, 2026-06-16). `docs_status: deleted` remains binding; Phase C human-facing docs are **not** activated.
 
 ## Contributing
 
