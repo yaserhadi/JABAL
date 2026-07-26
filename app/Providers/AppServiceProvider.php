@@ -15,6 +15,7 @@ use App\Support\Tenancy\TenantAddressingProfile;
 use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
@@ -69,6 +70,10 @@ class AppServiceProvider extends ServiceProvider
                 $addressing->centralHosts(),
             ))),
         ]);
+
+        // BK-105: apply TrustProxies from tenancy_addressing after config/Dotenv are available
+        // (HTTP and CLI). Stock Illuminate TrustProxies middleware reads this static state.
+        self::configureTrustedProxiesFromConfig();
 
         InitializeTenancyByRequestData::$header = 'X-Tenant-Id';
 
@@ -162,5 +167,38 @@ class AppServiceProvider extends ServiceProvider
                 InitializeTenancyByRequestData::class,
             );
         });
+    }
+
+    /**
+     * BK-105: bind stock TrustProxies static state from config/tenancy_addressing.php.
+     *
+     * Call after config is loaded (boot) and after test config overrides that change
+     * trusted_proxies / trust_forwarded_headers.
+     */
+    public static function configureTrustedProxiesFromConfig(): void
+    {
+        TrustProxies::flushState();
+
+        if (! (bool) config('tenancy_addressing.trust_forwarded_headers', false)) {
+            return;
+        }
+
+        $proxies = array_values(array_filter(
+            array_map('trim', (array) config('tenancy_addressing.trusted_proxies', [])),
+            static fn (string $proxy): bool => $proxy !== ''
+        ));
+
+        if ($proxies === [] || in_array('*', $proxies, true)) {
+            // assertValidConfiguration() must have rejected this at boot; do not silently trust.
+            return;
+        }
+
+        TrustProxies::at($proxies);
+        TrustProxies::withHeaders(
+            Request::HEADER_X_FORWARDED_FOR
+            | Request::HEADER_X_FORWARDED_HOST
+            | Request::HEADER_X_FORWARDED_PORT
+            | Request::HEADER_X_FORWARDED_PROTO
+        );
     }
 }

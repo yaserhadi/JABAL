@@ -69,6 +69,7 @@ class TenantAddressingSecurityTest extends TestCase
             'tenancy_addressing.trust_forwarded_headers' => false,
             'tenancy_addressing.trusted_proxies' => [],
         ]);
+        \App\Providers\AppServiceProvider::configureTrustedProxiesFromConfig();
 
         $tenant = Tenant::factory()->create(['slug' => 'fwd', 'status' => 'active']);
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);

@@ -75,8 +75,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Trusted proxies baseline (no "*")
+    | Trusted proxies (BK-105) — no "*"
     |--------------------------------------------------------------------------
+    |
+    | When trust_forwarded_headers is false: valid; trust no proxies (direct semantics).
+    | When true: trusted_proxies must be an explicit IP/CIDR list (never empty, never "*").
+    | Forwarded headers trusted from approved senders only:
+    | X-Forwarded-For | Host | Port | Proto (portable; not AWS-ELB-specific).
+    | Applied at AppServiceProvider::boot via stock Illuminate TrustProxies — not early env()
+    | in bootstrap/app.php (Dotenv unavailable on HTTP configure).
+    |
     */
     'trusted_proxies' => $trustedProxies,
 

@@ -145,11 +145,21 @@ final class TenantAddressingProfile
             );
         }
 
+        $proxies = array_values(array_filter(
+            array_map('trim', (array) config('tenancy_addressing.trusted_proxies', [])),
+            static fn (string $proxy): bool => $proxy !== ''
+        ));
+
+        if (in_array('*', $proxies, true)) {
+            throw new RuntimeException(
+                'TENANCY_TRUSTED_PROXIES must not contain "*". Explicit IP/CIDR list required; never trust all proxies.'
+            );
+        }
+
         if ((bool) config('tenancy_addressing.trust_forwarded_headers', false)) {
-            $proxies = (array) config('tenancy_addressing.trusted_proxies', []);
-            if ($proxies === [] || in_array('*', $proxies, true)) {
+            if ($proxies === []) {
                 throw new RuntimeException(
-                    'TENANCY_TRUST_FORWARDED_HEADERS is enabled but TENANCY_TRUSTED_PROXIES is empty or contains "*". Explicit IP/CIDR list required.'
+                    'TENANCY_TRUST_FORWARDED_HEADERS is enabled but TENANCY_TRUSTED_PROXIES is empty. Explicit IP/CIDR list required.'
                 );
             }
         }

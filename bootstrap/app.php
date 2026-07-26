@@ -16,7 +16,6 @@ use App\Support\Context\RequestContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
@@ -40,21 +39,11 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // BK-073: TrustProxies baseline — read env here (config may not be ready yet).
-        $trustedProxiesRaw = (string) env('TENANCY_TRUSTED_PROXIES', '');
-        $trustedProxies = array_values(array_filter(array_map('trim', explode(',', $trustedProxiesRaw))));
-        if ($trustedProxies !== [] && ! in_array('*', $trustedProxies, true)) {
-            $middleware->trustProxies(
-                at: $trustedProxies,
-                headers: Request::HEADER_X_FORWARDED_FOR
-                    | Request::HEADER_X_FORWARDED_HOST
-                    | Request::HEADER_X_FORWARDED_PORT
-                    | Request::HEADER_X_FORWARDED_PROTO
-                    | Request::HEADER_X_FORWARDED_AWS_ELB
-            );
-        }
+        // BK-105: TrustProxies is applied from config in AppServiceProvider::boot()
+        // (tenancy_addressing). Do not call env() here — Dotenv is not loaded yet on HTTP boot.
 
         // BK-073: TrustHosts when Host profile — env-only (config:cache-safe values live in config file for runtime).
+        // BK-105: TrustHosts changes are out of scope; early env() timing is inspected/reported only.
         $profile = strtolower(trim((string) env('TENANCY_ADDRESSING_PROFILE', 'path')));
         $platformBaseDomain = strtolower(trim((string) env('TENANT_PLATFORM_BASE_DOMAIN', '')));
         if ($profile === 'host' && $platformBaseDomain !== '') {
