@@ -1,14 +1,16 @@
 import './bootstrap';
 import '../css/app.css';
 
-import { Ziggy } from './ziggy';
+import { Ziggy as ZiggyFromFile } from './ziggy';
 import { createApp, h } from 'vue';
 import { route } from 'ziggy-js';
 
-// Blade @routes outputs `const Ziggy` in a classic script; that does not populate
-// globalThis.Ziggy, which ziggy-js route() expects when called from ESM. Without this,
-// Login and other pages can throw during setup and render a blank screen.
-globalThis.Ziggy = Ziggy;
+// Prefer request-scoped Blade @routes (window.Ziggy) so Host vs Path matches Laravel
+// for this response. Fall back to generated ziggy.js for offline/build tooling.
+// Without a global Ziggy, Login and other pages can throw during setup and blank-screen.
+globalThis.Ziggy = (typeof window !== 'undefined' && window.Ziggy)
+    ? window.Ziggy
+    : ZiggyFromFile;
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createVuetify } from 'vuetify';

@@ -84,10 +84,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: {
@@ -120,10 +120,8 @@ onMounted(() => {
     }
 });
 
-const tenantKey = computed(() => tenantEntry(props.tenant));
-
 const submit = () => {
-    form.post(route('tenant.login.submit', { tenant: tenantKey.value }), {
+    form.post(route('tenant.login.submit', tenantRouteParams(props.tenant)), {
         onFinish: () => form.reset('password'),
     });
 };

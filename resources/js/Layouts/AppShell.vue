@@ -6,7 +6,7 @@
       app
     >
       <v-list>
-        <Link v-if="tenant" :href="route('dashboard', { tenant: tenantEntry(tenant) })">
+        <Link v-if="tenant" :href="route('dashboard', tenantRouteParams(tenant))">
           <v-list-item
             prepend-icon="mdi-view-dashboard"
             title="Dashboard"
@@ -86,7 +86,7 @@
 import { ref, computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
-import { tenantEntry } from '@/support/tenantEntry'
+import { tenantRouteParams } from '@/support/tenantEntry'
 
 const page = usePage()
 
@@ -100,7 +100,7 @@ const handleLogout = () => {
   // Use form submit for full page navigation so login page displays immediately.
   const form = document.createElement('form')
   form.method = 'POST'
-  form.action = route('logout')
+  form.action = route('tenant.logout', tenantRouteParams(tenant.value))
   const csrf = document.createElement('input')
   csrf.type = 'hidden'
   csrf.name = '_token'

@@ -26,7 +26,7 @@
                             </v-btn>
                             <Link
                                 v-if="tenant"
-                                :href="route('workspaces.show', { tenant: tenantEntry(tenant), workspace: workspace?.id })"
+                                :href="route('workspaces.show', tenantRouteParams(tenant, { workspace: workspace?.id  }))"
                                 class="ml-2"
                             >
                                 <v-btn variant="text">
@@ -55,7 +55,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: Object,
@@ -71,12 +71,12 @@ const deleteForm = useForm({});
 
 const submit = () => {
     if (!props.tenant || !props.workspace) return;
-    form.put(route('workspaces.update', { tenant: tenantEntry(props.tenant), workspace: props.workspace.id }));
+    form.put(route('workspaces.update', tenantRouteParams(props.tenant, { workspace: props.workspace.id  })));
 };
 
 const confirmDestroy = () => {
     if (!confirm('Are you sure you want to delete this workspace?')) return;
     if (!props.tenant || !props.workspace) return;
-    deleteForm.delete(route('workspaces.destroy', { tenant: tenantEntry(props.tenant), workspace: props.workspace.id }));
+    deleteForm.delete(route('workspaces.destroy', tenantRouteParams(props.tenant, { workspace: props.workspace.id  })));
 };
 </script>

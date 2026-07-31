@@ -7,7 +7,7 @@
                         <span>{{ workspace?.name }}</span>
                         <div v-if="tenant">
                             <Link
-                                :href="route('workspaces.edit', { tenant: tenantEntry(tenant), workspace: workspace?.id })"
+                                :href="route('workspaces.edit', tenantRouteParams(tenant, { workspace: workspace?.id  }))"
                             >
                                 <v-btn variant="text" size="small">
                                     Edit
@@ -34,7 +34,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 defineProps({
     tenant: Object,

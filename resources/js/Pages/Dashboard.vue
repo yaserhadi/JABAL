@@ -30,7 +30,7 @@
                                                 <v-btn
                                                     variant="text"
                                                     class="text-white pa-0 text-decoration-underline"
-                                                    :to="route('tenant.settings.index', { tenant: tenantEntry(tenant) })"
+                                                    :to="route('tenant.settings.index', tenantRouteParams(tenant))"
                                                 >
                                                     Open settings
                                                 </v-btn>
@@ -51,7 +51,7 @@
                                                 <v-btn
                                                     variant="text"
                                                     class="pa-0 text-decoration-underline"
-                                                    :to="route('tenant.audit.index', { tenant: tenantEntry(tenant) })"
+                                                    :to="route('tenant.audit.index', tenantRouteParams(tenant))"
                                                 >
                                                     View activity timeline
                                                 </v-btn>
@@ -76,7 +76,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const page = usePage();
 

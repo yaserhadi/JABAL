@@ -26,7 +26,7 @@
                             </v-btn>
                             <Link
                                 v-if="tenant"
-                                :href="route('workspaces.index', { tenant: tenantEntry(tenant) })"
+                                :href="route('workspaces.index', tenantRouteParams(tenant))"
                                 class="ml-2"
                             >
                                 <v-btn variant="text">
@@ -45,7 +45,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: Object,
@@ -58,6 +58,6 @@ const form = useForm({
 
 const submit = () => {
     if (!props.tenant) return;
-    form.post(route('workspaces.store', { tenant: tenantEntry(props.tenant) }));
+    form.post(route('workspaces.store', tenantRouteParams(props.tenant)));
 };
 </script>

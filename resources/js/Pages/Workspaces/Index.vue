@@ -7,7 +7,7 @@
                         <span>Workspaces</span>
                         <Link
                             v-if="tenant"
-                            :href="route('workspaces.create', { tenant: tenantEntry(tenant) })"
+                            :href="route('workspaces.create', tenantRouteParams(tenant))"
                         >
                             <v-btn color="primary">
                                 Create Workspace
@@ -33,7 +33,7 @@
                                     <td>
                                         <Link
                                             v-if="tenant"
-                                            :href="route('workspaces.show', { tenant: tenantEntry(tenant), workspace: ws.id })"
+                                            :href="route('workspaces.show', tenantRouteParams(tenant, { workspace: ws.id  }))"
                                         >
                                             <v-btn variant="text" size="small">
                                                 View
@@ -41,7 +41,7 @@
                                         </Link>
                                         <Link
                                             v-if="tenant"
-                                            :href="route('workspaces.edit', { tenant: tenantEntry(tenant), workspace: ws.id })"
+                                            :href="route('workspaces.edit', tenantRouteParams(tenant, { workspace: ws.id  }))"
                                         >
                                             <v-btn variant="text" size="small">
                                                 Edit
@@ -65,7 +65,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 defineProps({
     tenant: Object,

@@ -322,7 +322,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const page = usePage();
 
@@ -375,7 +375,7 @@ function submitPolicies() {
     if (!tenant_ui_permissions.value?.canUpdateSecurityPolicies) {
         return;
     }
-    policyForm.patch(route('identity.security-settings.update-policies', { tenant: tenantEntry(props.tenant) }), {
+    policyForm.patch(route('identity.security-settings.update-policies', tenantRouteParams(props.tenant)), {
         preserveScroll: true,
     });
 }
@@ -401,7 +401,7 @@ function submitSso() {
         payload.client_secret = ssoForm.client_secret;
     }
 
-    ssoForm.transform(() => payload).patch(route('identity.sso.update', { tenant: tenantEntry(props.tenant) }), {
+    ssoForm.transform(() => payload).patch(route('identity.sso.update', tenantRouteParams(props.tenant)), {
         preserveScroll: true,
         onSuccess: () => {
             ssoForm.client_secret = '';
@@ -411,10 +411,9 @@ function submitSso() {
 
 function revokeSession(sessionId) {
     revokingSessionId.value = sessionId;
-    router.delete(route('identity.security-settings.revoke-session', {
-        tenant: tenantEntry(props.tenant),
+    router.delete(route('identity.security-settings.revoke-session', tenantRouteParams(props.tenant, {
         session: sessionId,
-    }), {
+    })), {
         preserveScroll: true,
         onFinish: () => {
             revokingSessionId.value = null;
@@ -424,7 +423,7 @@ function revokeSession(sessionId) {
 
 function revokeOtherSessions() {
     revokingOthers.value = true;
-    router.delete(route('identity.security-settings.revoke-other-sessions', { tenant: tenantEntry(props.tenant) }), {
+    router.delete(route('identity.security-settings.revoke-other-sessions', tenantRouteParams(props.tenant)), {
         preserveScroll: true,
         onFinish: () => {
             revokingOthers.value = false;
@@ -433,7 +432,7 @@ function revokeOtherSessions() {
 }
 
 function visitEnroll() {
-    router.visit(route('identity.mfa.enroll', { tenant: tenantEntry(props.tenant) }));
+    router.visit(route('identity.mfa.enroll', tenantRouteParams(props.tenant)));
 }
 
 function formatDate(iso) {

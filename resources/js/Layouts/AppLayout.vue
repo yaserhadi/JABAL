@@ -85,7 +85,7 @@
 import { ref, computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantEntry, tenantRouteParams } from '@/support/tenantEntry';
 
 const page = usePage();
 const tenant = computed(() => page.props.tenant);
@@ -96,11 +96,10 @@ const drawer = ref(true);
 
 /** Inertia has no vue-router; v-list-item :to does nothing. Use client visits instead. */
 const visitTenantRoute = (name) => {
-    const key = tenantEntry(tenant.value);
-    if (!key) {
+    if (!tenantEntry(tenant.value)) {
         return;
     }
-    router.visit(route(name, { tenant: key }));
+    router.visit(route(name, tenantRouteParams(tenant.value)));
 };
 
 const logout = () => {
@@ -108,7 +107,7 @@ const logout = () => {
     // CSRF from page props (current) — meta tag can be stale after Inertia navigation.
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = route('logout');
+    form.action = route('tenant.logout', tenantRouteParams(tenant.value));
     const csrf = document.createElement('input');
     csrf.type = 'hidden';
     csrf.name = '_token';

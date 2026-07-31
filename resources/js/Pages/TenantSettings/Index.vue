@@ -76,7 +76,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const page = usePage();
 
@@ -106,7 +106,7 @@ function submit() {
     if (!tenant_ui_permissions.value?.canUpdateTenantSettings) {
         return;
     }
-    form.patch(route('tenant.settings.update', { tenant: tenantEntry(props.tenant) }), {
+    form.patch(route('tenant.settings.update', tenantRouteParams(props.tenant)), {
         preserveScroll: true,
     });
 }

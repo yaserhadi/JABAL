@@ -16,6 +16,10 @@
             window.__jabalAddressingProfile = @json(config('tenancy_addressing.profile', 'path'));
         </script>
         @routes
+        {{-- Expose Blade @routes Ziggy to ESM (ziggy-js / app.js). Classic `const Ziggy` is not on window. --}}
+        <script>
+            window.Ziggy = typeof Ziggy !== 'undefined' ? Ziggy : window.Ziggy;
+        </script>
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
     </head>

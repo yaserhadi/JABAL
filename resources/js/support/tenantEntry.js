@@ -1,9 +1,6 @@
 /**
- * Canonical tenant path key from Inertia props (BK-066 / BK-073).
+ * Canonical tenant path/host key from Inertia props (BK-066 / BK-073 / BK-107).
  * Prefer backend-provided entryKey; slug/id are compatibility fallbacks only.
- *
- * In Host profile, Ziggy tenant routes have no {tenant} parameter — callers
- * should omit the tenant key (routeParams below).
  */
 export function tenantEntry(tenant) {
     if (!tenant) {
@@ -13,8 +10,13 @@ export function tenantEntry(tenant) {
 }
 
 /**
- * Build Ziggy route params for tenant-scoped named routes.
- * Host profile: empty object (implicit Tenant from host). Path profile: { tenant }.
+ * Build Ziggy route params for tenant-scoped named routes (BK-107).
+ *
+ * Host (TENANCY_ADDRESSING_PROFILE=host): { tenant_label } — Laravel domain param.
+ * Path (profile=path only when that profile is active): { tenant } — path param.
+ * Unknown / unsupported: throw — never silent Path fallback.
+ *
+ * Mirrors App\Http\Auth\TenantEntryUrlResolver::namedRouteUrl.
  */
 export function tenantRouteParams(tenant, extra = {}) {
     const profile = typeof window !== 'undefined'
@@ -22,9 +24,16 @@ export function tenantRouteParams(tenant, extra = {}) {
         : undefined;
 
     if (profile === 'host') {
-        return { ...extra };
+        const key = tenantEntry(tenant);
+        return key ? { tenant_label: key, ...extra } : { ...extra };
     }
 
-    const key = tenantEntry(tenant);
-    return key ? { tenant: key, ...extra } : { ...extra };
+    if (profile === 'path') {
+        const key = tenantEntry(tenant);
+        return key ? { tenant: key, ...extra } : { ...extra };
+    }
+
+    throw new Error(
+        `Unsupported or missing tenancy addressing profile for Ziggy route params: ${String(profile)}`,
+    );
 }

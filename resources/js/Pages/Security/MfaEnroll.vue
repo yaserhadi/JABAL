@@ -30,7 +30,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { tenantEntry } from '@/support/tenantEntry';
+import { tenantRouteParams } from '@/support/tenantEntry';
 
 const props = defineProps({
     tenant: Object,
@@ -40,6 +40,6 @@ const props = defineProps({
 const form = useForm({ code: '' });
 
 const submit = () => {
-    form.post(route('identity.mfa.enroll.confirm', { tenant: tenantEntry(props.tenant) }));
+    form.post(route('identity.mfa.enroll.confirm', tenantRouteParams(props.tenant)));
 };
 </script>
