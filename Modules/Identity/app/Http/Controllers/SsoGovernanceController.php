@@ -35,39 +35,43 @@ class SsoGovernanceController extends Controller
         $this->middleware('permission:tenant.sso.rotate-secret')->only(['revokeSecret']);
     }
 
-    public function validateVersion(Request $request, string $versionId): JsonResponse
+    public function validateVersion(Request $request): JsonResponse
     {
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->governance->validateVersion($tenant, $versionId);
 
         return ApiResponse::success(['id' => $version->id, 'status' => $version->status]);
     }
 
-    public function markTestOnly(Request $request, string $versionId): JsonResponse
+    public function markTestOnly(Request $request): JsonResponse
     {
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->governance->markTestOnly($tenant, $versionId);
 
         return ApiResponse::success(['id' => $version->id, 'status' => $version->status]);
     }
 
-    public function approveVersion(Request $request, string $versionId): JsonResponse
+    public function approveVersion(Request $request): JsonResponse
     {
         $this->requireMfaStepUp($request, 'sso.approve');
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->governance->approveVersion($tenant, $versionId);
 
         return ApiResponse::success(['id' => $version->id, 'status' => $version->status]);
     }
 
-    public function activateVersion(Request $request, string $versionId): JsonResponse
+    public function activateVersion(Request $request): JsonResponse
     {
         $this->requireMfaStepUp($request, 'sso.activate');
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->governance->activateVersion($tenant, $versionId);
 
         return ApiResponse::success(['id' => $version->id, 'status' => $version->status]);
@@ -84,11 +88,12 @@ class SsoGovernanceController extends Controller
         return ApiResponse::success(['rollout_state' => $config->rollout_state]);
     }
 
-    public function disableVersion(Request $request, string $versionId): JsonResponse
+    public function disableVersion(Request $request): JsonResponse
     {
         $this->requireMfaStepUp($request, 'sso.disable');
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->killSwitches->disableVersion($tenant, $versionId, 'admin_disable');
 
         return ApiResponse::success(['id' => $version->id, 'status' => $version->status]);
@@ -115,27 +120,37 @@ class SsoGovernanceController extends Controller
         return ApiResponse::success(['rollout_state' => $config->rollout_state]);
     }
 
-    public function recover(Request $request, string $versionId): JsonResponse
+    public function recover(Request $request): JsonResponse
     {
         $this->requireMfaStepUp($request, 'sso.activate');
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->governance->recoverFromSecurityDisable($tenant, $versionId);
 
         return ApiResponse::success(['id' => $version->id, 'status' => $version->status]);
     }
 
-    public function revokeSecret(Request $request, string $versionId): JsonResponse
+    public function revokeSecret(Request $request): JsonResponse
     {
         $this->requireMfaStepUp($request, 'sso.rotate_secret');
         $tenant = tenancy()->tenant;
         abort_unless($tenant, 404);
+        $versionId = $this->routeVersionId($request);
         $version = $this->killSwitches->revokeVersionSecret($tenant, $versionId);
 
         return ApiResponse::success([
             'id' => $version->id,
             'secret_revoked' => $version->secret_revoked_at !== null,
         ]);
+    }
+
+    protected function routeVersionId(Request $request): string
+    {
+        $versionId = (string) $request->route('versionId');
+        abort_if($versionId === '', 404);
+
+        return $versionId;
     }
 
     public function pausePlatform(Request $request): JsonResponse

@@ -174,7 +174,7 @@ class TenantMemberController extends Controller
         ]);
     }
 
-    public function resendInvitation(Request $request, string $invitation): JsonResponse|RedirectResponse
+    public function resendInvitation(Request $request): JsonResponse|RedirectResponse
     {
         $invitation = (string) $request->route('invitation');
         $tenantModel = tenancy()->tenant;
@@ -213,7 +213,7 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Invitation email resent.');
     }
 
-    public function remove(Request $request, string $user): JsonResponse|RedirectResponse
+    public function remove(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
         $tenantModel = tenancy()->tenant;
@@ -259,7 +259,7 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Member removed successfully.');
     }
 
-    public function restore(Request $request, string $user): JsonResponse|RedirectResponse
+    public function restore(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
         $tenantModel = tenancy()->tenant;
@@ -304,7 +304,7 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Member restored successfully.');
     }
 
-    public function deleteForever(Request $request, string $user): JsonResponse|RedirectResponse
+    public function deleteForever(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
         $tenantModel = tenancy()->tenant;
@@ -347,7 +347,7 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Member permanently deleted.');
     }
 
-    public function revokeInvitation(Request $request, string $invitation): JsonResponse|RedirectResponse
+    public function revokeInvitation(Request $request): JsonResponse|RedirectResponse
     {
         $invitation = (string) $request->route('invitation');
         $tenantModel = tenancy()->tenant;
@@ -388,7 +388,7 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Invitation revoked.');
     }
 
-    public function transferOwnership(Request $request, string $user): JsonResponse|RedirectResponse
+    public function transferOwnership(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
         $tenantModel = tenancy()->tenant;
@@ -426,7 +426,7 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Ownership transferred successfully.');
     }
 
-    public function updateRole(Request $request, string $user): JsonResponse|RedirectResponse
+    public function updateRole(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
         $tenant = tenancy()->tenant;
@@ -484,14 +484,14 @@ class TenantMemberController extends Controller
         return back()->with('success', 'Role updated successfully.');
     }
 
-    public function suspend(Request $request, string $user): JsonResponse|RedirectResponse
+    public function suspend(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
 
         return $this->setStatus($request, $user, 'suspended', 'tenant_member.suspended');
     }
 
-    public function activate(Request $request, string $user): JsonResponse|RedirectResponse
+    public function activate(Request $request): JsonResponse|RedirectResponse
     {
         $user = (string) $request->route('user');
 

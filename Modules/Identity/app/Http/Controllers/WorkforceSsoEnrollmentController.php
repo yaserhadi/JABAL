@@ -114,10 +114,15 @@ class WorkforceSsoEnrollmentController extends Controller
             ->with('success', 'Workforce SSO enrollment invitation issued.');
     }
 
-    public function destroy(Request $request, string $invitationId): RedirectResponse
+    public function destroy(Request $request): RedirectResponse
     {
         $tenant = tenancy()->tenant;
         if (! $tenant) {
+            abort(404);
+        }
+
+        $invitationId = (string) $request->route('invitationId');
+        if ($invitationId === '') {
             abort(404);
         }
 

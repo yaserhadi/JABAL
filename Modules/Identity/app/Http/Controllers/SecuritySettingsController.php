@@ -109,10 +109,15 @@ class SecuritySettingsController extends Controller
             ->with('success', 'Security policies updated.');
     }
 
-    public function revokeSession(Request $request, string $session): RedirectResponse
+    public function revokeSession(Request $request): RedirectResponse
     {
         $tenantModel = tenancy()->tenant;
         if (! $tenantModel) {
+            abort(404);
+        }
+
+        $session = (string) $request->route('session');
+        if ($session === '') {
             abort(404);
         }
 
