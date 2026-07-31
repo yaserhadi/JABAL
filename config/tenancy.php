@@ -110,7 +110,12 @@ return [
          * disable asset() helper tenancy and explicitly use tenant_asset() calls in places
          * where you want to use tenant-specific assets (product images, avatars, etc).
          */
-        'asset_helper_tenancy' => true,
+        // Host Vite app CSS/JS are global builds under public/build — not tenant uploads.
+        // Keep asset() global so @vite URLs use /build/... (correct MIME via static public).
+        // Tenant-scoped files should use tenant_asset() explicitly.
+        // Windows PHP finfo via TenantAssetsController mislabels .js (text/plain, text/x-java),
+        // which blocks browser ES modules and leaves Tenant Host /login blank.
+        'asset_helper_tenancy' => false,
     ],
 
     /**
@@ -143,7 +148,7 @@ return [
         // Stancl\Tenancy\Features\UniversalRoutes::class,
         // Stancl\Tenancy\Features\TenantConfig::class, // https://tenancyforlaravel.com/docs/v3/features/tenant-config
         // Stancl\Tenancy\Features\CrossDomainRedirect::class, // https://tenancyforlaravel.com/docs/v3/features/cross-domain-redirect
-        // Stancl\Tenancy\Features\ViteBundler::class,
+        Stancl\Tenancy\Features\ViteBundler::class,
     ],
 
     /**
