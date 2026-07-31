@@ -262,10 +262,14 @@ class HostEnterpriseSsoWs8GovernanceTest extends TestCase
         $this->actingAs($fixture['user']);
         $request = \Illuminate\Http\Request::create('/security/sso/versions/'.$draft->id.'/activate', 'POST');
         $request->setUserResolver(fn () => $fixture['user']);
+        $route = new \Illuminate\Routing\Route(['POST'], '/security/sso/versions/{versionId}/activate', []);
+        $route->bind($request);
+        $route->setParameter('versionId', (string) $draft->id);
+        $request->setRouteResolver(static fn () => $route);
         $controller = app(\Modules\Identity\Http\Controllers\SsoGovernanceController::class);
 
         try {
-            $controller->activateVersion($request, (string) $draft->id);
+            $controller->activateVersion($request);
             $this->fail('MFA step-up required');
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             $this->assertSame(403, $e->getStatusCode());
@@ -273,7 +277,7 @@ class HostEnterpriseSsoWs8GovernanceTest extends TestCase
 
         MfaVerificationContext::markVerified('sso.activate');
         tenancy()->initialize($fixture['tenant']);
-        $response = $controller->activateVersion($request, (string) $draft->id);
+        $response = $controller->activateVersion($request);
         $this->assertSame(200, $response->getStatusCode());
         tenancy()->end();
     }

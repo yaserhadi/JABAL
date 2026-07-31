@@ -222,6 +222,7 @@ class HostMfaControllerTenantContextBindingTest extends TestCase
             'revokeSession'
         );
         $params = array_map(static fn (\ReflectionParameter $p) => $p->getName(), $ref->getParameters());
-        $this->assertSame(['request', 'session'], $params);
+        // Named route('session') only — no positional scalar that leftover tenant_* can fill.
+        $this->assertSame(['request'], $params);
     }
 }

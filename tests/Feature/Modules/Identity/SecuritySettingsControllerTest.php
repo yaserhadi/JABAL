@@ -215,6 +215,17 @@ class SecuritySettingsControllerTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_session_revoke_does_not_treat_tenant_path_param_as_session_id(): void
+    {
+        // If leftover {tenant} were injected into a positional $session arg, looking up the
+        // tenant key as a session UUID would typically 500 (invalid uuid) instead of 404.
+        $response = $this->actingAsTenantUser($this->member, $this->tenant)
+            ->delete('/t/'.$this->tenant->id.'/security/settings/sessions/'.(string) Str::uuid());
+
+        $response->assertNotFound();
+        $this->assertNotEquals(500, $response->status());
+    }
+
     public function test_revoke_other_sessions_keeps_current_browser_session(): void
     {
         $this->actingAsTenantUser($this->member, $this->tenant);

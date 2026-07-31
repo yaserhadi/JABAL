@@ -23,6 +23,25 @@ class TenantAddressingHostResolutionTest extends TestCase
     {
         $this->forceAddressingEnv('host');
         parent::setUp();
+
+        // Re-assert Host reserved hosts into config after boot. Mid-suite profile switches
+        // (forceAddressingEnv('path') + refreshApplication in sibling Host tests) can leave
+        // env()/config out of sync under phpunit.xml (no forced TENANCY_API_HOST).
+        config([
+            'tenancy_addressing.profile' => 'host',
+            'tenancy_addressing.platform_base_domain' => 'jabal.test',
+            'tenancy_addressing.platform_host' => 'platform.jabal.test',
+            'tenancy_addressing.auth_host' => 'auth.jabal.test',
+            'tenancy_addressing.api_host' => 'api.jabal.test',
+            'tenancy_addressing.central_hosts' => [
+                'localhost',
+                '127.0.0.1',
+                'jabal.test',
+                'platform.jabal.test',
+                'auth.jabal.test',
+                'api.jabal.test',
+            ],
+        ]);
     }
 
     protected function tearDown(): void

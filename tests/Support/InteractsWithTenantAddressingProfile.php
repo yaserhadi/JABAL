@@ -35,6 +35,24 @@ trait InteractsWithTenantAddressingProfile
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
+
+        // Keep Laravel config in sync when the app is already booted (mid-test profile switches).
+        if (isset($this->app) && $this->app->bound('config')) {
+            $this->app['config']->set('tenancy_addressing.profile', $profile);
+            $this->app['config']->set('tenancy_addressing.platform_base_domain', $values['TENANT_PLATFORM_BASE_DOMAIN']);
+            $this->app['config']->set('tenancy_addressing.platform_host', $values['TENANCY_PLATFORM_HOST']);
+            $this->app['config']->set('tenancy_addressing.auth_host', $values['TENANCY_AUTH_HOST']);
+            $this->app['config']->set('tenancy_addressing.api_host', $values['TENANCY_API_HOST']);
+            $this->app['config']->set(
+                'tenancy_addressing.central_hosts',
+                array_values(array_filter(array_map(
+                    static fn (string $h): string => strtolower(trim($h)),
+                    explode(',', $values['TENANCY_CENTRAL_HOSTS'])
+                )))
+            );
+            $this->app['config']->set('tenancy_addressing.canonical_scheme', $values['TENANCY_CANONICAL_SCHEME']);
+            $this->app['config']->set('app.url', $values['APP_URL']);
+        }
     }
 
     protected function restoreAddressingEnv(): void
