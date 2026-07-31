@@ -15,15 +15,22 @@ use Modules\Identity\Services\HostEnterpriseSsoHandoffService;
 use Modules\Identity\Services\MfaService;
 use Modules\Tenancy\Models\Tenant;
 
+/**
+ * MFA enroll/challenge — Tenant context from initialized tenancy only (BK-108).
+ *
+ * Host and Path both register these actions, but Path {tenant} is consumed by
+ * tenancy initialization middleware. Action signatures intentionally omit any
+ * $tenant argument so Host leftover {tenant_label} cannot inject as a UUID/slug lookup.
+ */
 class MfaController extends Controller
 {
     public function __construct(
         protected MfaService $mfaService
     ) {}
 
-    public function showEnroll(Request $request, ?string $tenant = null): InertiaResponse|JsonResponse
+    public function showEnroll(Request $request): InertiaResponse|JsonResponse
     {
-        $tenantModel = $this->resolveTenant($tenant);
+        $tenantModel = $this->resolveInitializedTenant();
 
         if (! $this->mfaService->isMfaAvailable($tenantModel)) {
             abort(403, 'MFA is not available for this tenant.');
@@ -46,7 +53,7 @@ class MfaController extends Controller
         ]);
     }
 
-    public function confirmEnroll(Request $request, ?string $tenant = null): RedirectResponse|JsonResponse
+    public function confirmEnroll(Request $request): RedirectResponse|JsonResponse
     {
         $request->validate(['code' => 'required|string']);
         $codes = $this->mfaService->confirmEnrollment($request->user(), $request->string('code')->toString());
@@ -55,7 +62,7 @@ class MfaController extends Controller
             return ApiResponse::success(['recovery_codes' => $codes]);
         }
 
-        $tenantModel = $this->resolveTenant($tenant);
+        $tenantModel = $this->resolveInitializedTenant();
         $user = $request->user();
         if ($user instanceof TenantUser) {
             $completion = app(HostEnterpriseSsoHandoffService::class)
@@ -70,20 +77,20 @@ class MfaController extends Controller
         );
     }
 
-    public function showChallenge(Request $request, ?string $tenant = null): InertiaResponse|JsonResponse
+    public function showChallenge(Request $request): InertiaResponse|JsonResponse
     {
         if ($request->expectsJson()) {
             return ApiResponse::success(['challenge' => true]);
         }
 
-        $tenantModel = $this->resolveTenant($tenant);
+        $tenantModel = $this->resolveInitializedTenant();
 
         return Inertia::render('Security/MfaChallenge', [
             'tenant' => TenantInertiaProps::from($tenantModel),
         ]);
     }
 
-    public function verifyChallenge(Request $request, ?string $tenant = null): RedirectResponse|JsonResponse
+    public function verifyChallenge(Request $request): RedirectResponse|JsonResponse
     {
         $request->validate(['code' => 'required|string']);
 
@@ -95,7 +102,7 @@ class MfaController extends Controller
             return ApiResponse::success(['verified' => true]);
         }
 
-        $tenantModel = $this->resolveTenant($tenant);
+        $tenantModel = $this->resolveInitializedTenant();
         $user = $request->user();
         if ($user instanceof TenantUser) {
             $completion = app(HostEnterpriseSsoHandoffService::class)
@@ -108,12 +115,8 @@ class MfaController extends Controller
         return app(\App\Http\Auth\TenantEntryUrlResolver::class)->redirectAfterLogin($request, $tenantModel);
     }
 
-    protected function resolveTenant(?string $tenant): Tenant
+    protected function resolveInitializedTenant(): Tenant
     {
-        if (is_string($tenant) && $tenant !== '') {
-            return Tenant::query()->findOrFail($tenant);
-        }
-
         $current = tenancy()->tenant;
         if ($current instanceof Tenant) {
             return $current;
