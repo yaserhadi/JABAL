@@ -2,6 +2,7 @@
 
 namespace Modules\Identity\Http\Controllers;
 
+use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ use Modules\Identity\Models\WorkforceSsoEnrollmentInvitation;
 use Modules\Identity\Services\WorkforceSsoEnrollmentInvitationService;
 use Modules\Identity\Services\WorkforceSsoEnrollmentLoginResumeService;
 use Modules\Identity\Services\WorkforceSsoEnrollmentOidcService;
+use Modules\Tenancy\Models\Tenant;
 
 /**
  * BK-099: Admin issue/list/cancel + employee invitation open / resume / start OIDC.
@@ -27,6 +29,7 @@ class WorkforceSsoEnrollmentController extends Controller
         protected WorkforceSsoEnrollmentInvitationService $invitations,
         protected WorkforceSsoEnrollmentLoginResumeService $loginResumes,
         protected WorkforceSsoEnrollmentOidcService $oidc,
+        protected TenantEntryUrlResolver $tenantEntryUrls,
     ) {
         $this->middleware('permission:tenant.sso.view')->only(['index']);
         $this->middleware('permission:tenant.sso.configure')->only(['store', 'destroy']);
@@ -109,8 +112,7 @@ class WorkforceSsoEnrollmentController extends Controller
             $created['invitation']->expires_at,
         ));
 
-        return redirect()
-            ->route('identity.sso.enrollments.index')
+        return $this->redirectToEnrollmentsIndex($tenant)
             ->with('success', 'Workforce SSO enrollment invitation issued.');
     }
 
@@ -142,9 +144,18 @@ class WorkforceSsoEnrollmentController extends Controller
             ]);
         }
 
-        return redirect()
-            ->route('identity.sso.enrollments.index')
+        return $this->redirectToEnrollmentsIndex($tenant)
             ->with('success', 'Invitation cancelled.');
+    }
+
+    /**
+     * BK-109: Tenant Host/Path named-route redirects via proven absolute namedRouteUrl contract.
+     */
+    protected function redirectToEnrollmentsIndex(Tenant $tenant): RedirectResponse
+    {
+        return redirect()->to(
+            $this->tenantEntryUrls->namedRouteUrl('identity.sso.enrollments.index', $tenant)
+        );
     }
 
     /**
