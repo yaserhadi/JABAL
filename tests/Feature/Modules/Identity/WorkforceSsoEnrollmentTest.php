@@ -4,8 +4,10 @@ namespace Tests\Feature\Modules\Identity;
 
 use App\Models\User;
 use Facile\OpenIDClient\Token\TokenSetInterface;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Mockery;
+use Modules\Identity\Mail\WorkforceSsoEnrollmentInvitationMail;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\SsoAuthenticationTransaction;
 use Modules\Identity\Models\SsoEnrollmentContinuation;
@@ -24,8 +26,10 @@ use Modules\Identity\Support\Sso\SsoSecretCrypto;
 use Modules\Identity\Support\Sso\SsoValidatedClaims;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantDomainProvisioner;
+use Modules\Tenancy\Services\TenantRbacProvisioner;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Concerns\GrantsSsoEntitlement;
 use Tests\Support\InteractsWithTenantAddressingProfile;
 use Tests\TestCase;
@@ -511,6 +515,158 @@ class WorkforceSsoEnrollmentTest extends TestCase
         );
         $this->assertFalse($result->succeeded());
         $this->assertSame(0, TenantUserIdentity::query()->count());
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function admin_store_invitation_redirects_with_tenant_label_and_emits_one_mail(): void
+    {
+        Mail::fake();
+
+        $tenant = Tenant::factory()->create([
+            'slug' => 'enr-'.Str::lower(Str::random(8)),
+            'status' => 'active',
+        ]);
+        $this->grantSsoAvailable($tenant);
+        app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+        $host = $tenant->slug.'.jabal.test';
+
+        app(TenantRbacProvisioner::class)->ensureGlobalPermissions();
+        app(TenantRbacProvisioner::class)->ensureRolesForTenant($tenant);
+
+        tenancy()->initialize($tenant);
+
+        $admin = User::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Admin',
+            'email' => 'admin-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $admin->id,
+            'membership_type' => 'owner',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+        app(TenantRbacProvisioner::class)->assignTenantAdminRole($admin, $tenant);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $target = User::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Target',
+            'email' => 'target-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $target->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        app(SsoConfigService::class)->update($tenant, [
+            'enabled' => true,
+            'issuer_url' => $this->issuer,
+            'client_id' => 'client-id',
+            'client_secret' => 'client-secret',
+            'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+        ]);
+
+        $before = WorkforceSsoEnrollmentInvitation::query()->count();
+
+        $this->actingAs($admin);
+        $response = $this->call(
+            'POST',
+            'https://'.$host.'/security/sso/enrollments',
+            [
+                'intended_user_id' => $target->id,
+                'delivery_email' => 'notify-bk109@example.invalid',
+            ],
+            server: ['HTTP_HOST' => $host, 'SERVER_NAME' => $host, 'HTTPS' => 'on']
+        );
+
+        $this->assertTrue(in_array($response->status(), [302, 303], true), 'expected redirect, got '.$response->status());
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString($host, $location);
+        $this->assertStringContainsString('/security/sso/enrollments', $location);
+        $this->assertStringNotContainsString('?tenant=', $location);
+
+        $follow = $this->call(
+            'GET',
+            $location,
+            server: ['HTTP_HOST' => $host, 'SERVER_NAME' => $host, 'HTTPS' => 'on']
+        );
+        $follow->assertOk();
+        $follow->assertInertia(fn ($page) => $page->component('Security/SsoEnrollment/Index'));
+
+        $this->assertSame($before + 1, WorkforceSsoEnrollmentInvitation::query()->count());
+        Mail::assertSent(WorkforceSsoEnrollmentInvitationMail::class, 1);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function invitation_mail_link_uses_tenant_host_path_without_uuid_hostname_or_query_tenant(): void
+    {
+        Mail::fake();
+        $fixture = $this->prepareEnrollmentFixture();
+
+        tenancy()->initialize($fixture['tenant']);
+        app(TenantRbacProvisioner::class)->ensureGlobalPermissions();
+        app(TenantRbacProvisioner::class)->ensureRolesForTenant($fixture['tenant']);
+        Membership::query()
+            ->where('user_id', $fixture['admin']->id)
+            ->update(['membership_type' => 'owner']);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($fixture['tenant']->getTenantKey());
+        app(TenantRbacProvisioner::class)->assignTenantAdminRole($fixture['admin'], $fixture['tenant']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $before = WorkforceSsoEnrollmentInvitation::query()->count();
+        // Account for fixture invitation: cancel it so store creates exactly one new pending mail path.
+        app(WorkforceSsoEnrollmentInvitationService::class)->cancelInvitation(
+            $fixture['tenant'],
+            $fixture['invitation'],
+            $fixture['admin'],
+        );
+        $afterCancel = WorkforceSsoEnrollmentInvitation::query()->count();
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            [
+                'intended_user_id' => $fixture['target']->id,
+                'delivery_email' => 'mail-host-bk109@example.invalid',
+            ],
+            server: [
+                'HTTP_HOST' => $fixture['host'],
+                'SERVER_NAME' => $fixture['host'],
+                'HTTPS' => 'on',
+            ]
+        );
+        $this->assertTrue(in_array($response->status(), [302, 303], true));
+
+        Mail::assertSent(WorkforceSsoEnrollmentInvitationMail::class, function (WorkforceSsoEnrollmentInvitationMail $mail) use ($fixture) {
+            $url = $mail->enrollmentUrl;
+            $this->assertStringContainsString($fixture['host'], $url);
+            $this->assertStringContainsString('/security/sso/enrollment/invitations/', $url);
+            $this->assertStringNotContainsString((string) $fixture['tenant']->id, parse_url($url, PHP_URL_HOST) ?: '');
+            $this->assertStringNotContainsString('?tenant=', $url);
+            $this->assertStringNotContainsString('platform.jabal.test', $url);
+
+            return true;
+        });
+        Mail::assertSent(WorkforceSsoEnrollmentInvitationMail::class, 1);
+
+        $this->assertSame($afterCancel + 1, WorkforceSsoEnrollmentInvitation::query()->count());
+        $this->assertSame($before, $afterCancel, 'cancel retains row; count unchanged');
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
         tenancy()->end();
     }
 }
