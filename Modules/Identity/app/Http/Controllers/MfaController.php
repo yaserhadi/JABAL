@@ -64,6 +64,13 @@ class MfaController extends Controller
 
         $tenantModel = $this->resolveInitializedTenant();
         $user = $request->user();
+        if ($user instanceof TenantUser
+            && (string) $request->session()->get(\Modules\Identity\Support\Sso\SsoFirstLinkAssurance::SESSION_MFA_INTENT) === \Modules\Identity\Support\Sso\SsoFirstLinkAssurance::PURPOSE
+        ) {
+            return redirect()->away(
+                app(\App\Http\Auth\TenantEntryUrlResolver::class)->namedRouteUrl('identity.mfa.challenge', $tenantModel)
+            );
+        }
         if ($user instanceof TenantUser) {
             $completion = app(HostEnterpriseSsoHandoffService::class)
                 ->completeMfaContinuation($request, $tenantModel, $user);
@@ -94,7 +101,15 @@ class MfaController extends Controller
     {
         $request->validate(['code' => 'required|string']);
 
-        if (! $this->mfaService->verifyChallenge($request->user(), $request->string('code')->toString())) {
+        $intendedPurpose = (string) $request->session()->get(
+            \Modules\Identity\Support\Sso\SsoFirstLinkAssurance::SESSION_MFA_INTENT,
+            'login'
+        );
+        $purpose = $intendedPurpose === \Modules\Identity\Support\Sso\SsoFirstLinkAssurance::PURPOSE
+            ? \Modules\Identity\Support\Sso\SsoFirstLinkAssurance::PURPOSE
+            : 'login';
+
+        if (! $this->mfaService->verifyChallenge($request->user(), $request->string('code')->toString(), $purpose)) {
             abort(422, 'Invalid MFA code.');
         }
 
@@ -104,6 +119,12 @@ class MfaController extends Controller
 
         $tenantModel = $this->resolveInitializedTenant();
         $user = $request->user();
+        if ($purpose === \Modules\Identity\Support\Sso\SsoFirstLinkAssurance::PURPOSE) {
+            $return = app(\Modules\Identity\Support\Sso\SsoFirstLinkAssurance::class)->pullReturnUrl();
+            if (is_string($return) && $return !== '') {
+                return redirect()->away($return);
+            }
+        }
         if ($user instanceof TenantUser) {
             $completion = app(HostEnterpriseSsoHandoffService::class)
                 ->completeMfaContinuation($request, $tenantModel, $user);

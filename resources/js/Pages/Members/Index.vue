@@ -11,7 +11,7 @@
                             prepend-icon="mdi-account-plus"
                             @click="inviteDialog = true"
                         >
-                            Invite member
+                            New user
                         </v-btn>
                     </v-card-title>
                     <v-card-text>
@@ -199,8 +199,11 @@
             </v-col>
         </v-row>
 
-        <v-dialog v-model="inviteDialog" max-width="480">
-            <v-card title="Invite member">
+        <v-dialog v-model="inviteDialog" max-width="520">
+            <v-card title="New user">
+                <v-card-subtitle class="px-4">
+                    Create User first, then send a 24-hour account-completion invite.
+                </v-card-subtitle>
                 <v-card-text>
                     <v-alert
                         v-if="suspendedMemberForInviteShortcut"
@@ -219,6 +222,16 @@
                         </v-btn>
                     </v-alert>
                     <v-text-field
+                        v-model="inviteForm.first_name"
+                        label="First name"
+                        :error-messages="inviteForm.errors.first_name"
+                    />
+                    <v-text-field
+                        v-model="inviteForm.last_name"
+                        label="Last name"
+                        :error-messages="inviteForm.errors.last_name"
+                    />
+                    <v-text-field
                         v-model="inviteForm.email"
                         label="Email"
                         type="email"
@@ -236,7 +249,9 @@
                 <v-card-actions>
                     <v-spacer />
                     <v-btn variant="text" @click="inviteDialog = false">Cancel</v-btn>
-                    <v-btn color="primary" :loading="inviteForm.processing" @click="submitInvite">Send invite</v-btn>
+                    <v-btn color="primary" :loading="inviteForm.processing" @click="submitInvite">
+                        Create user and send invite
+                    </v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -280,6 +295,8 @@ watch(showRemovedTab, (visible) => {
 const inviteDialog = ref(false);
 const copySnackbar = ref(false);
 const inviteForm = useForm({
+    first_name: '',
+    last_name: '',
     email: '',
     role: 'member',
 });

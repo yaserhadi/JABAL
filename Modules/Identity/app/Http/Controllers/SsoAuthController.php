@@ -9,17 +9,22 @@ use Illuminate\Support\Facades\Auth;
 use Modules\Identity\Exceptions\SsoSecurityException;
 use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Services\SsoAuthService;
+use Modules\Identity\Services\SsoConfigService;
+use Modules\Identity\Support\Sso\SsoIdentityLifecycle;
 use Modules\Tenancy\Models\Tenant;
 
 /**
  * Path OIDC redirect/callback — Path federated login authority (with Host handoff).
  *
  * BK-097: existing-link-only resolution via service; D12 ordinary session gates before login.
+ * WAVE-2: Linked-not-Ready requires full session regenerate; Ready only after ordinary login.
  */
 class SsoAuthController extends Controller
 {
     public function __construct(
         protected SsoAuthService $ssoAuthService,
+        protected SsoIdentityLifecycle $lifecycle,
+        protected SsoConfigService $configService,
     ) {}
 
     public function redirect(Request $request, ?Tenant $tenant = null): RedirectResponse
@@ -69,14 +74,18 @@ class SsoAuthController extends Controller
                 ->withErrors(['email' => __('Unable to sign in with single sign-on.')]);
         }
 
-        if (! $result->succeeded() || $result->user === null) {
+        if (! $result->succeeded() || $result->user === null || $result->identityLink === null) {
             return redirect()
                 ->route('login')
                 ->withErrors(['email' => __('Unable to sign in with single sign-on.')]);
         }
 
         $user = $result->user;
+        $link = $result->identityLink;
         $dashboard = app(\App\Http\Auth\TenantEntryUrlResolver::class)->dashboardUrl($tenant);
+        $activeVersionId = $this->configService->getActiveVersionId($tenant);
+        $needsProof = $link->exists
+            && $this->lifecycle->requiresOrdinarySessionProof($link, $user, $activeVersionId);
 
         if (Auth::guard('web')->check()) {
             if (! $this->isSameUserSameTenantContinuation($user, $tenant)) {
@@ -85,15 +94,40 @@ class SsoAuthController extends Controller
                     ->withErrors(['email' => __('Unable to sign in with single sign-on.')]);
             }
 
-            // Ordinary same-user continuation: no login, logout, regenerate, or assurance upgrade.
-            return redirect()->intended($dashboard);
+            // Already Ready: ordinary same-user continuation may skip regenerate.
+            if (! $needsProof) {
+                if (is_string($activeVersionId) && $activeVersionId !== '' && $link->exists) {
+                    $this->lifecycle->markLoginVerifiedAndReady(
+                        $link,
+                        $user,
+                        (string) $tenant->id,
+                        $activeVersionId,
+                        'path_ordinary_continuation_idempotent',
+                    );
+                }
+
+                return redirect()->intended($dashboard);
+            }
+            // Linked-not-Ready: fall through to regenerate + Ready transition.
         }
 
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
         $request->session()->put('tenant_id', $tenant->id);
 
-        return redirect()->intended($dashboard);
+        if (is_string($activeVersionId) && $activeVersionId !== '' && $link->exists) {
+            $this->lifecycle->markLoginVerifiedAndReady(
+                $link,
+                $user,
+                (string) $tenant->id,
+                $activeVersionId,
+                'path_ordinary_sso_login',
+            );
+        }
+
+        return redirect()
+            ->intended($dashboard)
+            ->with('status', 'Enterprise SSO is Ready. Your Company SSO sign-in was verified.');
     }
 
     /**

@@ -13,7 +13,9 @@ use Modules\Identity\Models\SsoAuthenticationTransaction;
 use Modules\Identity\Models\SsoEnrollmentContinuation;
 use Modules\Identity\Models\SsoTenantHandoff;
 use Modules\Identity\Models\TenantUserIdentity;
+use Modules\Identity\Models\UserMfa;
 use Modules\Identity\Models\WorkforceSsoEnrollmentInvitation;
+use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
 use Modules\Identity\Services\AuthenticationTransactionService;
 use Modules\Identity\Services\SsoAuthService;
 use Modules\Identity\Services\SsoConfigService;
@@ -69,7 +71,10 @@ class WorkforceSsoEnrollmentTest extends TestCase
      *   versionId: string,
      * }
      */
-    protected function prepareEnrollmentFixture(): array
+    /**
+     * @param  list<string>  $approvedEmailDomains
+     */
+    protected function prepareEnrollmentFixture(bool $satisfyFirstLink = true, array $approvedEmailDomains = ['example.com']): array
     {
         $tenant = Tenant::factory()->create([
             'slug' => 'enr-'.Str::lower(Str::random(8)),
@@ -129,6 +134,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
             'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'approved_email_domains' => $approvedEmailDomains,
         ]);
         $versionId = app(SsoConfigService::class)->getActiveVersionId($tenant);
         $this->assertNotNull($versionId);
@@ -141,6 +147,10 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'notify-only-'.uniqid().'@delivery.example',
             $host,
         );
+
+        if ($satisfyFirstLink) {
+            $this->satisfyFirstLink($target);
+        }
 
         tenancy()->end();
 
@@ -160,7 +170,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
     /**
      * @return array{reference: string, continuationSecret: string, transaction: SsoAuthenticationTransaction}
      */
-    protected function issueEnrollmentContinuationFor(array $fixture, string $subject = 'sub-enroll-1'): array
+    protected function issueEnrollmentContinuationFor(array $fixture, string $subject = 'sub-enroll-1', ?string $email = null): array
     {
         $created = app(AuthenticationTransactionService::class)->create([
             'tenant_id' => (string) $fixture['tenant']->id,
@@ -183,6 +193,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         $issued = app(AuthenticationTransactionService::class)->issueEnrollmentContinuation($reserved, [
             'issuer' => $this->issuer,
             'subject' => $subject,
+            'email' => $email ?? $fixture['target']->email,
             'invitation_id' => (string) $fixture['invitation']->id,
             'intended_user_id' => (string) $fixture['target']->id,
         ]);
@@ -212,6 +223,16 @@ class WorkforceSsoEnrollmentTest extends TestCase
         $names = array_map(fn ($c) => $c->getName(), $cookies);
         $this->assertContains(SsoBrowserBindingCookieFactory::ENROLLMENT_LOGIN_RESUME, $names);
         $this->assertContains(SsoBrowserBindingCookieFactory::ENROLLMENT_BROWSER_BINDING, $names);
+    }
+
+    protected function satisfyFirstLink(User $user): void
+    {
+        tenancy()->initialize($user->tenant_id ? \Modules\Tenancy\Models\Tenant::query()->findOrFail($user->tenant_id) : tenancy()->tenant);
+        UserMfa::query()->updateOrCreate(
+            ['user_id' => $user->id],
+            ['secret' => 'TESTBASE32SECRETAAA', 'confirmed_at' => now()]
+        );
+        SsoFirstLinkAssurance::markSatisfiedForTests();
     }
 
     #[Test]
@@ -298,6 +319,12 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
         $this->assertTrue($result['created']);
         $this->assertSame((string) $fixture['target']->id, (string) $result['identity']->user_id);
+        $this->assertSame(
+            \Modules\Identity\Support\Sso\SsoIdentityLifecycle::STATUS_LINKED,
+            $result['identity']->verification_status
+        );
+        $this->assertNull($result['identity']->ready_at);
+        $this->assertNull($result['identity']->login_verified_at);
         $this->assertSame(1, TenantUserIdentity::query()->where('user_id', $fixture['target']->id)->count());
         $this->assertSame(0, TenantUserIdentity::query()->where('user_id', $fixture['other']->id)->count());
         $this->assertSame($sessionIdBefore, session()->getId());
@@ -310,26 +337,199 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function missing_idp_email_still_associates(): void
+    public function missing_idp_email_fails_closed(): void
     {
         $fixture = $this->prepareEnrollmentFixture();
-        $issued = $this->issueEnrollmentContinuationFor($fixture, 'sub-no-email');
+
+        $this->expectException(\LogicException::class);
+        $this->issueEnrollmentContinuationFor($fixture, 'sub-no-email', '');
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function idp_email_mismatch_does_not_associate_or_mutate_user(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture();
+        $emailBefore = $fixture['target']->email;
+        $issued = $this->issueEnrollmentContinuationFor($fixture, 'sub-mismatch', 'other@example.com');
 
         tenancy()->initialize($fixture['tenant']);
 
-        $result = app(WorkforceSsoEnrollmentAssociationService::class)->associateFromWorkforceEnrollmentInvitation([
-            'invitation' => $fixture['invitation']->fresh(),
-            'authenticatedLocalActor' => $fixture['target'],
-            'continuationReference' => $issued['reference'],
-            'browserBinding' => $issued['continuationSecret'],
-            'requestHost' => $fixture['host'],
-            'email_at_link' => null,
-        ]);
+        try {
+            app(WorkforceSsoEnrollmentAssociationService::class)->associateFromWorkforceEnrollmentInvitation([
+                'invitation' => $fixture['invitation']->fresh(),
+                'authenticatedLocalActor' => $fixture['target'],
+                'continuationReference' => $issued['reference'],
+                'browserBinding' => $issued['continuationSecret'],
+                'requestHost' => $fixture['host'],
+            ]);
+            $this->fail('Mismatch must fail closed.');
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException) {
+            // expected
+        }
 
-        $this->assertTrue($result['created']);
-        $this->assertNull($result['identity']->email_at_link);
-
+        $this->assertSame(0, TenantUserIdentity::query()->count());
+        $this->assertSame($emailBefore, $fixture['target']->fresh()->email);
+        $this->assertNull($fixture['invitation']->fresh()->consumed_at);
         tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function stale_session_requires_first_link_step_up_and_does_not_associate(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture(false);
+        $issued = $this->issueEnrollmentContinuationFor($fixture);
+
+        tenancy()->initialize($fixture['tenant']);
+        $this->actingAs($fixture['target']);
+        session()->put('last_activity', now()->timestamp);
+
+        try {
+            app(WorkforceSsoEnrollmentAssociationService::class)->associateFromWorkforceEnrollmentInvitation([
+                'invitation' => $fixture['invitation']->fresh(),
+                'authenticatedLocalActor' => $fixture['target'],
+                'continuationReference' => $issued['reference'],
+                'browserBinding' => $issued['continuationSecret'],
+                'requestHost' => $fixture['host'],
+            ]);
+            $this->fail('Stale first-link must fail closed.');
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException $e) {
+            $this->assertSame('first_link_step_up_required', $e->getMessage());
+        }
+
+        $this->assertSame(0, TenantUserIdentity::query()->count());
+        $this->assertNull($fixture['invitation']->fresh()->consumed_at);
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function mfa_without_password_confirmation_does_not_satisfy_first_link(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture(false);
+        $issued = $this->issueEnrollmentContinuationFor($fixture);
+
+        tenancy()->initialize($fixture['tenant']);
+        UserMfa::query()->updateOrCreate(
+            ['user_id' => $fixture['target']->id],
+            ['secret' => 'TESTBASE32SECRETAAA', 'confirmed_at' => now()]
+        );
+        \Modules\Identity\Support\MfaVerificationContext::markVerified(SsoFirstLinkAssurance::PURPOSE, 900);
+
+        try {
+            app(WorkforceSsoEnrollmentAssociationService::class)->associateFromWorkforceEnrollmentInvitation([
+                'invitation' => $fixture['invitation']->fresh(),
+                'authenticatedLocalActor' => $fixture['target'],
+                'continuationReference' => $issued['reference'],
+                'browserBinding' => $issued['continuationSecret'],
+                'requestHost' => $fixture['host'],
+            ]);
+            $this->fail('MFA without password must fail closed.');
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException $e) {
+            $this->assertSame('first_link_step_up_required', $e->getMessage());
+        }
+
+        $this->assertSame(0, TenantUserIdentity::query()->count());
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function password_without_mfa_does_not_satisfy_first_link(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture(false);
+        $issued = $this->issueEnrollmentContinuationFor($fixture);
+
+        tenancy()->initialize($fixture['tenant']);
+        session()->put(SsoFirstLinkAssurance::SESSION_PASSWORD_AT, now()->timestamp);
+
+        try {
+            app(WorkforceSsoEnrollmentAssociationService::class)->associateFromWorkforceEnrollmentInvitation([
+                'invitation' => $fixture['invitation']->fresh(),
+                'authenticatedLocalActor' => $fixture['target'],
+                'continuationReference' => $issued['reference'],
+                'browserBinding' => $issued['continuationSecret'],
+                'requestHost' => $fixture['host'],
+            ]);
+            $this->fail('Password without MFA must fail closed.');
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException $e) {
+            $this->assertSame('first_link_step_up_required', $e->getMessage());
+        }
+
+        $this->assertSame(0, TenantUserIdentity::query()->count());
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function unapproved_domain_does_not_associate_or_mutate_user(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture(true, ['contoso.com']);
+        $emailBefore = $fixture['target']->email;
+        $issued = $this->issueEnrollmentContinuationFor($fixture);
+
+        tenancy()->initialize($fixture['tenant']);
+
+        try {
+            app(WorkforceSsoEnrollmentAssociationService::class)->associateFromWorkforceEnrollmentInvitation([
+                'invitation' => $fixture['invitation']->fresh(),
+                'authenticatedLocalActor' => $fixture['target'],
+                'continuationReference' => $issued['reference'],
+                'browserBinding' => $issued['continuationSecret'],
+                'requestHost' => $fixture['host'],
+            ]);
+            $this->fail('Unapproved domain must fail closed.');
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException) {
+            // expected
+        }
+
+        $this->assertSame(0, TenantUserIdentity::query()->count());
+        $this->assertSame($emailBefore, $fixture['target']->fresh()->email);
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function enrollment_complete_redirects_to_step_up_when_stale(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture(false);
+        $issued = $this->issueEnrollmentContinuationFor($fixture);
+
+        $this->actingAs($fixture['target']);
+        tenancy()->initialize($fixture['tenant']);
+
+        $response = $this->call(
+            'GET',
+            'https://'.$fixture['host'].'/auth/enterprise-sso/enrollment/complete?c='.rawurlencode($issued['reference']),
+            cookies: [SsoBrowserBindingCookieFactory::TENANT_CONTINUATION => $issued['continuationSecret']],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+
+        $response->assertRedirect();
+        $this->assertStringContainsString(
+            '/security/sso/enrollment/step-up/password',
+            (string) $response->headers->get('Location')
+        );
+        $this->assertSame(0, TenantUserIdentity::query()->count());
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function enrollment_complete_copy_is_linked_not_ready(): void
+    {
+        $controller = file_get_contents(base_path('Modules/Identity/app/Http/Controllers/WorkforceSsoEnrollmentCompleteController.php'));
+        $vue = file_get_contents(base_path('resources/js/Pages/Security/SsoEnrollment/Complete.vue'));
+        $this->assertIsString($controller);
+        $this->assertIsString($vue);
+        $this->assertStringContainsString('Company SSO linked', $controller);
+        $this->assertStringContainsString('still required to verify readiness', $controller);
+        $this->assertStringContainsString("'ready' => false", $controller);
+        $this->assertStringContainsString('not SSO Ready yet', $vue);
+        $this->assertStringContainsString('SSO Linked', $vue);
+        $this->assertStringNotContainsString('is now SSO Ready', $controller);
+        $this->assertStringNotContainsString('is now SSO Ready', $vue);
     }
 
     #[Test]
@@ -476,7 +676,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         $mock = Mockery::mock(app(SsoAuthService::class))->makePartial();
         $mock->shouldReceive('exchangeHostAuthorizationCode')->once()->andReturn($tokenSet);
         $mock->shouldReceive('extractValidatedClaims')->once()->andReturn(
-            new SsoValidatedClaims($this->issuer, 'sub-callback-enroll', null, null)
+            new SsoValidatedClaims($this->issuer, 'sub-callback-enroll', $fixture['target']->email, true)
         );
         $this->app->instance(SsoAuthService::class, $mock);
 
@@ -499,6 +699,11 @@ class WorkforceSsoEnrollmentTest extends TestCase
         tenancy()->initialize($fixture['tenant']);
         $this->assertSame(0, TenantUserIdentity::query()->count());
         tenancy()->end();
+
+        $callback = file_get_contents(base_path('Modules/Identity/app/Services/HostEnterpriseSsoCallbackService.php'));
+        $this->assertIsString($callback);
+        $this->assertStringNotContainsString('markLoginVerifiedAndReady', $callback);
+        $this->assertStringNotContainsString('SsoIdentityLifecycle', $callback);
     }
 
     #[Test]
@@ -512,6 +717,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             $fixture['tenant'],
             new SsoValidatedClaims($this->issuer, 'never-linked-sub', 'anyone@example.com', true),
             $this->issuer,
+            ['example.com'],
         );
         $this->assertFalse($result->succeeded());
         $this->assertSame(0, TenantUserIdentity::query()->count());
@@ -574,6 +780,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
             'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'approved_email_domains' => ['example.com'],
         ]);
 
         $before = WorkforceSsoEnrollmentInvitation::query()->count();

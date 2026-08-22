@@ -5,6 +5,7 @@ use App\Support\Tenancy\TenantAddressingProfile;
 use App\Support\Tenancy\TenantRouteRegistrar;
 use Illuminate\Support\Facades\Route;
 use Modules\Tenancy\Http\Controllers\TenantSettingsController;
+use Modules\Tenancy\Http\Controllers\TenantSetupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,6 +24,8 @@ if ($addressing->isHost()) {
         ])->group(function () {
             Route::get('settings', [TenantSettingsController::class, 'show'])->name('tenant.settings.index');
             Route::patch('settings', [TenantSettingsController::class, 'update'])->name('tenant.settings.update');
+            Route::get('setup', [TenantSetupController::class, 'show'])->name('tenant.setup.index');
+            Route::post('setup/complete', [TenantSetupController::class, 'complete'])->name('tenant.setup.complete');
         });
     });
 
@@ -38,4 +41,6 @@ Route::prefix('t/{tenant}')
     ->group(function () {
         Route::get('settings', [TenantSettingsController::class, 'show'])->name('tenant.settings.index');
         Route::patch('settings', [TenantSettingsController::class, 'update'])->name('tenant.settings.update');
+        Route::get('setup', [TenantSetupController::class, 'show'])->name('tenant.setup.index');
+        Route::post('setup/complete', [TenantSetupController::class, 'complete'])->name('tenant.setup.complete');
     });

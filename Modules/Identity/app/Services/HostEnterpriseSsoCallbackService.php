@@ -7,6 +7,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Modules\Identity\Exceptions\SsoSecurityException;
 use Modules\Identity\Models\SsoAuthenticationTransaction;
+use Modules\Identity\Models\TenantSsoConfigVersion;
+use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Support\Sso\SsoAuthorizationResponseParser;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
 use Modules\Identity\Support\Sso\SsoIdentityResolutionResult;
@@ -29,6 +31,7 @@ class HostEnterpriseSsoCallbackService
         protected SsoIdentityResolver $identityResolver,
         protected SsoOperationalGate $operationalGate,
         protected TenantAddressingProfile $addressing,
+        protected \Modules\Identity\Support\Sso\SsoIdentityTrustGate $trustGate,
     ) {}
 
     public function handle(Request $request): RedirectResponse
@@ -154,12 +157,19 @@ class HostEnterpriseSsoCallbackService
             : (string) $version->issuer_url;
 
         if ($reserved->purpose === SsoAuthenticationTransaction::PURPOSE_WORKFORCE_SSO_ENROLLMENT) {
-            return $this->handleEnrollmentCallback($request, $reserved, $claims, $expectedIssuer);
+            return $this->handleEnrollmentCallback($request, $reserved, $claims, $expectedIssuer, $tenant, $version);
         }
+
+        $approvedDomains = is_array($version->approved_email_domains) ? $version->approved_email_domains : [];
 
         tenancy()->initialize($tenant);
         try {
-            $resolution = $this->identityResolver->resolveExistingLinkOnly($tenant, $claims, $expectedIssuer);
+            $resolution = $this->identityResolver->resolveExistingLinkOnly(
+                $tenant,
+                $claims,
+                $expectedIssuer,
+                $approvedDomains,
+            );
         } finally {
             tenancy()->end();
         }
@@ -202,13 +212,15 @@ class HostEnterpriseSsoCallbackService
     }
 
     /**
-     * BK-099: enrollment purpose — Facile-validated issuer+subject only; no link, no handoff, no session.
+     * Enrollment purpose — Facile-validated issuer+EUID + fail-closed email/domain; no link, no handoff, no session.
      */
     protected function handleEnrollmentCallback(
         Request $request,
         SsoAuthenticationTransaction $reserved,
         SsoValidatedClaims $claims,
         string $expectedIssuer,
+        Tenant $tenant,
+        TenantSsoConfigVersion $version,
     ): RedirectResponse {
         $normalizedExpected = rtrim(trim($expectedIssuer), '/');
         $normalizedClaimsIssuer = rtrim(trim($claims->issuer), '/');
@@ -230,6 +242,41 @@ class HostEnterpriseSsoCallbackService
             abort(404);
         }
 
+        if (! is_string($claims->email) || trim($claims->email) === '') {
+            $this->transactions->failTerminal($reserved, 'idp_email_missing');
+            abort(404);
+        }
+
+        $approvedDomains = is_array($version->approved_email_domains) ? $version->approved_email_domains : [];
+
+        tenancy()->initialize($tenant);
+        try {
+            $intended = TenantUser::query()
+                ->withoutGlobalScope('tenant')
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($intendedUserId)
+                ->first();
+
+            if (! $intended instanceof TenantUser) {
+                $this->transactions->failTerminal($reserved, 'intended_user_missing');
+                abort(404);
+            }
+
+            $this->trustGate->assert(
+                $intended,
+                $claims->email,
+                $claims->emailVerified,
+                $approvedDomains,
+                (string) $tenant->id,
+                'sso_enrollment',
+            );
+        } catch (\Modules\Identity\Exceptions\SsoSecurityException $e) {
+            $this->transactions->failTerminal($reserved, 'enrollment_trust_'.$e->getMessage());
+            abort(404);
+        } finally {
+            tenancy()->end();
+        }
+
         try {
             $this->operationalGate->assertMayProceed(
                 Tenant::query()->findOrFail($reserved->tenant_id),
@@ -239,6 +286,7 @@ class HostEnterpriseSsoCallbackService
             $issued = $this->transactions->issueEnrollmentContinuation($reserved, [
                 'issuer' => $normalizedClaimsIssuer,
                 'subject' => $claims->subject,
+                'email' => $claims->email,
                 'invitation_id' => $invitationId,
                 'intended_user_id' => $intendedUserId,
             ]);

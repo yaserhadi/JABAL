@@ -10,6 +10,11 @@ use Modules\Identity\Exceptions\SsoClaimsException;
  */
 final class SsoClaimsExtractor
 {
+    public function __construct(
+        protected SsoExternalUserIdentifierMapper $identifierMapper = new SsoExternalUserIdentifierMapper,
+        protected ?SsoSecurityAudit $audit = null,
+    ) {}
+
     /**
      * @param  array<string, mixed>|null  $userInfoClaims
      */
@@ -17,18 +22,22 @@ final class SsoClaimsExtractor
     {
         $idClaims = $tokenSet->claims();
 
-        $subject = isset($idClaims['sub']) ? (string) $idClaims['sub'] : '';
-        if ($subject === '') {
-            throw new SsoClaimsException('Validated ID token must include sub.');
-        }
-
-        $issuer = isset($idClaims['iss']) ? (string) $idClaims['iss'] : '';
-        if ($issuer === '') {
-            throw new SsoClaimsException('Validated ID token must include iss.');
+        try {
+            $mapped = $this->identifierMapper->map($idClaims, $userInfoClaims);
+        } catch (SsoClaimsException $e) {
+            $issuer = isset($idClaims['iss']) && is_string($idClaims['iss']) ? $idClaims['iss'] : '';
+            $this->audit?->record('sso.trust.euid_mapping_failed', [
+                'reason' => 'euid_mapping_failed',
+                'status' => 'rejected',
+                'purpose' => 'claims_extract',
+                'provider_family' => $issuer !== '' ? $this->identifierMapper->detectFamily($issuer) : SsoExternalUserIdentifierMapper::FAMILY_OIDC,
+            ]);
+            throw $e;
         }
 
         if ($userInfoClaims !== null && isset($userInfoClaims['sub'])) {
-            if ((string) $userInfoClaims['sub'] !== $subject) {
+            $idSub = isset($idClaims['sub']) ? (string) $idClaims['sub'] : '';
+            if ($idSub === '' || (string) $userInfoClaims['sub'] !== $idSub) {
                 throw new SsoClaimsException('UserInfo sub does not match ID token sub.');
             }
         }
@@ -48,10 +57,11 @@ final class SsoClaimsExtractor
         }
 
         return new SsoValidatedClaims(
-            issuer: $issuer,
-            subject: $subject,
+            issuer: $mapped->issuer,
+            subject: $mapped->euid,
             email: $email,
             emailVerified: $emailVerified,
+            providerFamily: $mapped->providerFamily,
         );
     }
 }

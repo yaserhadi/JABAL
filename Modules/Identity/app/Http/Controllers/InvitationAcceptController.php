@@ -10,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Modules\Identity\Models\TenantInvitation;
+use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Services\TenantInvitationService;
 use Modules\Tenancy\Models\Tenant;
 
@@ -27,7 +28,7 @@ class InvitationAcceptController extends Controller
     public function bootstrap(string $token): RedirectResponse
     {
         $invitation = $this->invitationService->findValidByToken($token);
-        if (! $invitation) {
+        if (! $invitation || $invitation->intended_user_id === null) {
             abort(404, 'This invitation is invalid or has expired.');
         }
 
@@ -44,17 +45,23 @@ class InvitationAcceptController extends Controller
         }
 
         $tenant = Tenant::query()->find($invitation->tenant_id);
+        $intended = TenantUser::withoutGlobalScope('tenant')
+            ->whereKey($invitation->intended_user_id)
+            ->first();
         $user = auth()->user();
         $emailMatches = $user && strtolower($user->email) === strtolower($invitation->email);
+        $isIntendedUser = $user && (string) $user->id === (string) $invitation->intended_user_id;
 
         return Inertia::render('Invitations/Accept', [
             'email' => $invitation->email,
+            'intendedUserName' => $intended?->name,
             'tenant' => $tenant ? [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
             ] : null,
             'isAuthenticated' => (bool) $user,
             'emailMatches' => $emailMatches,
+            'isIntendedUser' => $isIntendedUser,
         ]);
     }
 
@@ -84,6 +91,9 @@ class InvitationAcceptController extends Controller
             ->with('success', 'You have joined the workspace.');
     }
 
+    /**
+     * WAVE-3 GAP-004: Complete account for the already-created User (set Password; do not create User).
+     */
     public function registerAndAccept(Request $request): RedirectResponse
     {
         if (auth()->check()) {
@@ -96,14 +106,12 @@ class InvitationAcceptController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         try {
-            $result = $this->invitationService->registerAndAcceptInvitation(
+            $result = $this->invitationService->completeAccountInvitation(
                 $invitation,
-                $validated['name'],
                 $validated['password']
             );
         } catch (ValidationException $e) {
@@ -124,7 +132,7 @@ class InvitationAcceptController extends Controller
             tenancy()->end();
 
             throw ValidationException::withMessages([
-                'email' => ['Unable to sign in after registration.'],
+                'email' => ['Unable to sign in after account completion.'],
             ]);
         }
 
@@ -132,7 +140,7 @@ class InvitationAcceptController extends Controller
         $request->session()->put('tenant_id', $tenant->id);
 
         return redirect('/t/'.$tenant->id.'/dashboard')
-            ->with('success', 'Account created and invitation accepted.');
+            ->with('success', 'Account completed and invitation accepted.');
     }
 
     protected function resolveSessionInvitation(Request $request): ?TenantInvitation
@@ -142,11 +150,17 @@ class InvitationAcceptController extends Controller
             return null;
         }
 
-        return TenantInvitation::query()
+        $invitation = TenantInvitation::query()
             ->withoutGlobalScope('tenant')
             ->where('id', $id)
             ->pending()
             ->first();
+
+        if (! $invitation || $invitation->intended_user_id === null) {
+            return null;
+        }
+
+        return $invitation;
     }
 
     protected function forgetSessionInvitation(Request $request): void

@@ -89,6 +89,7 @@ class HostEnterpriseSsoHandoffTest extends TestCase
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
             'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'approved_email_domains' => ['example.com'],
         ]);
         if ($mfaRequired) {
             $mfa = app(MfaService::class);
@@ -204,6 +205,12 @@ class HostEnterpriseSsoHandoffTest extends TestCase
 
         tenancy()->initialize($fixture['tenant']);
         $this->assertSame(1, UserSession::query()->where('user_id', $fixture['user']->id)->count());
+        $this->assertSame(
+            \Modules\Identity\Support\Sso\SsoIdentityLifecycle::STATUS_READY,
+            $fixture['link']->fresh()->verification_status
+        );
+        $this->assertNotNull($fixture['link']->fresh()->ready_at);
+        $this->assertSame((string) $fixture['user']->id, (string) $fixture['link']->fresh()->user_id);
         tenancy()->end();
 
         $this->assertSame(SsoTenantHandoff::STATUS_CONSUMED, SsoTenantHandoff::query()->first()->status);
@@ -235,10 +242,63 @@ class HostEnterpriseSsoHandoffTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function ordinary_same_user_session_is_not_silently_replaced(): void
+    public function linked_not_ready_same_user_regenerates_and_marks_ready(): void
     {
         $fixture = $this->prepareIssuedHandoff();
         $this->assignDashboardViewToUser($fixture['user'], $fixture['tenant']);
+
+        tenancy()->initialize($fixture['tenant']);
+        $versionId = app(SsoConfigService::class)->getActiveVersionId($fixture['tenant']);
+        app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)->markLinked(
+            $fixture['link'],
+            (string) $fixture['tenant']->id,
+            $versionId,
+        );
+        $this->assertNull($fixture['link']->fresh()->ready_at);
+        tenancy()->end();
+
+        $this->actingAs($fixture['user'], 'web');
+        $this->withSession(['tenant_id' => $fixture['tenant']->id, 'mfa_verified_at' => 'stale-enrollment-context']);
+        $before = $this->app['session.store']->getId();
+
+        $response = $this->handoffCall($fixture);
+        $response->assertRedirect();
+        $this->assertAuthenticatedAs($fixture['user'], 'web');
+        $this->assertNotSame($before, $this->app['session.store']->getId());
+
+        tenancy()->initialize($fixture['tenant']);
+        $this->assertSame(
+            \Modules\Identity\Support\Sso\SsoIdentityLifecycle::STATUS_READY,
+            $fixture['link']->fresh()->verification_status
+        );
+        $this->assertNotNull($fixture['link']->fresh()->ready_at);
+        $this->assertSame((string) $fixture['user']->id, (string) $fixture['link']->fresh()->user_id);
+        $this->assertSame(1, UserSession::query()->where('user_id', $fixture['user']->id)->count());
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function ordinary_same_user_session_is_not_silently_replaced_when_already_ready(): void
+    {
+        $fixture = $this->prepareIssuedHandoff();
+        $this->assignDashboardViewToUser($fixture['user'], $fixture['tenant']);
+
+        tenancy()->initialize($fixture['tenant']);
+        $versionId = app(SsoConfigService::class)->getActiveVersionId($fixture['tenant']);
+        app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)->markLinked(
+            $fixture['link'],
+            (string) $fixture['tenant']->id,
+            $versionId,
+        );
+        app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)->markLoginVerifiedAndReady(
+            $fixture['link']->fresh(),
+            $fixture['user'],
+            (string) $fixture['tenant']->id,
+            (string) $versionId,
+            'test_seed_ready',
+        );
+        tenancy()->end();
 
         $this->mock(SessionRegistryService::class, function ($mock) {
             $mock->shouldNotReceive('register');

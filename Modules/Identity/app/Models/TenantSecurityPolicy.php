@@ -34,6 +34,9 @@ class TenantSecurityPolicy extends Model
         'mfa_grace_period_days',
         'password_policy',
         'session_idle_timeout',
+        'authentication_policy',
+        'mandatory_sso_enrollment',
+        'sso_exception_closure_mode',
     ];
 
     protected $casts = [
@@ -41,6 +44,7 @@ class TenantSecurityPolicy extends Model
         'mfa_grace_period_days' => 'integer',
         'password_policy' => 'array',
         'session_idle_timeout' => 'integer',
+        'mandatory_sso_enrollment' => 'boolean',
     ];
 
     public function tenant(): BelongsTo

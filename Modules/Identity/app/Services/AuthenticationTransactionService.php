@@ -357,6 +357,7 @@ class AuthenticationTransactionService
      * @param  array{
      *   issuer: string,
      *   subject: string,
+     *   email: string,
      *   invitation_id: string,
      *   intended_user_id: string,
      * }  $payload
@@ -387,6 +388,11 @@ class AuthenticationTransactionService
                 throw new LogicException('Tenant continuation binding required before enrollment continuation.');
             }
 
+            $email = trim((string) ($payload['email'] ?? ''));
+            if ($email === '') {
+                throw new LogicException('Enrollment continuation requires IdP email.');
+            }
+
             $continuation = SsoEnrollmentContinuation::query()->create([
                 'transaction_id' => $locked->id,
                 'tenant_id' => $locked->tenant_id,
@@ -396,6 +402,7 @@ class AuthenticationTransactionService
                 'destination_host' => $locked->destination_host,
                 'issuer_encrypted' => Crypt::encryptString((string) $payload['issuer']),
                 'subject_encrypted' => Crypt::encryptString((string) $payload['subject']),
+                'idp_email_encrypted' => Crypt::encryptString($email),
                 'lookup' => $lookup,
                 'secret_hash' => SsoSecretCrypto::proof($secret),
                 'browser_binding_secret_hash' => $locked->tenant_continuation_secret_hash,
@@ -443,12 +450,41 @@ class AuthenticationTransactionService
     }
 
     /**
+     * Decrypt issuer/EUID/email from a pending continuation without consuming it.
+     *
+     * @return array{issuer: string, subject: string, email: string}|null
+     */
+    public function peekEnrollmentIdentity(SsoEnrollmentContinuation $continuation): ?array
+    {
+        if ($continuation->status !== SsoEnrollmentContinuation::STATUS_PENDING || $continuation->isExpired()) {
+            return null;
+        }
+
+        try {
+            $issuer = Crypt::decryptString((string) $continuation->issuer_encrypted);
+            $subject = Crypt::decryptString((string) $continuation->subject_encrypted);
+            $email = $continuation->idp_email_encrypted
+                ? Crypt::decryptString((string) $continuation->idp_email_encrypted)
+                : '';
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return [
+            'issuer' => $issuer,
+            'subject' => $subject,
+            'email' => $email,
+        ];
+    }
+
+    /**
      * Atomic enrollment continuation consume. Returns decrypted issuer/subject payload or null.
      *
      * @return array{
      *   continuation: SsoEnrollmentContinuation,
      *   issuer: string,
      *   subject: string,
+     *   email: string,
      * }|null
      */
     public function consumeEnrollmentContinuation(
@@ -497,6 +533,9 @@ class AuthenticationTransactionService
 
             $issuer = Crypt::decryptString((string) $locked->issuer_encrypted);
             $subject = Crypt::decryptString((string) $locked->subject_encrypted);
+            $email = $locked->idp_email_encrypted
+                ? Crypt::decryptString((string) $locked->idp_email_encrypted)
+                : '';
 
             $updated = SsoEnrollmentContinuation::query()
                 ->whereKey($locked->id)
@@ -506,6 +545,7 @@ class AuthenticationTransactionService
                     'consumed_at' => now(),
                     'issuer_encrypted' => '',
                     'subject_encrypted' => '',
+                    'idp_email_encrypted' => '',
                     'secret_hash' => '',
                     'browser_binding_secret_hash' => null,
                     'updated_at' => now(),
@@ -529,6 +569,7 @@ class AuthenticationTransactionService
                 'continuation' => $fresh,
                 'issuer' => $issuer,
                 'subject' => $subject,
+                'email' => $email,
             ];
         });
     }

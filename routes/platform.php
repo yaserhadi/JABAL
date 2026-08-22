@@ -5,9 +5,11 @@ use App\Http\Middleware\EnsureNoTenancy;
 use App\Http\Middleware\RedirectIfPlatformAuthenticated;
 use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
+use Modules\Billing\Http\Controllers\Platform\PlatformCatalogController;
 use Modules\Billing\Http\Controllers\Platform\PlatformPlanController;
 use Modules\Billing\Http\Controllers\Platform\PlatformSubscriptionController;
 use Modules\Settings\Http\Controllers\SettingsController;
+use Modules\Tenancy\Http\Controllers\PlatformLegalOrganizationController;
 use Modules\Tenancy\Http\Controllers\PlatformTenantOnboardingController;
 use Modules\Tenancy\Http\Controllers\PlatformTenantRegistryController;
 
@@ -68,6 +70,33 @@ Route::middleware([EnsureNoTenancy::class])->prefix('platform')->name('platform.
         Route::patch('tenants/{tenant}', [PlatformTenantRegistryController::class, 'update'])
             ->middleware('platform.permission:platform.tenants.update')
             ->name('tenants.update');
+
+        Route::get('emergency', [\App\Http\Controllers\Platform\PlatformEmergencyAuthorityController::class, 'index'])
+            ->middleware('platform.permission:platform.emergency.operate')
+            ->name('emergency.index');
+        Route::post('emergency/invoke', [\App\Http\Controllers\Platform\PlatformEmergencyAuthorityController::class, 'invoke'])
+            ->middleware('platform.permission:platform.emergency.operate')
+            ->name('emergency.invoke');
+        Route::post('emergency/{caseId}/close', [\App\Http\Controllers\Platform\PlatformEmergencyAuthorityController::class, 'close'])
+            ->middleware('platform.permission:platform.emergency.operate')
+            ->name('emergency.close');
+
+        Route::get('catalog', [PlatformCatalogController::class, 'index'])
+            ->middleware('platform.permission:platform.billing.view')
+            ->name('catalog.index');
+
+        Route::get('legal-organizations', [PlatformLegalOrganizationController::class, 'index'])
+            ->middleware('platform.permission:platform.tenants.view')
+            ->name('legal-organizations.index');
+        Route::post('legal-organizations', [PlatformLegalOrganizationController::class, 'store'])
+            ->middleware('platform.permission:platform.tenants.create')
+            ->name('legal-organizations.store');
+        Route::get('legal-organizations/{legalOrganization}', [PlatformLegalOrganizationController::class, 'show'])
+            ->middleware('platform.permission:platform.tenants.view')
+            ->name('legal-organizations.show');
+        Route::post('legal-organizations/{legalOrganization}/business-owners', [PlatformLegalOrganizationController::class, 'assignOwner'])
+            ->middleware('platform.permission:platform.tenants.update')
+            ->name('legal-organizations.business-owners.assign');
 
         Route::prefix('billing')->name('billing.')->group(function () {
             Route::get('plans', [PlatformPlanController::class, 'index'])

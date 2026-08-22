@@ -3,6 +3,7 @@
 namespace Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
@@ -12,17 +13,20 @@ use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\WorkforceSsoEnrollmentInvitation;
 use Modules\Identity\Services\WorkforceSsoEnrollmentAssociationService;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
+use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
 
 /**
- * BK-099: Tenant Host enrollment complete — associate identity; session unchanged.
+ * Tenant Host enrollment complete — associate identity as SSO Linked only; session unchanged.
  */
 class WorkforceSsoEnrollmentCompleteController extends Controller
 {
     public function __construct(
         protected WorkforceSsoEnrollmentAssociationService $association,
+        protected SsoFirstLinkAssurance $firstLinkAssurance,
+        protected \App\Http\Auth\TenantEntryUrlResolver $urls,
     ) {}
 
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): Response|RedirectResponse
     {
         $tenant = tenancy()->tenant;
         if (! $tenant) {
@@ -57,7 +61,6 @@ class WorkforceSsoEnrollmentCompleteController extends Controller
 
         $browserBinding = (string) $request->cookie(SsoBrowserBindingCookieFactory::TENANT_CONTINUATION, '');
 
-        // Capture session id before associate to prove non-mutation in product path.
         $sessionIdBefore = $request->session()->getId();
 
         try {
@@ -68,11 +71,17 @@ class WorkforceSsoEnrollmentCompleteController extends Controller
                 'browserBinding' => $browserBinding !== '' ? $browserBinding : null,
                 'requestHost' => strtolower($request->getHost()),
             ]);
-        } catch (SsoSecurityException) {
+        } catch (SsoSecurityException $e) {
+            if ($e->getMessage() === 'first_link_step_up_required') {
+                $this->firstLinkAssurance->rememberReturnUrl($request->fullUrl());
+
+                return redirect()->away(
+                    $this->urls->namedRouteUrl('identity.sso.enrollment.step-up.password.show', $tenant)
+                );
+            }
             abort(403);
         }
 
-        // MUST NOT login / regenerate — assert session id unchanged.
         if ($request->session()->getId() !== $sessionIdBefore) {
             abort(500);
         }
@@ -86,7 +95,9 @@ class WorkforceSsoEnrollmentCompleteController extends Controller
         return Inertia::render('Security/SsoEnrollment/Complete', [
             'identity_link_id' => $result['identity']->id,
             'created' => $result['created'],
-            'message' => 'Enterprise SSO is now available for future sign-in.',
+            'verification_status' => 'linked',
+            'ready' => false,
+            'message' => 'Company SSO linked. A normal Company SSO sign-in is still required to verify readiness.',
         ]);
     }
 }

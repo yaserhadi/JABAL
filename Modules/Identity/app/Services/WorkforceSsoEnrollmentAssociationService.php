@@ -8,13 +8,17 @@ use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Models\WorkforceSsoEnrollmentInvitation;
+use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
+use Modules\Identity\Support\Sso\SsoIdentityLifecycle;
+use Modules\Identity\Support\Sso\SsoIdentityTrustGate;
 use Modules\Identity\Support\Sso\SsoSecurityAudit;
 use Modules\Tenancy\Models\Tenant;
 
 /**
- * BK-099 Scenario B: create TenantUserIdentity from invitation + local actor + enrollment continuation.
+ * Create TenantUserIdentity from invitation + local actor + enrollment continuation.
  *
  * MUST NOT Auth::login, regenerate session, or mutate membership/roles.
+ * WAVE-1/2: association = SSO Linked only (not Login Verified / Ready). Requires fresh Password+MFA.
  */
 final class WorkforceSsoEnrollmentAssociationService
 {
@@ -22,6 +26,10 @@ final class WorkforceSsoEnrollmentAssociationService
         protected AuthenticationTransactionService $transactions,
         protected WorkforceSsoEnrollmentInvitationService $invitations,
         protected SsoSecurityAudit $audit,
+        protected SsoIdentityTrustGate $trustGate,
+        protected SsoFirstLinkAssurance $firstLinkAssurance,
+        protected SsoConfigService $configService,
+        protected SsoIdentityLifecycle $lifecycle,
     ) {}
 
     /**
@@ -44,7 +52,6 @@ final class WorkforceSsoEnrollmentAssociationService
         $reference = (string) $input['continuationReference'];
         $browserBinding = $input['browserBinding'] ?? null;
         $requestHost = strtolower((string) $input['requestHost']);
-        $emailAtLink = $input['email_at_link'] ?? null;
 
         $this->invitations->assertActorMatchesInvitation($actor, $invitation);
 
@@ -85,6 +92,28 @@ final class WorkforceSsoEnrollmentAssociationService
             throw new SsoSecurityException('Continuation binding mismatch.');
         }
 
+        if (! $this->firstLinkAssurance->isSatisfied($actor, $tenant)) {
+            $this->firstLinkAssurance->auditStepUpRequired((string) $tenant->id, 'stale_or_missing_password_mfa');
+            throw new SsoSecurityException('first_link_step_up_required');
+        }
+
+        $peekIdentity = $this->transactions->peekEnrollmentIdentity($peek);
+        if ($peekIdentity === null) {
+            throw new SsoSecurityException('Enrollment continuation is invalid.');
+        }
+
+        $version = $this->configService->findVersionForTenant($tenant, (string) $invitation->sso_config_version_id);
+        $approvedDomains = is_array($version?->approved_email_domains) ? $version->approved_email_domains : [];
+
+        $this->trustGate->assert(
+            $actor,
+            $peekIdentity['email'],
+            null,
+            $approvedDomains,
+            (string) $tenant->id,
+            'sso_enrollment',
+        );
+
         return DB::connection('tenant')->transaction(function () use (
             $tenant,
             $invitation,
@@ -92,7 +121,6 @@ final class WorkforceSsoEnrollmentAssociationService
             $reference,
             $browserBinding,
             $requestHost,
-            $emailAtLink,
         ) {
             $lockedInvitation = WorkforceSsoEnrollmentInvitation::query()
                 ->withoutGlobalScope('tenant')
@@ -118,6 +146,9 @@ final class WorkforceSsoEnrollmentAssociationService
 
             $issuer = rtrim(trim($consumed['issuer']), '/');
             $subject = $consumed['subject'];
+            $emailAtLink = isset($consumed['email']) && is_string($consumed['email']) && $consumed['email'] !== ''
+                ? $consumed['email']
+                : null;
 
             $existing = TenantUserIdentity::query()
                 ->where('tenant_id', $tenant->id)
@@ -133,11 +164,17 @@ final class WorkforceSsoEnrollmentAssociationService
 
                 $this->consumeInvitation($lockedInvitation);
 
+                $linked = $this->lifecycle->markLinked(
+                    $existing,
+                    (string) $tenant->id,
+                    (string) $lockedInvitation->sso_config_version_id,
+                );
+
                 $this->audit->record('sso.enrollment.associated', [
                     'tenant_id' => (string) $tenant->id,
                     'invitation_id' => (string) $lockedInvitation->id,
                     'actor_user_id' => (string) $actor->id,
-                    'identity_link_id' => (string) $existing->id,
+                    'identity_link_id' => (string) $linked->id,
                     'enrollment_continuation_id' => (string) $consumed['continuation']->id,
                     'idp_configuration_version_id' => (string) $lockedInvitation->sso_config_version_id,
                     'correlation_id' => (string) $lockedInvitation->audit_correlation_id,
@@ -145,8 +182,11 @@ final class WorkforceSsoEnrollmentAssociationService
                     'purpose' => WorkforceSsoEnrollmentInvitation::PURPOSE,
                 ]);
 
+                $this->firstLinkAssurance->consume();
+                $this->firstLinkAssurance->auditFirstLinkSucceeded((string) $tenant->id, (string) $linked->id);
+
                 return [
-                    'identity' => $existing,
+                    'identity' => $linked,
                     'created' => false,
                 ];
             }
@@ -159,13 +199,19 @@ final class WorkforceSsoEnrollmentAssociationService
                 'email_at_link' => is_string($emailAtLink) && $emailAtLink !== '' ? $emailAtLink : null,
             ]);
 
+            $linked = $this->lifecycle->markLinked(
+                $identity,
+                (string) $tenant->id,
+                (string) $lockedInvitation->sso_config_version_id,
+            );
+
             $this->consumeInvitation($lockedInvitation);
 
             $this->audit->record('sso.enrollment.associated', [
                 'tenant_id' => (string) $tenant->id,
                 'invitation_id' => (string) $lockedInvitation->id,
                 'actor_user_id' => (string) $actor->id,
-                'identity_link_id' => (string) $identity->id,
+                'identity_link_id' => (string) $linked->id,
                 'enrollment_continuation_id' => (string) $consumed['continuation']->id,
                 'idp_configuration_version_id' => (string) $lockedInvitation->sso_config_version_id,
                 'correlation_id' => (string) $lockedInvitation->audit_correlation_id,
@@ -173,8 +219,11 @@ final class WorkforceSsoEnrollmentAssociationService
                 'purpose' => WorkforceSsoEnrollmentInvitation::PURPOSE,
             ]);
 
+            $this->firstLinkAssurance->consume();
+            $this->firstLinkAssurance->auditFirstLinkSucceeded((string) $tenant->id, (string) $linked->id);
+
             return [
-                'identity' => $identity,
+                'identity' => $linked,
                 'created' => true,
             ];
         });

@@ -133,8 +133,7 @@ class MfaService
 
     public function resetForUser(User $user): void
     {
-        UserMfaRecoveryCode::query()->where('user_id', $user->id)->delete();
-        UserMfa::query()->where('user_id', $user->id)->delete();
+        $this->revokeEnrollmentRecords($user);
         session()->forget('mfa_verified_at');
         MfaVerificationContext::clear();
 
@@ -143,6 +142,15 @@ class MfaService
             'auditable_type' => UserMfa::class,
             'auditable_id' => $user->id,
         ]);
+    }
+
+    /**
+     * WAVE-4: Revoke MFA enrollment for a target User without mutating the actor's session.
+     */
+    public function revokeEnrollmentRecords(User $user): void
+    {
+        UserMfaRecoveryCode::query()->where('user_id', $user->id)->delete();
+        UserMfa::query()->where('user_id', $user->id)->delete();
     }
 
     /**

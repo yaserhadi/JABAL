@@ -70,6 +70,7 @@ class TenantSsoConfig extends Model
         'jwks_uri',
         'logout_token_signing_algs',
         'scopes',
+        'approved_email_domains',
         'active_version_id',
         'pending_version_id',
     ];
@@ -78,6 +79,7 @@ class TenantSsoConfig extends Model
         'enabled' => 'boolean',
         'disabled_by_entitlement' => 'boolean',
         'scopes' => 'array',
+        'approved_email_domains' => 'array',
         'logout_token_signing_algs' => 'array',
         'pilot_user_id_hashes' => 'array',
         'security_disabled_at' => 'datetime',

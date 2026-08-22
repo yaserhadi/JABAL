@@ -27,6 +27,8 @@ final class SsoSecurityAudit
         'actor_user_id',
         'invitation_id',
         'enrollment_continuation_id',
+        'provider_family',
+        'identity_links_affected',
     ];
 
     public function __construct(

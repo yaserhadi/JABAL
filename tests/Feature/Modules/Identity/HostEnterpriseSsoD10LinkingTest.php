@@ -95,6 +95,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
             'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'approved_email_domains' => ['example.com'],
         ]);
         $link = TenantUserIdentity::query()->create([
             'tenant_id' => $tenant->id,
@@ -138,6 +139,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
 
         $this->assertFalse($result->succeeded());
@@ -149,7 +151,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
-    public function resolve_existing_link_only_ignores_email_and_does_not_first_link(): void
+    public function matching_email_without_existing_link_does_not_create_identity(): void
     {
         [$tenant, $user] = $this->createOrgMember('email-attr-'.uniqid().'@example.com');
         $subject = 'sub-'.Str::uuid()->toString();
@@ -160,6 +162,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         $this->assertFalse($hostResult->succeeded());
         $this->assertSame(0, TenantUserIdentity::query()->count());
@@ -169,6 +172,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         $this->assertFalse($pathResult->succeeded());
         $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $pathResult->failureReason);
@@ -199,6 +203,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         $this->assertFalse($result->succeeded());
         $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $result->failureReason);
@@ -207,6 +212,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $path->failureReason);
         tenancy()->end();
@@ -243,6 +249,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
@@ -350,6 +357,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         $this->assertFalse($result->succeeded());
         $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $result->failureReason);

@@ -31,10 +31,9 @@ class HostEnterpriseSsoInitiationService
         }
 
         $actorUserId = $request->user()?->getAuthIdentifier();
-        $this->operationalGate->assertMayProceed(
+        // WAVE-3 GAP-009: policy + operational gates (same boundary as Path SSO start).
+        $this->ssoAuthService->assertTenantMayStartSso(
             $tenant,
-            SsoOperationalGate::STAGE_INITIATION,
-            null,
             is_string($actorUserId) ? $actorUserId : null,
         );
 
@@ -123,6 +122,10 @@ class HostEnterpriseSsoInitiationService
             SsoOperationalGate::STAGE_AUTH_ADVANCE,
             (string) $transaction->idp_configuration_version_id,
         );
+
+        // WAVE-3 GAP-009 defense-in-depth: Auth Host advance still requires SSO LOGIN policy.
+        app(\Modules\Identity\Support\Auth\AuthenticationLoginPolicy::class)
+            ->assertSsoLoginAllowed($tenant);
 
         $materials = $this->transactions->authorizationMaterials($transaction);
         if ($materials === null) {

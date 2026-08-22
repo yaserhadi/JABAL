@@ -160,6 +160,7 @@ class SsoConfigGovernanceService
                     'jwks_uri' => $version->jwks_uri,
                     'logout_token_signing_algs' => $version->logout_token_signing_algs,
                     'scopes' => $version->scopes,
+                    'approved_email_domains' => $version->approved_email_domains,
                 ];
 
                 $config->forceFill(array_merge($material, [
@@ -170,6 +171,9 @@ class SsoConfigGovernanceService
                     'security_disabled_at' => null,
                     'security_disable_reason' => null,
                 ]))->save();
+
+                app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)
+                    ->invalidateReadyForTenant($tenant, 'idp_configuration_version_activated');
 
                 $this->audit->record('sso.governance.activated', [
                     'tenant_id' => (string) $tenant->id,
@@ -287,6 +291,7 @@ class SsoConfigGovernanceService
                 'logout_token_signing_algs' => $material['logout_token_signing_algs']
                     ?? $config->logout_token_signing_algs,
                 'scopes' => $material['scopes'] ?? $config->scopes,
+                'approved_email_domains' => $material['approved_email_domains'] ?? $config->approved_email_domains,
             ]);
 
             $config->forceFill(['pending_version_id' => $version->id])->save();

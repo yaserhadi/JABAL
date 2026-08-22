@@ -38,11 +38,16 @@ class AuthController extends Controller
         $exposure = app(SsoOperationalExposureService::class);
         $ssoOperational = $exposure->isExposedOnTenantLogin($tenant, $actorUserId);
         $ssoStartUrl = $ssoOperational ? $exposure->startUrlForTenantLogin($tenant) : null;
+        $loginPolicy = app(\Modules\Identity\Support\Auth\AuthenticationLoginPolicy::class);
+        // WAVE-5: under SSO-only, form remains available for Exception / temporary recovery LOGIN only.
+        $passwordLoginAllowed = $loginPolicy->allowsPasswordLogin($tenant)
+            || $loginPolicy->mode($tenant) === \Modules\Identity\Support\Auth\AuthenticationLoginPolicy::SSO;
 
         return Inertia::render('Auth/TenantLogin', [
             'tenant' => TenantInertiaProps::from($tenant),
             'ssoOperational' => $ssoOperational,
             'ssoStartUrl' => $ssoStartUrl,
+            'passwordLoginAllowed' => $passwordLoginAllowed,
             'prefillEmail' => old('email', request()->query('email')),
         ]);
     }
@@ -104,6 +109,15 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => __('The provided credentials do not match our records.'),
             ]);
+        }
+
+        // WAVE-5: evaluate Password LOGIN after identifying User (Exception / temporary recovery).
+        try {
+            app(\Modules\Identity\Support\Auth\AuthenticationLoginPolicy::class)
+                ->assertPasswordLoginAllowed($tenant, $tenantUser);
+        } catch (ValidationException $e) {
+            tenancy()->end();
+            throw $e;
         }
 
         if (! Auth::guard('web')->attempt(

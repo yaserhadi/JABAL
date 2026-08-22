@@ -70,6 +70,29 @@ class TenantInvitationTest extends TestCase
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 
+    /**
+     * WAVE-3: Admin creates User, then Invite binds intended_user_id.
+     *
+     * @return array{user: \App\Models\User, invitation: \Modules\Identity\Models\TenantInvitation, plainToken: string, acceptUrl: string}
+     */
+    protected function issueInvitation(string $email, string $role = 'member', string $firstName = 'Joiner', string $lastName = 'User'): array
+    {
+        $user = app(TenantInvitationService::class)->createUser(
+            $this->tenant,
+            $firstName,
+            $lastName,
+            $email
+        );
+        $result = app(TenantInvitationService::class)->createInvitation(
+            $this->tenant,
+            $user,
+            $this->owner,
+            $role
+        );
+
+        return array_merge($result, ['user' => $user]);
+    }
+
     public function test_invite_creates_pending_invitation_without_membership(): void
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
@@ -77,6 +100,8 @@ class TenantInvitationTest extends TestCase
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Invite',
+                'last_name' => 'User',
                 'email' => $email,
                 'role' => 'member',
             ]);
@@ -85,9 +110,13 @@ class TenantInvitationTest extends TestCase
         $response->assertSessionHas('inviteUrl');
 
         tenancy()->initialize($this->tenant);
-        $this->assertSame(1, TenantInvitation::query()->withoutGlobalScope('tenant')->where('email', $email)->pending()->count());
+        $invitation = TenantInvitation::query()->withoutGlobalScope('tenant')->where('email', $email)->pending()->first();
+        $this->assertNotNull($invitation);
+        $user = User::withoutGlobalScope('tenant')->where('email', $email)->first();
+        $this->assertNotNull($user);
+        $this->assertSame((string) $user->id, (string) $invitation->intended_user_id);
         $this->assertFalse(
-            User::withoutGlobalScope('tenant')->where('email', $email)->exists()
+            Membership::query()->withoutGlobalScope('tenant')->where('user_id', $user->id)->exists()
         );
         tenancy()->end();
     }
@@ -116,6 +145,8 @@ class TenantInvitationTest extends TestCase
 
         $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Audit',
+                'last_name' => 'Invite',
                 'email' => 'audit-'.uniqid().'@example.com',
             ]);
 
@@ -125,27 +156,24 @@ class TenantInvitationTest extends TestCase
         $this->assertStringNotContainsString('token', strtolower($encoded));
     }
 
-    public function test_register_and_accept_creates_minimal_joiner_not_personal_tenant(): void
+    public function test_complete_account_keeps_same_user_uuid_and_does_not_create_tenant(): void
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'joiner-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         $tenantCountBefore = Tenant::query()->count();
 
-        $acceptResult = app(TenantInvitationService::class)->registerAndAccept(
-            $result['plainToken'],
-            'Joiner User',
+        $userIdBefore = (string) $result['user']->id;
+
+        $acceptResult = app(TenantInvitationService::class)->completeAccountInvitation(
+            $result['invitation'],
             'password123'
         );
 
         $this->assertSame($tenantCountBefore, Tenant::query()->count());
+        $this->assertSame($userIdBefore, (string) $acceptResult['user']->id);
         $this->assertSame($this->tenant->id, $acceptResult['user']->tenant_id);
         $this->assertFalse(
             Tenant::query()->where('created_by', $acceptResult['user']->id)->exists()
@@ -174,7 +202,7 @@ class TenantInvitationTest extends TestCase
 
         $result = app(TenantInvitationService::class)->createInvitation(
             $this->tenant,
-            $existing->email,
+            $existing,
             $this->owner,
             'member'
         );
@@ -207,6 +235,8 @@ class TenantInvitationTest extends TestCase
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Invite',
+                'last_name' => 'User',
                 'email' => 'blocked-'.uniqid().'@example.com',
             ]);
 
@@ -315,6 +345,8 @@ class TenantInvitationTest extends TestCase
 
         $response = $this->actingAsTenantUser($admin, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Invite',
+                'last_name' => 'User',
                 'email' => 'target-'.uniqid().'@example.com',
                 'role' => 'tenant-admin',
             ]);
@@ -337,12 +369,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'expired-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         tenancy()->initialize($this->tenant);
         TenantInvitation::query()
@@ -351,17 +378,9 @@ class TenantInvitationTest extends TestCase
             ->update(['expires_at' => now()->subDay()]);
         tenancy()->end();
 
-        $existing = User::withoutGlobalScope('tenant')->create([
-            'id' => (string) Str::uuid(),
-            'tenant_id' => $this->tenant->id,
-            'name' => 'Expired Target',
-            'email' => $email,
-            'password' => 'password',
-        ]);
-
         $this->expectException(\Illuminate\Validation\ValidationException::class);
 
-        app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $existing);
+        app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $result['user']);
     }
 
     public function test_revoked_token_is_rejected(): void
@@ -369,26 +388,13 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'revoked-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         app(TenantInvitationService::class)->revokeInvitation($result['invitation']);
 
-        $existing = User::withoutGlobalScope('tenant')->create([
-            'id' => (string) Str::uuid(),
-            'tenant_id' => $this->tenant->id,
-            'name' => 'Revoked Target',
-            'email' => $email,
-            'password' => 'password',
-        ]);
-
         $this->expectException(\Illuminate\Validation\ValidationException::class);
 
-        app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $existing);
+        app(TenantInvitationService::class)->acceptInvitation($result['plainToken'], $result['user']);
     }
 
     public function test_owner_can_revoke_pending_invitation(): void
@@ -396,12 +402,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'revoke-web-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->delete('/t/'.$this->tenant->id.'/members/invitations/'.$result['invitation']->id);
@@ -421,12 +422,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'bootstrap-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         $response = $this->get('/invitations/'.$result['plainToken']);
 
@@ -458,6 +454,8 @@ class TenantInvitationTest extends TestCase
             'X-Tenant-Id' => $this->tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/api/v1/tenants/current/members/invite', [
+            'first_name' => 'Api',
+            'last_name' => 'Invite',
             'email' => $email,
             'role' => 'member',
         ]);
@@ -489,6 +487,8 @@ class TenantInvitationTest extends TestCase
             'X-Tenant-Id' => $this->tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/api/v1/tenants/current/members/invite', [
+            'first_name' => 'Api',
+            'last_name' => 'Target',
             'email' => 'api-target-'.uniqid().'@example.com',
             'role' => 'tenant-admin',
         ]);
@@ -505,6 +505,8 @@ class TenantInvitationTest extends TestCase
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$otherTenant->id.'/members/invite', [
+                'first_name' => 'Invite',
+                'last_name' => 'User',
                 'email' => 'cross-'.uniqid().'@example.com',
             ]);
 
@@ -524,6 +526,8 @@ class TenantInvitationTest extends TestCase
             'X-Tenant-Id' => $otherTenant->id,
             'Accept' => 'application/json',
         ])->postJson('/api/v1/tenants/current/members/invite', [
+            'first_name' => 'Api',
+            'last_name' => 'Cross',
             'email' => 'api-cross-'.uniqid().'@example.com',
         ]);
 
@@ -537,6 +541,8 @@ class TenantInvitationTest extends TestCase
 
         $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Invite',
+                'last_name' => 'User',
                 'email' => $email,
                 'role' => 'member',
             ]);
@@ -553,6 +559,8 @@ class TenantInvitationTest extends TestCase
 
         $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Invite',
+                'last_name' => 'User',
                 'email' => $email,
             ]);
 
@@ -571,12 +579,7 @@ class TenantInvitationTest extends TestCase
         Mail::swap($mock);
 
         try {
-            app(TenantInvitationService::class)->createInvitation(
-                $this->tenant,
-                $email,
-                $this->owner,
-                'member'
-            );
+            $this->issueInvitation($email, 'member');
             $this->fail('Expected mail delivery failure.');
         } catch (\RuntimeException $e) {
             $this->assertSame('Mail delivery failed', $e->getMessage());
@@ -595,12 +598,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'resend-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
         $oldToken = $result['plainToken'];
         $oldHash = $result['invitation']->token_hash;
 
@@ -621,12 +619,7 @@ class TenantInvitationTest extends TestCase
     public function test_resend_mail_failure_preserves_old_token(): void
     {
         $email = 'resend-fail-'.uniqid().'@example.com';
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
         $oldHash = $result['invitation']->token_hash;
         $oldToken = $result['plainToken'];
 
@@ -657,12 +650,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'resend-revoked-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         app(TenantInvitationService::class)->revokeInvitation($result['invitation']);
 
@@ -699,12 +687,7 @@ class TenantInvitationTest extends TestCase
 
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'resend-forbidden-'.uniqid().'@example.com';
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         $response = $this->actingAsTenantUser($viewer, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invitations/'.$result['invitation']->id.'/resend');
@@ -717,12 +700,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'api-resend-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         $token = $this->owner->createToken('test', ['tenant:'.$this->tenant->id])->plainTextToken;
 
@@ -778,7 +756,7 @@ class TenantInvitationTest extends TestCase
         try {
             app(TenantInvitationService::class)->createInvitation(
                 $this->tenant,
-                $email,
+                $member,
                 $this->owner,
                 'member'
             );
@@ -796,19 +774,14 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'dup-pending-'.uniqid().'@example.com';
 
-        app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $first = $this->issueInvitation($email, 'member');
 
         Mail::assertSent(TenantInvitationMail::class, 1);
 
         try {
             app(TenantInvitationService::class)->createInvitation(
                 $this->tenant,
-                $email,
+                $first['user'],
                 $this->owner,
                 'member'
             );
@@ -840,7 +813,7 @@ class TenantInvitationTest extends TestCase
         try {
             app(TenantInvitationService::class)->createInvitation(
                 $this->tenant,
-                $email,
+                $member,
                 $this->owner,
                 'member'
             );
@@ -868,6 +841,8 @@ class TenantInvitationTest extends TestCase
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Suspended',
+                'last_name' => 'Web',
                 'email' => $member->email,
                 'role' => 'member',
             ]);
@@ -896,7 +871,7 @@ class TenantInvitationTest extends TestCase
 
         app(TenantInvitationService::class)->createInvitation(
             $this->tenant,
-            $member->email,
+            $member,
             $this->owner,
             'member'
         );
@@ -922,7 +897,7 @@ class TenantInvitationTest extends TestCase
 
         $result = app(TenantInvitationService::class)->createInvitation(
             $this->tenant,
-            $member->email,
+            $member,
             $this->owner,
             'member'
         );
@@ -953,7 +928,7 @@ class TenantInvitationTest extends TestCase
 
         $result = app(TenantInvitationService::class)->createInvitation(
             $this->tenant,
-            $member->email,
+            $member,
             $this->owner,
             'member'
         );
@@ -979,12 +954,7 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'resend-valid-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
         Mail::assertSent(TenantInvitationMail::class, 1);
 
@@ -1002,21 +972,10 @@ class TenantInvitationTest extends TestCase
         $this->assignAdminPermissions($this->owner, $this->tenant);
         $email = 'resend-blocked-'.uniqid().'@example.com';
 
-        $result = app(TenantInvitationService::class)->createInvitation(
-            $this->tenant,
-            $email,
-            $this->owner,
-            'member'
-        );
+        $result = $this->issueInvitation($email, 'member');
 
-        $member = User::withoutGlobalScope('tenant')->create([
-            'id' => (string) Str::uuid(),
-            'tenant_id' => $this->tenant->id,
-            'name' => 'Joined While Pending',
-            'email' => $email,
-            'password' => 'password',
-        ]);
-        $this->createMembership($member, $this->tenant, 'member', 'active');
+        // WAVE-3: intended User already exists; activate membership while invite still pending.
+        $this->createMembership($result['user'], $this->tenant, 'member', 'active');
 
         $this->expectException(ValidationException::class);
 

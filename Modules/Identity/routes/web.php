@@ -14,12 +14,17 @@ use Modules\Identity\Http\Controllers\EnterpriseSsoStartController;
 use Modules\Identity\Http\Controllers\InvitationAcceptController;
 use Modules\Identity\Http\Controllers\MfaController;
 use Modules\Identity\Http\Controllers\SecurityPolicyController;
+use Modules\Identity\Http\Controllers\AuthenticationAdministrationController;
+use Modules\Identity\Http\Controllers\MandatorySsoEnrollmentController;
+use Modules\Identity\Http\Controllers\SsoEnforcementAdministrationController;
 use Modules\Identity\Http\Controllers\SecuritySettingsController;
 use Modules\Identity\Http\Controllers\SsoAuthController;
 use Modules\Identity\Http\Controllers\SsoConfigController;
 use Modules\Identity\Http\Controllers\SsoGovernanceController;
 use Modules\Identity\Http\Controllers\WorkforceSsoEnrollmentCompleteController;
 use Modules\Identity\Http\Controllers\WorkforceSsoEnrollmentController;
+use Modules\Identity\Http\Controllers\WorkforceSsoEnrollmentStepUpController;
+use Modules\Identity\Http\Middleware\EnsureMandatorySsoEnrollment;
 use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 use Modules\Identity\Http\Middleware\EnterpriseSsoTransitionHeaders;
 use Modules\Identity\Http\Middleware\InvitationSecurityHeaders;
@@ -52,6 +57,11 @@ Route::middleware(['throttle:invitations', InvitationSecurityHeaders::class])->g
         Route::post('invitations/accept', [InvitationAcceptController::class, 'accept'])->name('invitations.accept');
     });
 });
+
+Route::get('security/email-change/verify/{token}', [AuthenticationAdministrationController::class, 'verifyEmailChange'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->middleware('throttle:60,1')
+    ->name('auth-admin.email-change.verify');
 
 if ($addressing->isHost()) {
     // Central Route Authority Matrix — Platform Host: discovery login/register + logout
@@ -134,6 +144,14 @@ if ($addressing->isHost()) {
             Route::get('/auth/enterprise-sso/enrollment/complete', WorkforceSsoEnrollmentCompleteController::class)
                 ->middleware(['throttle:sso-enterprise-handoff', EnterpriseSsoTransitionHeaders::class])
                 ->name('identity.sso.enrollment.complete');
+            Route::get('/security/sso/enrollment/step-up/password', [WorkforceSsoEnrollmentStepUpController::class, 'showPassword'])
+                ->name('identity.sso.enrollment.step-up.password.show');
+            Route::post('/security/sso/enrollment/step-up/password', [WorkforceSsoEnrollmentStepUpController::class, 'confirmPassword'])
+                ->name('identity.sso.enrollment.step-up.password');
+
+            // WAVE-5: Mandatory Enrollment page (outside application gate)
+            Route::get('/security/sso/mandatory-enrollment', [MandatorySsoEnrollmentController::class, 'show'])
+                ->name('identity.sso.mandatory-enrollment');
         });
 
         Route::middleware([
@@ -141,6 +159,7 @@ if ($addressing->isHost()) {
             'auth',
             EnsureUserBelongsToTenant::class,
             EnsureMfaVerified::class,
+            EnsureMandatorySsoEnrollment::class,
         ])->group(function () {
             Route::get('/dashboard', function () {
                 $tenant = tenancy()->tenant;
@@ -165,6 +184,9 @@ if ($addressing->isHost()) {
             Route::post('/members/invite', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'invite'])
                 ->middleware('permission:member.invite')
                 ->name('members.invite');
+            Route::post('/members/invite-existing', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'inviteExisting'])
+                ->middleware('permission:member.invite')
+                ->name('members.invite-existing');
             Route::post('/members/invitations/{invitation}/resend', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'resendInvitation'])
                 ->middleware('permission:member.invite')
                 ->name('members.resend-invitation');
@@ -235,6 +257,46 @@ if ($addressing->isHost()) {
                 ->name('identity.security-settings.revoke-session');
             Route::delete('/security/settings/sessions', [SecuritySettingsController::class, 'revokeOtherSessions'])
                 ->name('identity.security-settings.revoke-other-sessions');
+
+            Route::get('/security/auth-admin', [AuthenticationAdministrationController::class, 'index'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.index');
+            Route::post('/security/auth-admin/confirm-password', [AuthenticationAdministrationController::class, 'confirmPassword'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.confirm-password');
+            Route::post('/security/auth-admin/reset-password', [AuthenticationAdministrationController::class, 'resetPassword'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.reset-password');
+            Route::post('/security/auth-admin/reset-mfa', [AuthenticationAdministrationController::class, 'resetMfa'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.reset-mfa');
+            Route::post('/security/auth-admin/reset-sso', [AuthenticationAdministrationController::class, 'resetSso'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.reset-sso');
+            Route::post('/security/auth-admin/change-policy', [AuthenticationAdministrationController::class, 'changePolicy'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.change-policy');
+            Route::get('/security/sso-enforcement', [SsoEnforcementAdministrationController::class, 'index'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('sso-enforcement.index');
+            Route::post('/security/sso-enforcement/settings', [SsoEnforcementAdministrationController::class, 'updateSettings'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('sso-enforcement.settings');
+            Route::post('/security/sso-enforcement/exceptions', [SsoEnforcementAdministrationController::class, 'storeException'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('sso-enforcement.exceptions.store');
+            Route::post('/security/sso-enforcement/exceptions/{exceptionId}/revoke', [SsoEnforcementAdministrationController::class, 'revokeException'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('sso-enforcement.exceptions.revoke');
+            Route::post('/security/auth-admin/change-email', [AuthenticationAdministrationController::class, 'changeEmail'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.change-email');
+            Route::post('/security/auth-admin/path-a', [AuthenticationAdministrationController::class, 'startPathA'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.path-a');
+            Route::post('/security/auth-admin/path-b', [AuthenticationAdministrationController::class, 'activatePathB'])
+                ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+                ->name('auth-admin.path-b');
         });
     });
 
@@ -281,6 +343,8 @@ Route::prefix('t/{tenant}')
         Route::post('/security/mfa/enroll', [MfaController::class, 'confirmEnroll'])->name('identity.mfa.enroll.confirm');
         Route::get('/security/mfa/challenge', [MfaController::class, 'showChallenge'])->name('identity.mfa.challenge');
         Route::post('/security/mfa/challenge', [MfaController::class, 'verifyChallenge'])->name('identity.mfa.challenge.verify');
+        Route::get('/security/sso/mandatory-enrollment', [MandatorySsoEnrollmentController::class, 'show'])
+            ->name('identity.sso.mandatory-enrollment');
     });
 
 Route::prefix('t/{tenant}')
@@ -289,6 +353,7 @@ Route::prefix('t/{tenant}')
         'auth',
         EnsureUserBelongsToTenant::class,
         EnsureMfaVerified::class,
+        EnsureMandatorySsoEnrollment::class,
     ])
     ->group(function () {
         Route::get('/dashboard', function () {
@@ -314,6 +379,9 @@ Route::prefix('t/{tenant}')
         Route::post('/members/invite', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'invite'])
             ->middleware('permission:member.invite')
             ->name('members.invite');
+        Route::post('/members/invite-existing', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'inviteExisting'])
+            ->middleware('permission:member.invite')
+            ->name('members.invite-existing');
         Route::post('/members/invitations/{invitation}/resend', [\Modules\Tenancy\Http\Controllers\TenantMemberController::class, 'resendInvitation'])
             ->middleware('permission:member.invite')
             ->name('members.resend-invitation');
@@ -376,4 +444,44 @@ Route::prefix('t/{tenant}')
             ->name('identity.security-settings.revoke-session');
         Route::delete('/security/settings/sessions', [SecuritySettingsController::class, 'revokeOtherSessions'])
             ->name('identity.security-settings.revoke-other-sessions');
+
+        Route::get('/security/auth-admin', [AuthenticationAdministrationController::class, 'index'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.index');
+        Route::post('/security/auth-admin/confirm-password', [AuthenticationAdministrationController::class, 'confirmPassword'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.confirm-password');
+        Route::post('/security/auth-admin/reset-password', [AuthenticationAdministrationController::class, 'resetPassword'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.reset-password');
+        Route::post('/security/auth-admin/reset-mfa', [AuthenticationAdministrationController::class, 'resetMfa'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.reset-mfa');
+        Route::post('/security/auth-admin/reset-sso', [AuthenticationAdministrationController::class, 'resetSso'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.reset-sso');
+        Route::post('/security/auth-admin/change-policy', [AuthenticationAdministrationController::class, 'changePolicy'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.change-policy');
+        Route::get('/security/sso-enforcement', [SsoEnforcementAdministrationController::class, 'index'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('sso-enforcement.index');
+        Route::post('/security/sso-enforcement/settings', [SsoEnforcementAdministrationController::class, 'updateSettings'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('sso-enforcement.settings');
+        Route::post('/security/sso-enforcement/exceptions', [SsoEnforcementAdministrationController::class, 'storeException'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('sso-enforcement.exceptions.store');
+        Route::post('/security/sso-enforcement/exceptions/{exceptionId}/revoke', [SsoEnforcementAdministrationController::class, 'revokeException'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('sso-enforcement.exceptions.revoke');
+        Route::post('/security/auth-admin/change-email', [AuthenticationAdministrationController::class, 'changeEmail'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.change-email');
+        Route::post('/security/auth-admin/path-a', [AuthenticationAdministrationController::class, 'startPathA'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.path-a');
+        Route::post('/security/auth-admin/path-b', [AuthenticationAdministrationController::class, 'activatePathB'])
+            ->middleware('permission:'.\Modules\Identity\Support\Auth\AuthenticationAdministrationGate::PERMISSION)
+            ->name('auth-admin.path-b');
     });

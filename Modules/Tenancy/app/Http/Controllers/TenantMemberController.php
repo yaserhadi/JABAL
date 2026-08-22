@@ -95,6 +95,7 @@ class TenantMemberController extends Controller
         $pendingInvitations = $this->invitationService->pendingForTenant($tenant)->map(fn ($inv) => [
             'id' => $inv->id,
             'email' => $inv->email,
+            'intended_user_id' => $inv->intended_user_id,
             'role' => $inv->role,
             'expires_at' => $inv->expires_at?->toIso8601String(),
             'created_at' => $inv->created_at?->toIso8601String(),
@@ -124,6 +125,9 @@ class TenantMemberController extends Controller
         ]);
     }
 
+    /**
+     * WAVE-3 GAP-004: Create User first, then send J2 Invite (Invite ≠ create User).
+     */
     public function invite(Request $request): JsonResponse|RedirectResponse
     {
         $tenantModel = tenancy()->tenant;
@@ -132,6 +136,8 @@ class TenantMemberController extends Controller
         }
 
         $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255'],
             'role' => ['sometimes', 'string', 'in:'.implode(',', TenantInvitationService::ALLOWED_ROLES)],
         ]);
@@ -147,8 +153,10 @@ class TenantMemberController extends Controller
         }
 
         try {
-            $result = $this->invitationService->createInvitation(
+            $result = $this->invitationService->createUserAndInvite(
                 $tenantModel,
+                $validated['first_name'],
+                $validated['last_name'],
                 $validated['email'],
                 auth()->user(),
                 $role
@@ -158,6 +166,72 @@ class TenantMemberController extends Controller
         }
 
         $payload = [
+            'user_id' => $result['user']->id,
+            'invitation_id' => $result['invitation']->id,
+            'email' => $result['invitation']->email,
+            'accept_url' => $result['acceptUrl'],
+            'expires_at' => $result['invitation']->expires_at->toIso8601String(),
+        ];
+
+        if ($request->expectsJson()) {
+            return ApiResponse::success($payload);
+        }
+
+        return back()->with([
+            'success' => 'User created and invitation sent — email delivered; you can also copy the link below.',
+            'inviteUrl' => $result['acceptUrl'],
+        ]);
+    }
+
+    /**
+     * WAVE-3 GAP-004: Invite an already-created User (no User creation).
+     */
+    public function inviteExisting(Request $request): JsonResponse|RedirectResponse
+    {
+        $tenantModel = tenancy()->tenant;
+        if (! $tenantModel) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'uuid'],
+            'role' => ['sometimes', 'string', 'in:'.implode(',', TenantInvitationService::ALLOWED_ROLES)],
+        ]);
+
+        $role = $validated['role'] ?? 'member';
+        if ($role === 'tenant-admin') {
+            $actorMembership = $this->actorMembership($tenantModel);
+            if (! $actorMembership?->isOwner()) {
+                throw ValidationException::withMessages([
+                    'role' => ['Only the tenant owner may promote members to tenant-admin.'],
+                ]);
+            }
+        }
+
+        $intended = User::withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenantModel->id)
+            ->whereKey($validated['user_id'])
+            ->first();
+
+        if (! $intended) {
+            throw ValidationException::withMessages([
+                'user_id' => ['User not found in this organization.'],
+            ]);
+        }
+
+        try {
+            $result = $this->invitationService->createInvitation(
+                $tenantModel,
+                $intended,
+                auth()->user(),
+                $role
+            );
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['user_id' => [$e->getMessage()]]);
+        }
+
+        $payload = [
+            'user_id' => $intended->id,
             'invitation_id' => $result['invitation']->id,
             'email' => $result['invitation']->email,
             'accept_url' => $result['acceptUrl'],

@@ -39,6 +39,13 @@ class TenancyServiceProvider extends ServiceProvider
     {
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
+
+        $this->app->singleton(
+            \App\Support\Contracts\Tenancy\TenantSetupReadinessEvaluator::class,
+            \Modules\Tenancy\Services\TenantSetupReadinessService::class
+        );
+        $this->app->singleton(\Modules\Tenancy\Services\TenantSetupReadinessService::class);
+        $this->app->singleton(\Modules\Tenancy\Services\LegalOrganizationService::class);
     }
 
     /**
@@ -50,6 +57,7 @@ class TenancyServiceProvider extends ServiceProvider
             \Modules\Tenancy\Console\BackfillAppSettingsCommand::class,
             \Modules\Tenancy\Console\OnboardOrganizationTenantCommand::class,
             \Modules\Tenancy\Console\ProvisionTenantStorageCommand::class,
+            \Modules\Tenancy\Console\Wave6BackfillExistingTenantsCommand::class,
         ]);
     }
 

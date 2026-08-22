@@ -14,6 +14,8 @@ return [
     'enrollment_invitation_ttl_days' => (int) env('SSO_ENROLLMENT_INVITATION_TTL_DAYS', 7),
     'enrollment_login_resume_ttl' => (int) env('SSO_ENROLLMENT_LOGIN_RESUME_TTL', 600),
     'enrollment_continuation_ttl' => (int) env('SSO_ENROLLMENT_CONTINUATION_TTL', 60),
+    // WAVE-1 GAP-008: Valid Session ≠ Fresh Session (seconds). Activity does not extend this.
+    'first_link_freshness_ttl' => (int) env('SSO_FIRST_LINK_FRESHNESS_TTL', 900),
     // BK-082 WS3 host-only browser binding cookie names (IH-3)
     'tenant_continuation_cookie' => 'jabal_sso_tenant_continuation',
     'auth_binding_cookie' => 'jabal_sso_auth_binding',

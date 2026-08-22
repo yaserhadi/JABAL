@@ -59,10 +59,14 @@ class Tenant extends Model implements TenantContract
         'isolation_level',
         'status',
         'created_by',
+        'commercial_owner_contact_id',
+        'legal_organization_id',
+        'offering_id',
+        'setup_grandfathered',
     ];
 
     protected $casts = [
-        //
+        'setup_grandfathered' => 'boolean',
     ];
 
     /**
@@ -81,6 +85,11 @@ class Tenant extends Model implements TenantContract
     public function commercialOwnerContact(): BelongsTo
     {
         return $this->belongsTo(TenantContact::class, 'commercial_owner_contact_id');
+    }
+
+    public function legalOrganization(): BelongsTo
+    {
+        return $this->belongsTo(LegalOrganization::class, 'legal_organization_id');
     }
 
     /**

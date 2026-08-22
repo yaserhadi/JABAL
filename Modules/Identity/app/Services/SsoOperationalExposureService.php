@@ -27,6 +27,11 @@ class SsoOperationalExposureService
             return false;
         }
 
+        // WAVE-3 GAP-009: do not advertise SSO when Authentication Policy denies SSO LOGIN.
+        if (! app(\Modules\Identity\Support\Auth\AuthenticationLoginPolicy::class)->allowsSsoLogin($tenant)) {
+            return false;
+        }
+
         if ($this->addressing->isPath()) {
             return $this->configService->isOperationalForTenant($tenant);
         }

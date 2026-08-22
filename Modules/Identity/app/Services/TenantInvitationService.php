@@ -20,14 +20,92 @@ class TenantInvitationService
 {
     public const ALLOWED_ROLES = ['member', 'tenant-admin'];
 
+    /**
+     * WAVE-3 GAP-004: J2 Invite TTL from config (hours). Do not hard-code.
+     */
+    public function invitationTtlHours(): int
+    {
+        return max(1, (int) config('tenancy.invitation_ttl_hours', 24));
+    }
+
+    /**
+     * WAVE-3 GAP-004: Admin creates User before Invite (immutable UUID exists).
+     * Does not create Membership or Roles — Invite acceptance does that.
+     */
+    public function createUser(
+        Tenant $tenant,
+        string $firstName,
+        string $lastName,
+        string $email
+    ): TenantUser {
+        $email = strtolower(trim($email));
+        $firstName = trim($firstName);
+        $lastName = trim($lastName);
+        $name = trim($firstName.' '.$lastName);
+
+        if ($firstName === '' || $lastName === '' || $name === '') {
+            throw ValidationException::withMessages([
+                'first_name' => ['First name and last name are required.'],
+            ]);
+        }
+
+        $wasInitialized = tenancy()->initialized;
+
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            $existing = TenantUser::withoutGlobalScope('tenant')
+                ->where('tenant_id', $tenant->id)
+                ->where('email', $email)
+                ->exists();
+
+            if ($existing) {
+                throw ValidationException::withMessages([
+                    'email' => ['A user with this email already exists in this organization.'],
+                ]);
+            }
+
+            // Unusable password until account-completion Invite sets a User-owned Password.
+            // Model casts password as hashed — pass plain random string (do not pre-hash).
+            $user = User::create([
+                'tenant_id' => $tenant->id,
+                'name' => $name,
+                'email' => $email,
+                'password' => Str::password(64),
+            ]);
+
+            app(AuditLoggerInterface::class)->log('tenant_user.created', [
+                'tenant_id' => $tenant->id,
+                'auditable_type' => TenantUser::class,
+                'auditable_id' => $user->id,
+                'new_values' => [
+                    'user_id' => $user->id,
+                    'email' => $email,
+                    'name' => $name,
+                ],
+            ]);
+
+            return $user;
+        } finally {
+            if (! $wasInitialized) {
+                tenancy()->end();
+            }
+        }
+    }
+
+    /**
+     * WAVE-3 GAP-004: Invite an existing User (Invite ≠ create User).
+     *
+     * @return array{invitation: TenantInvitation, plainToken: string, acceptUrl: string}
+     */
     public function createInvitation(
         Tenant $tenant,
-        string $email,
+        TenantUser $intendedUser,
         TenantUser $invitedBy,
         string $role = 'member'
     ): array {
-        $email = strtolower(trim($email));
-
         if (! in_array($role, self::ALLOWED_ROLES, true)) {
             throw new InvalidArgumentException('Invalid invitation role.');
         }
@@ -39,6 +117,14 @@ class TenantInvitationService
         }
 
         try {
+            if ((string) $intendedUser->tenant_id !== (string) $tenant->id) {
+                throw ValidationException::withMessages([
+                    'user_id' => ['Invited user does not belong to this organization.'],
+                ]);
+            }
+
+            $email = strtolower(trim((string) $intendedUser->email));
+
             if ($role === 'tenant-admin') {
                 $inviterMembership = Membership::query()
                     ->withoutGlobalScope('tenant')
@@ -58,12 +144,13 @@ class TenantInvitationService
             app(MembershipService::class)->assertSeatCapacityForInvitation($tenant->id);
 
             $plainToken = Str::random(64);
-            $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
+            $expiresAt = now()->addHours($this->invitationTtlHours());
             $acceptUrl = url('/invitations/'.$plainToken);
 
             $invitation = DB::connection('tenant')->transaction(function () use (
                 $tenant,
                 $email,
+                $intendedUser,
                 $invitedBy,
                 $role,
                 $plainToken,
@@ -73,6 +160,7 @@ class TenantInvitationService
                 $record = TenantInvitation::query()->create([
                     'tenant_id' => $tenant->id,
                     'email' => $email,
+                    'intended_user_id' => $intendedUser->id,
                     'invited_by_user_id' => $invitedBy->id,
                     'token_hash' => hash('sha256', $plainToken),
                     'role' => $role,
@@ -90,6 +178,7 @@ class TenantInvitationService
                 'auditable_id' => $invitation->id,
                 'new_values' => [
                     'email' => $email,
+                    'intended_user_id' => $intendedUser->id,
                     'tenant_id' => $tenant->id,
                     'invited_by_user_id' => $invitedBy->id,
                     'expires_at' => $expiresAt->toIso8601String(),
@@ -101,6 +190,51 @@ class TenantInvitationService
                 'plainToken' => $plainToken,
                 'acceptUrl' => $acceptUrl,
             ];
+        } finally {
+            if (! $wasInitialized) {
+                tenancy()->end();
+            }
+        }
+    }
+
+    /**
+     * Convenience: create User then issue J2 Invite (same transaction boundary for admin UX).
+     *
+     * @return array{user: TenantUser, invitation: TenantInvitation, plainToken: string, acceptUrl: string}
+     */
+    public function createUserAndInvite(
+        Tenant $tenant,
+        string $firstName,
+        string $lastName,
+        string $email,
+        TenantUser $invitedBy,
+        string $role = 'member'
+    ): array {
+        $wasInitialized = tenancy()->initialized;
+
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            return DB::connection('tenant')->transaction(function () use (
+                $tenant,
+                $firstName,
+                $lastName,
+                $email,
+                $invitedBy,
+                $role
+            ) {
+                $user = $this->createUser($tenant, $firstName, $lastName, $email);
+                $invite = $this->createInvitation($tenant, $user, $invitedBy, $role);
+
+                return [
+                    'user' => $user,
+                    'invitation' => $invite['invitation'],
+                    'plainToken' => $invite['plainToken'],
+                    'acceptUrl' => $invite['acceptUrl'],
+                ];
+            });
         } finally {
             if (! $wasInitialized) {
                 tenancy()->end();
@@ -133,9 +267,18 @@ class TenantInvitationService
 
     public function acceptInvitationRecord(TenantInvitation $invitation, TenantUser $acceptingUser): Membership
     {
+        $this->assertInvitationBoundToUser($invitation);
+        $this->assertInvitationStillPending($invitation);
+
         if (strtolower($acceptingUser->email) !== strtolower($invitation->email)) {
             throw ValidationException::withMessages([
                 'email' => ['Your account email does not match this invitation.'],
+            ]);
+        }
+
+        if ((string) $acceptingUser->id !== (string) $invitation->intended_user_id) {
+            throw ValidationException::withMessages([
+                'email' => ['This invitation is bound to a different user account.'],
             ]);
         }
 
@@ -152,6 +295,72 @@ class TenantInvitationService
         }
     }
 
+    /**
+     * WAVE-3 GAP-004: Complete account for the existing intended User.
+     * MUST NOT create a User from invitation email.
+     *
+     * @return array{user: TenantUser, membership: Membership, tenant: Tenant}
+     */
+    public function completeAccountInvitation(TenantInvitation $invitation, string $password): array
+    {
+        $this->assertInvitationBoundToUser($invitation);
+        $this->assertInvitationStillPending($invitation);
+
+        $tenant = Tenant::query()->findOrFail($invitation->tenant_id);
+
+        tenancy()->initialize($tenant);
+
+        try {
+            return DB::connection('tenant')->transaction(function () use ($invitation, $tenant, $password) {
+                $user = TenantUser::withoutGlobalScope('tenant')
+                    ->where('tenant_id', $tenant->id)
+                    ->whereKey($invitation->intended_user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $user) {
+                    throw ValidationException::withMessages([
+                        'token' => ['This invitation is invalid or has expired.'],
+                    ]);
+                }
+
+                if (strtolower((string) $user->email) !== strtolower((string) $invitation->email)) {
+                    throw ValidationException::withMessages([
+                        'email' => ['Invitation email does not match the intended user.'],
+                    ]);
+                }
+
+                $user->forceFill([
+                    'password' => $password,
+                ])->save();
+
+                $membership = $this->completeInvitation($invitation, $tenant, $user);
+
+                app(AuditLoggerInterface::class)->log('tenant_member.account_completed', [
+                    'tenant_id' => $tenant->id,
+                    'auditable_type' => TenantInvitation::class,
+                    'auditable_id' => $invitation->id,
+                    'new_values' => [
+                        'user_id' => $user->id,
+                        'tenant_id' => $tenant->id,
+                        'membership_id' => $membership->id,
+                    ],
+                ]);
+
+                return [
+                    'user' => $user->fresh(),
+                    'membership' => $membership,
+                    'tenant' => $tenant,
+                ];
+            });
+        } finally {
+            tenancy()->end();
+        }
+    }
+
+    /**
+     * @deprecated WAVE-3: Invite must not create User. Prefer completeAccountInvitation.
+     */
     public function registerAndAccept(string $plainToken, string $name, string $password): array
     {
         $invitation = $this->findValidByToken($plainToken);
@@ -161,45 +370,15 @@ class TenantInvitationService
             ]);
         }
 
-        return $this->registerAndAcceptInvitation($invitation, $name, $password);
+        return $this->completeAccountInvitation($invitation, $password);
     }
 
+    /**
+     * @deprecated WAVE-3: Invite must not create User. Prefer completeAccountInvitation.
+     */
     public function registerAndAcceptInvitation(TenantInvitation $invitation, string $name, string $password): array
     {
-        $existing = TenantUser::withoutGlobalScope('tenant')
-            ->where('email', $invitation->email)
-            ->exists();
-
-        if ($existing) {
-            throw ValidationException::withMessages([
-                'email' => ['An account with this email already exists. Please log in to accept the invitation.'],
-            ]);
-        }
-
-        $tenant = Tenant::query()->findOrFail($invitation->tenant_id);
-
-        tenancy()->initialize($tenant);
-
-        try {
-            return DB::connection('tenant')->transaction(function () use ($invitation, $tenant, $name, $password) {
-                $user = User::create([
-                    'tenant_id' => $tenant->id,
-                    'name' => $name,
-                    'email' => $invitation->email,
-                    'password' => $password,
-                ]);
-
-                $membership = $this->completeInvitation($invitation, $tenant, $user);
-
-                return [
-                    'user' => $user,
-                    'membership' => $membership,
-                    'tenant' => $tenant,
-                ];
-            });
-        } finally {
-            tenancy()->end();
-        }
+        return $this->completeAccountInvitation($invitation, $password);
     }
 
     public function reissueInvitation(TenantInvitation $invitation, TenantUser $actor): array
@@ -216,6 +395,8 @@ class TenantInvitationService
             ]);
         }
 
+        $this->assertInvitationBoundToUser($invitation);
+
         $tenant = Tenant::query()->findOrFail($invitation->tenant_id);
         $wasInitialized = tenancy()->initialized;
 
@@ -227,7 +408,7 @@ class TenantInvitationService
             $this->assertResendEligible($tenant, $invitation);
 
             $plainToken = Str::random(64);
-            $expiresAt = now()->addDays((int) config('tenancy.invitation_ttl_days'));
+            $expiresAt = now()->addHours($this->invitationTtlHours());
             $acceptUrl = url('/invitations/'.$plainToken);
             $previousTokenHash = $invitation->token_hash;
 
@@ -267,6 +448,7 @@ class TenantInvitationService
                 ],
                 'new_values' => [
                     'email' => $invitation->email,
+                    'intended_user_id' => $invitation->intended_user_id,
                     'tenant_id' => $tenant->id,
                     'reissued_by_user_id' => $actor->id,
                     'expires_at' => $expiresAt->toIso8601String(),
@@ -316,6 +498,44 @@ class TenantInvitationService
             if (! $wasInitialized) {
                 tenancy()->end();
             }
+        }
+    }
+
+    protected function assertInvitationBoundToUser(TenantInvitation $invitation): void
+    {
+        if ($invitation->intended_user_id === null || $invitation->intended_user_id === '') {
+            app(AuditLoggerInterface::class)->log('tenant_member.invitation_rejected', [
+                'tenant_id' => $invitation->tenant_id,
+                'auditable_type' => TenantInvitation::class,
+                'auditable_id' => $invitation->id,
+                'new_values' => [
+                    'reason' => 'missing_intended_user_id',
+                ],
+            ]);
+
+            throw ValidationException::withMessages([
+                'token' => ['This invitation is invalid or has expired.'],
+            ]);
+        }
+    }
+
+    protected function assertInvitationStillPending(TenantInvitation $invitation): void
+    {
+        $invitation->refresh();
+
+        if (! $invitation->isPending()) {
+            app(AuditLoggerInterface::class)->log('tenant_member.invitation_rejected', [
+                'tenant_id' => $invitation->tenant_id,
+                'auditable_type' => TenantInvitation::class,
+                'auditable_id' => $invitation->id,
+                'new_values' => [
+                    'reason' => 'not_pending',
+                ],
+            ]);
+
+            throw ValidationException::withMessages([
+                'token' => ['This invitation is invalid or has expired.'],
+            ]);
         }
     }
 

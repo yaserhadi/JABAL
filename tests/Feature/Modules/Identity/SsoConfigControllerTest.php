@@ -95,6 +95,7 @@ class SsoConfigControllerTest extends TestCase
         $response->assertJsonPath('data.issuer_url', self::SAFE_ISSUER);
         $response->assertJsonMissingPath('data.client_secret');
         $response->assertJsonMissingPath('data.client_secret_encrypted');
+        $response->assertJsonPath('data.approved_email_domains', []);
     }
 
     #[Test]
@@ -108,11 +109,14 @@ class SsoConfigControllerTest extends TestCase
                 'client_id' => 'client-id',
                 'client_secret' => 'initial-secret',
                 'scopes' => ['openid', 'profile', 'email'],
+                'approved_email_domains' => ['example.com', 'contoso.com'],
             ]);
 
         $response->assertOk();
         $response->assertJsonPath('data.enabled', true);
         $response->assertJsonPath('data.provider_label', 'Entra ID');
+        $response->assertJsonPath('data.approved_email_domains.0', 'example.com');
+        $response->assertJsonPath('data.approved_email_domains.1', 'contoso.com');
         $response->assertJsonPath('data.has_client_secret', true);
         $response->assertJsonMissingPath('data.client_secret');
 

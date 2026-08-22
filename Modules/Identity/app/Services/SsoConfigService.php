@@ -11,6 +11,7 @@ use Modules\Identity\Models\SsoPlatformControl;
 use Modules\Identity\Models\TenantSsoConfig;
 use Modules\Identity\Models\TenantSsoConfigVersion;
 use Modules\Identity\Support\SecurityFeatureGate;
+use Modules\Identity\Support\Sso\SsoApprovedEmailDomainPolicy;
 use Modules\Identity\Support\Sso\Credentials\SecretProviderRegistry;
 use Modules\Identity\Support\Sso\Credentials\SecretReference;
 use Modules\Tenancy\Models\Tenant;
@@ -34,6 +35,7 @@ class SsoConfigService
         'scopes',
         'jwks_uri',
         'logout_token_signing_algs',
+        'approved_email_domains',
     ];
 
     /** @var list<string> */
@@ -45,6 +47,7 @@ class SsoConfigService
         'scopes',
         'jwks_uri',
         'logout_token_signing_algs',
+        'approved_email_domains',
     ];
 
     /** @var list<string> */
@@ -81,6 +84,12 @@ class SsoConfigService
             return DB::connection('tenant')->transaction(function () use ($tenant, $data) {
                 $existing = $this->findRow($tenant);
                 $payload = Arr::only($data, self::PUBLIC_FIELDS);
+
+                if (array_key_exists('approved_email_domains', $payload)) {
+                    $payload['approved_email_domains'] = SsoApprovedEmailDomainPolicy::normalizeList(
+                        is_array($payload['approved_email_domains']) ? $payload['approved_email_domains'] : []
+                    );
+                }
 
                 if (array_key_exists('enabled', $payload) && $payload['enabled']) {
                     if ($existing?->disabled_by_entitlement) {
@@ -148,6 +157,8 @@ class SsoConfigService
                         ],
                         $flagPayload,
                     ))->save();
+                    app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)
+                        ->invalidateReadyForTenant($tenant, 'idp_configuration_version_changed');
                 } elseif ($flagPayload !== []) {
                     $existing->forceFill($flagPayload)->save();
                 }
@@ -448,6 +459,9 @@ class SsoConfigService
             'logout_token_signing_algs' => $material['logout_token_signing_algs']
                 ?? config('identity.sso.default_logout_token_signing_algs', ['RS256']),
             'scopes' => $material['scopes'] ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
+            'approved_email_domains' => SsoApprovedEmailDomainPolicy::normalizeList(
+                is_array($material['approved_email_domains'] ?? null) ? $material['approved_email_domains'] : []
+            ),
             'activated_at' => now(),
             'validated_at' => now(),
             'approved_at' => now(),
@@ -547,6 +561,7 @@ class SsoConfigService
             'jwks_uri' => $config->jwks_uri,
             'logout_token_signing_algs' => $config->logout_token_signing_algs,
             'scopes' => $config->scopes,
+            'approved_email_domains' => $config->approved_email_domains,
         ];
 
         // Inherit version-owned reference credential authority.
@@ -625,6 +640,7 @@ class SsoConfigService
             'client_id' => $record->client_id,
             'redirect_uri' => $record->redirect_uri,
             'scopes' => $record->scopes ?? config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
+            'approved_email_domains' => is_array($record->approved_email_domains) ? $record->approved_email_domains : [],
             'has_client_secret' => $this->publicHasCredential($record),
             'active_version_id' => $record->active_version_id,
             'rollout_state' => $record->rollout_state ?? TenantSsoConfig::ROLLOUT_ENABLED,
@@ -645,6 +661,7 @@ class SsoConfigService
             'client_id' => null,
             'redirect_uri' => null,
             'scopes' => config('identity.sso.default_scopes', ['openid', 'profile', 'email']),
+            'approved_email_domains' => [],
             'has_client_secret' => false,
             'active_version_id' => null,
             'rollout_state' => TenantSsoConfig::ROLLOUT_DISABLED,
@@ -665,6 +682,7 @@ class SsoConfigService
             'client_id' => $record->client_id,
             'redirect_uri' => $record->redirect_uri,
             'scopes' => $record->scopes,
+            'approved_email_domains' => is_array($record->approved_email_domains) ? $record->approved_email_domains : [],
             'has_client_secret' => $this->publicHasCredential($record),
             'active_version_id' => $record->active_version_id,
         ];

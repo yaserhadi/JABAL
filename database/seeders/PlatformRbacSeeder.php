@@ -22,6 +22,7 @@ class PlatformRbacSeeder extends Seeder
         'platform.tenants.view',
         'platform.tenants.create',
         'platform.tenants.update',
+        'platform.emergency.operate',
     ];
 
     public function run(): void

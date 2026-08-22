@@ -66,6 +66,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
 
         $this->assertFalse($result->succeeded());
@@ -92,11 +93,167 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
         $this->assertTrue($result->succeeded());
         $this->assertSame($user->id, $result->user?->id);
+    }
+
+    #[Test]
+    public function existing_link_rejects_idp_email_mismatch_without_mutating_user(): void
+    {
+        [$tenant, $user] = $this->createOrgMember('mismatch-'.uniqid().'@example.com');
+        $subject = 'sub-'.Str::uuid()->toString();
+        $emailBefore = $user->email;
+
+        tenancy()->initialize($tenant);
+        TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => $this->issuer,
+            'subject' => $subject,
+        ]);
+
+        $result = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
+            $tenant,
+            new SsoValidatedClaims($this->issuer, $subject, 'other@example.com', true),
+            $this->issuer,
+            ['example.com'],
+        );
+
+        $this->assertFalse($result->succeeded());
+        $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $result->failureReason);
+        $this->assertSame($emailBefore, $user->fresh()->email);
+        $this->assertSame(1, TenantUserIdentity::query()->where('subject', $subject)->count());
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function existing_link_rejects_missing_idp_email(): void
+    {
+        [$tenant, $user] = $this->createOrgMember('missing-mail-'.uniqid().'@example.com');
+        $subject = 'sub-'.Str::uuid()->toString();
+
+        tenancy()->initialize($tenant);
+        TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => $this->issuer,
+            'subject' => $subject,
+        ]);
+
+        $result = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
+            $tenant,
+            new SsoValidatedClaims($this->issuer, $subject, null, null),
+            $this->issuer,
+            ['example.com'],
+        );
+
+        $this->assertFalse($result->succeeded());
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function existing_link_rejects_unapproved_domain_even_when_emails_match(): void
+    {
+        [$tenant, $user] = $this->createOrgMember('domain-'.uniqid().'@example.com');
+        $subject = 'sub-'.Str::uuid()->toString();
+
+        tenancy()->initialize($tenant);
+        TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => $this->issuer,
+            'subject' => $subject,
+        ]);
+
+        $result = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
+            $tenant,
+            new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
+            $this->issuer,
+            ['contoso.com'],
+        );
+
+        $this->assertFalse($result->succeeded());
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function existing_link_accepts_safe_email_case_normalization(): void
+    {
+        [$tenant, $user] = $this->createOrgMember('Case.User.'.uniqid().'@Example.COM');
+        $subject = 'sub-'.Str::uuid()->toString();
+
+        tenancy()->initialize($tenant);
+        TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => $this->issuer,
+            'subject' => $subject,
+        ]);
+
+        $result = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
+            $tenant,
+            new SsoValidatedClaims($this->issuer, $subject, strtolower($user->email), true),
+            $this->issuer,
+            ['example.com'],
+        );
+
+        $this->assertTrue($result->succeeded());
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function existing_link_rejects_empty_approved_domains(): void
+    {
+        [$tenant, $user] = $this->createOrgMember('empty-dom-'.uniqid().'@example.com');
+        $subject = 'sub-'.Str::uuid()->toString();
+
+        tenancy()->initialize($tenant);
+        TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => $this->issuer,
+            'subject' => $subject,
+        ]);
+
+        $result = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
+            $tenant,
+            new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
+            $this->issuer,
+            [],
+        );
+
+        $this->assertFalse($result->succeeded());
+        $this->assertSame($user->email, $user->fresh()->email);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function existing_link_accepts_multi_domain_allowlist(): void
+    {
+        [$tenant, $user] = $this->createOrgMember('multi-dom-'.uniqid().'@example.com');
+        $subject = 'sub-'.Str::uuid()->toString();
+
+        tenancy()->initialize($tenant);
+        TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => $this->issuer,
+            'subject' => $subject,
+        ]);
+
+        $result = app(SsoIdentityResolver::class)->resolveExistingLinkOnly(
+            $tenant,
+            new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
+            $this->issuer,
+            ['contoso.com', 'example.com'],
+        );
+
+        $this->assertTrue($result->succeeded());
+        tenancy()->end();
     }
 
     #[Test]
@@ -110,6 +267,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
 
         $this->assertFalse($result->succeeded());
@@ -129,6 +287,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, false),
             $this->issuer,
+            ['example.com'],
         );
 
         $this->assertFalse($result->succeeded());
@@ -156,6 +315,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
 
         $this->assertSame(SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED, $result->failureReason);
@@ -185,6 +345,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
@@ -211,6 +372,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
@@ -229,6 +391,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims('https://other-idp.example.com', $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
@@ -254,6 +417,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims($this->issuer, 'other-'.$subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
@@ -279,6 +443,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenant,
             new SsoValidatedClaims('https://other-idp.example.com', $subject, $user->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 
@@ -307,6 +472,7 @@ class SsoIdentityResolverTest extends TestCase
             $tenantB,
             new SsoValidatedClaims($this->issuer, $subject, $userA->email, true),
             $this->issuer,
+            ['example.com'],
         );
         tenancy()->end();
 

@@ -15,16 +15,22 @@ final class SsoIdentityResolver
 {
     public function __construct(
         protected AuditLoggerInterface $auditLogger,
+        protected SsoIdentityTrustGate $trustGate,
+        protected SsoIdentityLifecycle $lifecycle,
     ) {}
 
     /**
-     * D10 / BK-097: resolve solely by immutable issuer + subject — never by email.
-     * Failures collapse to identity_not_provisioned so responses/audits do not enumerate.
+     * Resolve solely by immutable issuer + EUID (subject) — never by email JIT / first-link.
+     * After an existing link is found, IdP Email MUST equal canonical User Email (fail closed)
+     * and the User Email domain MUST be on the Connection approved-domain list.
+     *
+     * @param  list<string>  $approvedEmailDomains
      */
     public function resolveExistingLinkOnly(
         Tenant $tenant,
         SsoValidatedClaims $claims,
         string $configuredIssuer,
+        array $approvedEmailDomains = [],
     ): SsoIdentityResolutionResult {
         $normalizedConfigured = rtrim(trim($configuredIssuer), '/');
         $normalizedClaimsIssuer = rtrim(trim($claims->issuer), '/');
@@ -49,6 +55,10 @@ final class SsoIdentityResolver
         /** @var TenantUserIdentity $existing */
         $existing = $matches->first();
 
+        if (! $existing->isResolvableForLogin()) {
+            return $this->hostIdentityNotProvisioned($tenant);
+        }
+
         $user = TenantUser::query()
             ->withoutGlobalScope('tenant')
             ->where('tenant_id', $tenant->id)
@@ -60,6 +70,26 @@ final class SsoIdentityResolver
         }
 
         if (! $this->hasActiveMembership($tenant, $user)) {
+            return $this->hostIdentityNotProvisioned($tenant);
+        }
+
+        $trustFailure = $this->trustGate->evaluate(
+            $user,
+            $claims->email,
+            $claims->emailVerified,
+            $approvedEmailDomains,
+            (string) $tenant->getTenantKey(),
+            'ordinary_sso_login',
+        );
+
+        if ($trustFailure !== null) {
+            // Existing binding + trust failure: needs attention; do not unlink or mutate User/Roles.
+            $this->lifecycle->markNeedsAttention(
+                $existing,
+                (string) $tenant->getTenantKey(),
+                $trustFailure,
+            );
+
             return $this->hostIdentityNotProvisioned($tenant);
         }
 

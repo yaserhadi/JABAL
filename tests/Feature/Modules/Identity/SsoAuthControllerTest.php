@@ -56,6 +56,7 @@ class SsoAuthControllerTest extends TestCase
             'issuer_url' => 'https://login.microsoftonline.com/tenant/v2.0',
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
+            'approved_email_domains' => ['example.com'],
         ]);
         tenancy()->end();
     }
@@ -243,6 +244,20 @@ class SsoAuthControllerTest extends TestCase
             'issuer' => 'https://login.microsoftonline.com/tenant/v2.0',
             'subject' => 'sub-'.Str::uuid()->toString(),
         ]);
+        $versionId = app(\Modules\Identity\Services\SsoConfigService::class)->getActiveVersionId($tenant);
+        app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)->markLinked(
+            $link,
+            (string) $tenant->id,
+            $versionId,
+        );
+        app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)->markLoginVerifiedAndReady(
+            $link->fresh(),
+            $user,
+            (string) $tenant->id,
+            (string) $versionId,
+            'test_seed_ready',
+        );
+        $link = $link->fresh();
         tenancy()->end();
 
         $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
@@ -265,9 +280,65 @@ class SsoAuthControllerTest extends TestCase
             ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
 
         $this->assertAuthenticatedAs($user, 'web');
-        // Prove no regenerate/re-login: MFA marker and tenant binding survive unchanged.
+        // Prove no regenerate/re-login when already Ready: MFA marker and tenant binding survive.
         $this->assertSame('preserve-me', session('mfa_verified_at'));
         $this->assertSame($tenant->id, session('tenant_id'));
+    }
+
+    #[Test]
+    #[Group('path-profile-contract')]
+    public function callback_linked_not_ready_same_user_regenerates_and_marks_ready(): void
+    {
+        [$tenant, $user] = $this->createOrgTenantWithMember();
+        $this->enableSsoForTenant($tenant);
+        $this->assignDashboardViewToUser($user, $tenant);
+
+        tenancy()->initialize($tenant);
+        $link = TenantUserIdentity::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'issuer' => 'https://login.microsoftonline.com/tenant/v2.0',
+            'subject' => 'sub-'.Str::uuid()->toString(),
+        ]);
+        $versionId = app(\Modules\Identity\Services\SsoConfigService::class)->getActiveVersionId($tenant);
+        app(\Modules\Identity\Support\Sso\SsoIdentityLifecycle::class)->markLinked(
+            $link,
+            (string) $tenant->id,
+            $versionId,
+        );
+        $link = $link->fresh();
+        tenancy()->end();
+
+        $state = SsoAuthorizationState::encode(SsoAuthorizationState::mint($tenant->id));
+
+        $this->mock(SsoAuthService::class, function ($mock) use ($user, $link) {
+            $mock->shouldReceive('completeCallback')
+                ->once()
+                ->andReturn(SsoIdentityResolutionResult::success($user, $link));
+        });
+
+        $this->withoutMiddleware([
+            ...$this->pathSsoSessionMatrixMiddlewareToSkip(),
+            \Modules\Identity\Http\Middleware\EnsureMfaVerified::class,
+        ]);
+
+        $this->actingAs($user, 'web');
+        $this->withSession(['tenant_id' => $tenant->id, 'mfa_verified_at' => 'stale-enrollment-context']);
+
+        $before = $this->app['session.store']->getId();
+
+        $this->get('/auth/sso/callback?code=abc&state='.urlencode($state))
+            ->assertRedirect($this->tenantDashboardRedirectUri($tenant));
+
+        $this->assertAuthenticatedAs($user, 'web');
+        $this->assertNotSame($before, $this->app['session.store']->getId());
+        tenancy()->initialize($tenant);
+        $this->assertSame(
+            \Modules\Identity\Support\Sso\SsoIdentityLifecycle::STATUS_READY,
+            $link->fresh()->verification_status
+        );
+        $this->assertSame((string) $user->id, (string) $link->fresh()->user_id);
+        tenancy()->end();
     }
 
     #[Test]

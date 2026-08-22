@@ -46,9 +46,10 @@ class HostEnterpriseSsoCallbackTest extends TestCase
     }
 
     /**
+     * @param  list<string>  $approvedEmailDomains
      * @return array{tenant: Tenant, user: User, link: TenantUserIdentity, created: array<string, mixed>, authBinding: string}
      */
-    protected function prepareAwaitingCallback(): array
+    protected function prepareAwaitingCallback(array $approvedEmailDomains = ['example.com']): array
     {
         $tenant = Tenant::factory()->create([
             'slug' => 'ws4-'.Str::lower(Str::random(8)),
@@ -77,6 +78,7 @@ class HostEnterpriseSsoCallbackTest extends TestCase
             'client_id' => 'client-id',
             'client_secret' => 'client-secret',
             'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'approved_email_domains' => $approvedEmailDomains,
         ]);
         $link = TenantUserIdentity::query()->create([
             'tenant_id' => $tenant->id,
@@ -111,17 +113,20 @@ class HostEnterpriseSsoCallbackTest extends TestCase
         ];
     }
 
-    protected function mockSuccessfulTokenExchange(): void
+    /**
+     * @param  array<string, mixed>  $claimOverrides
+     */
+    protected function mockSuccessfulTokenExchange(string $email, array $claimOverrides = []): void
     {
         $tokenSet = Mockery::mock(TokenSetInterface::class);
-        $tokenSet->shouldReceive('claims')->andReturn([
+        $tokenSet->shouldReceive('claims')->andReturn(array_merge([
             'iss' => 'https://idp.example.com',
             'sub' => 'subject-ws4',
-            'email' => 'ws4@example.com',
+            'email' => $email,
             'email_verified' => true,
             'acr' => 'urn:example:aal1',
             'auth_time' => 1700000000,
-        ]);
+        ], $claimOverrides));
 
         $mock = Mockery::mock(app(SsoAuthService::class))->makePartial();
         $mock->shouldReceive('exchangeHostAuthorizationCode')->once()->andReturn($tokenSet);
@@ -133,7 +138,7 @@ class HostEnterpriseSsoCallbackTest extends TestCase
     public function successful_callback_exchanges_once_mints_handoff_and_redirects_to_tenant_host(): void
     {
         $fixture = $this->prepareAwaitingCallback();
-        $this->mockSuccessfulTokenExchange();
+        $this->mockSuccessfulTokenExchange($fixture['user']->email);
 
         $response = $this->call(
             'GET',
@@ -205,6 +210,8 @@ class HostEnterpriseSsoCallbackTest extends TestCase
         $tokenSet->shouldReceive('claims')->andReturn([
             'iss' => 'https://idp.example.com',
             'sub' => 'subject-ws4',
+            'email' => $fixture['user']->email,
+            'email_verified' => true,
         ]);
 
         $mock = Mockery::mock(app(SsoAuthService::class))->makePartial();
@@ -348,6 +355,8 @@ class HostEnterpriseSsoCallbackTest extends TestCase
         $tokenSet->shouldReceive('claims')->andReturn([
             'iss' => 'https://idp.example.com',
             'sub' => 'subject-ws4',
+            'email' => $fixture['user']->email,
+            'email_verified' => true,
         ]);
         $mock = Mockery::mock(app(SsoAuthService::class))->makePartial();
         $mock->shouldReceive('exchangeHostAuthorizationCode')->once()->andReturn($tokenSet);
@@ -415,6 +424,8 @@ class HostEnterpriseSsoCallbackTest extends TestCase
         $tokenSet->shouldReceive('claims')->andReturn([
             'iss' => 'https://idp.example.com',
             'sub' => 'subject-ws4',
+            'email' => $fixture['user']->email,
+            'email_verified' => true,
         ]);
         $mock = Mockery::mock(app(SsoAuthService::class))->makePartial();
         $mock->shouldReceive('exchangeHostAuthorizationCode')->once()->andReturn($tokenSet);
@@ -432,5 +443,66 @@ class HostEnterpriseSsoCallbackTest extends TestCase
         $serialized = json_encode($attrs);
         $this->assertIsString($serialized);
         $this->assertStringNotContainsString('must-not-persist', $serialized);
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function idp_email_mismatch_does_not_issue_handoff_or_mutate_user(): void
+    {
+        $fixture = $this->prepareAwaitingCallback();
+        $this->mockSuccessfulTokenExchange($fixture['user']->email, [
+            'email' => 'other-'.uniqid().'@example.com',
+        ]);
+        $emailBefore = $fixture['user']->email;
+
+        $this->call(
+            'GET',
+            'https://auth.jabal.test/auth/enterprise-sso/callback?code=mismatch&state='.rawurlencode($fixture['created']['state']),
+            cookies: [SsoBrowserBindingCookieFactory::AUTH_BINDING => $fixture['authBinding']],
+            server: ['HTTP_HOST' => 'auth.jabal.test', 'SERVER_NAME' => 'auth.jabal.test', 'HTTPS' => 'on']
+        )->assertRedirect();
+
+        $this->assertSame(0, SsoTenantHandoff::query()->count());
+        $this->assertGuest('web');
+        tenancy()->initialize($fixture['tenant']);
+        $this->assertSame($emailBefore, $fixture['user']->fresh()->email);
+        $this->assertSame(1, TenantUserIdentity::query()->count());
+        tenancy()->end();
+        $this->assertSame(
+            SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED,
+            $fixture['created']['transaction']->fresh()->failure_reason
+        );
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function empty_approved_domains_fail_closed_without_handoff(): void
+    {
+        $fixture = $this->prepareAwaitingCallback([]);
+        $this->mockSuccessfulTokenExchange($fixture['user']->email);
+
+        $this->call(
+            'GET',
+            'https://auth.jabal.test/auth/enterprise-sso/callback?code=nodomain&state='.rawurlencode($fixture['created']['state']),
+            cookies: [SsoBrowserBindingCookieFactory::AUTH_BINDING => $fixture['authBinding']],
+            server: ['HTTP_HOST' => 'auth.jabal.test', 'SERVER_NAME' => 'auth.jabal.test', 'HTTPS' => 'on']
+        )->assertRedirect();
+
+        $this->assertSame(0, SsoTenantHandoff::query()->count());
+        $this->assertGuest('web');
+        $this->assertSame(
+            SsoIdentityResolutionResult::REASON_IDENTITY_NOT_PROVISIONED,
+            $fixture['created']['transaction']->fresh()->failure_reason
+        );
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
+    public function ordinary_login_callback_does_not_require_first_link_step_up(): void
+    {
+        $source = file_get_contents(base_path('Modules/Identity/app/Services/HostEnterpriseSsoCallbackService.php'));
+        $this->assertIsString($source);
+        $this->assertStringNotContainsString('SsoFirstLinkAssurance', $source);
+        $this->assertStringNotContainsString('first_link_step_up_required', $source);
     }
 }

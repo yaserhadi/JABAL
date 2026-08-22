@@ -73,6 +73,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('members/invite', [TenantMemberController::class, 'invite'])
                 ->middleware('permission:member.invite')
                 ->name('members.invite');
+            Route::post('members/invite-existing', [TenantMemberController::class, 'inviteExisting'])
+                ->middleware('permission:member.invite')
+                ->name('members.invite-existing');
             Route::post('members/invitations/{invitation}/resend', [TenantMemberController::class, 'resendInvitation'])
                 ->middleware('permission:member.invite')
                 ->name('members.resend-invitation');

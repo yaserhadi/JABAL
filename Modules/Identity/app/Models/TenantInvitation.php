@@ -23,6 +23,7 @@ class TenantInvitation extends Model
     protected $fillable = [
         'tenant_id',
         'email',
+        'intended_user_id',
         'invited_by_user_id',
         'token_hash',
         'role',
@@ -40,6 +41,11 @@ class TenantInvitation extends Model
     public function invitedBy(): BelongsTo
     {
         return $this->belongsTo(TenantUser::class, 'invited_by_user_id')->withoutGlobalScope('tenant');
+    }
+
+    public function intendedUser(): BelongsTo
+    {
+        return $this->belongsTo(TenantUser::class, 'intended_user_id')->withoutGlobalScope('tenant');
     }
 
     public function isPending(): bool

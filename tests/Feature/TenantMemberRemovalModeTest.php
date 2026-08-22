@@ -345,6 +345,8 @@ class TenantMemberRemovalModeTest extends TestCase
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
             ->post('/t/'.$this->tenant->id.'/members/invite', [
+                'first_name' => 'Removed',
+                'last_name' => 'Member',
                 'email' => $this->memberUser->email,
                 'role' => 'member',
             ]);
@@ -365,7 +367,7 @@ class TenantMemberRemovalModeTest extends TestCase
 
         app(TenantInvitationService::class)->createInvitation(
             $this->tenant,
-            $this->memberUser->email,
+            $this->memberUser,
             $this->owner,
             'member'
         );

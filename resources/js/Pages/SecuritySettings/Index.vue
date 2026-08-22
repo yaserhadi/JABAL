@@ -65,7 +65,17 @@
                                 type="number"
                                 min="-1"
                                 max="1440"
+                                class="mb-2"
+                            />
+                            <v-select
+                                v-model="policyForm.authentication_policy"
+                                :items="authenticationPolicyOptions"
+                                label="Authentication policy (login methods)"
+                                item-title="label"
+                                item-value="value"
                                 class="mb-4"
+                                hint="Controls which login methods are permitted. Does not delete Password or SSO credentials."
+                                persistent-hint
                             />
 
                             <v-btn
@@ -163,9 +173,19 @@
                             <v-text-field
                                 v-model="ssoForm.scopes"
                                 label="Scopes (space-separated)"
-                                class="mb-4"
+                                class="mb-2"
                                 :readonly="!canEditSso"
                                 hint="Must include openid"
+                                persistent-hint
+                            />
+                            <v-textarea
+                                v-model="ssoForm.approved_email_domains_text"
+                                label="Approved SSO email domains"
+                                class="mb-4"
+                                rows="3"
+                                auto-grow
+                                :readonly="!canEditSso"
+                                hint="Connection allowlist only (one domain per line). Does not create or discover Users. Empty list rejects SSO."
                                 persistent-hint
                             />
 
@@ -356,7 +376,14 @@ const policyForm = useForm({
         require_special: props.policies?.password_policy?.require_special ?? false,
     },
     session_idle_timeout: props.policies?.session_idle_timeout ?? -1,
+    authentication_policy: props.policies?.authentication_policy ?? 'both',
 });
+
+const authenticationPolicyOptions = [
+    { label: 'Password', value: 'password' },
+    { label: 'Enterprise SSO', value: 'sso' },
+    { label: 'Password + Enterprise SSO', value: 'both' },
+];
 
 const ssoForm = useForm({
     enabled: props.sso?.enabled ?? false,
@@ -366,6 +393,7 @@ const ssoForm = useForm({
     client_secret: '',
     redirect_uri: props.sso?.redirect_uri ?? '',
     scopes: (props.sso?.scopes ?? ['openid', 'profile', 'email']).join(' '),
+    approved_email_domains_text: (props.sso?.approved_email_domains ?? []).join('\n'),
 });
 
 const revokingSessionId = ref(null);
@@ -394,6 +422,10 @@ function submitSso() {
         scopes: ssoForm.scopes
             .split(/\s+/)
             .map((scope) => scope.trim())
+            .filter(Boolean),
+        approved_email_domains: ssoForm.approved_email_domains_text
+            .split(/[\s,]+/)
+            .map((domain) => domain.trim().replace(/^@/, '').replace(/\.$/, ''))
             .filter(Boolean),
     };
 

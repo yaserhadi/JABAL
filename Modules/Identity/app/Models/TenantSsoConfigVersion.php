@@ -77,6 +77,7 @@ class TenantSsoConfigVersion extends Model
         'jwks_uri',
         'logout_token_signing_algs',
         'scopes',
+        'approved_email_domains',
         'activated_at',
         'validated_at',
         'approved_at',
@@ -88,6 +89,7 @@ class TenantSsoConfigVersion extends Model
 
     protected $casts = [
         'scopes' => 'array',
+        'approved_email_domains' => 'array',
         'logout_token_signing_algs' => 'array',
         'activated_at' => 'datetime',
         'validated_at' => 'datetime',

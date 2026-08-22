@@ -21,6 +21,15 @@
                                     {{ $page.props.errors.email }}
                                 </v-alert>
 
+                                <v-alert
+                                    v-if="!passwordLoginAllowed && !(ssoOperational && ssoStartUrl)"
+                                    type="warning"
+                                    variant="tonal"
+                                    class="mb-4"
+                                >
+                                    No sign-in methods are currently available for this organization.
+                                </v-alert>
+
                                 <v-btn
                                     v-if="ssoOperational && ssoStartUrl"
                                     color="primary"
@@ -31,9 +40,12 @@
                                     Sign in with SSO
                                 </v-btn>
 
-                                <v-divider v-if="ssoOperational && ssoStartUrl" class="my-4" />
+                                <v-divider
+                                    v-if="passwordLoginAllowed && ssoOperational && ssoStartUrl"
+                                    class="my-4"
+                                />
 
-                                <v-form @submit.prevent="submit">
+                                <v-form v-if="passwordLoginAllowed" @submit.prevent="submit">
                                     <v-text-field
                                         v-model="form.email"
                                         label="Email"
@@ -101,6 +113,10 @@ const props = defineProps({
     ssoStartUrl: {
         type: String,
         default: null,
+    },
+    passwordLoginAllowed: {
+        type: Boolean,
+        default: true,
     },
     prefillEmail: {
         type: String,

@@ -7,15 +7,20 @@ use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Tenancy\TenantDatabaseProvisioner;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Modules\Billing\Services\ProductCatalogService;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Data\TenantOnboardingInput;
 use Modules\Tenancy\Data\TenantProvisioningResult;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Models\TenantDatabaseConfig;
+use Modules\Tenancy\Services\LegalOrganizationService;
+use Modules\Tenancy\Services\SetupDefinitionCatalog;
+use Modules\Tenancy\Services\TenantSetupReadinessService;
 
 /**
  * Single orchestrator for organization tenant environment provisioning (BK-005).
+ * WAVE-6: Legal Org + Offering + Setup init after commercial subscription (fail-safe in transaction where practical).
  */
 class TenantOnboardingService
 {
@@ -24,6 +29,9 @@ class TenantOnboardingService
         private readonly TenantDatabaseProvisioner $databaseProvisioner,
         private readonly TenantRbacProvisioner $rbacProvisioner,
         private readonly TenantSubscriptionProvisioner $subscriptionProvisioner,
+        private readonly LegalOrganizationService $legalOrganizations,
+        private readonly ProductCatalogService $productCatalog,
+        private readonly TenantSetupReadinessService $setupReadiness,
     ) {}
 
     public function onboardOrganizationTenant(TenantOnboardingInput $input): TenantProvisioningResult
@@ -34,6 +42,8 @@ class TenantOnboardingService
 
         $this->subscriptionProvisioner->ensureDefaultSubscription($tenant->id);
 
+        $this->satisfyWave6CommercialFoundation($tenant, $input);
+
         $r2 = $this->satisfyR2Storage($tenant);
 
         $r3 = $this->satisfyR3Rbac($tenant);
@@ -41,8 +51,19 @@ class TenantOnboardingService
         $r4 = true;
         $r5 = $this->satisfyR5OwnerAuth($owner, $tenant);
 
+        if ($owner !== null && $tenant->legal_organization_id) {
+            $org = $tenant->legalOrganization;
+            if ($org) {
+                $this->legalOrganizations->assignBusinessOwner(
+                    $org,
+                    (string) $owner->id,
+                    (string) $tenant->id
+                );
+            }
+        }
+
         return new TenantProvisioningResult(
-            tenant: $tenant->fresh(['databaseConfig']),
+            tenant: $tenant->fresh(['databaseConfig', 'legalOrganization']),
             r1Registry: true,
             r2Storage: $r2,
             r3Rbac: $r3,
@@ -51,6 +72,21 @@ class TenantOnboardingService
             r6Reachable: false,
             owner: $owner,
         );
+    }
+
+    /**
+     * WAVE-6: Legal Organization, default Offering, setup state initialization (not grandfathered).
+     */
+    private function satisfyWave6CommercialFoundation(Tenant $tenant, TenantOnboardingInput $input): void
+    {
+        $offering = $this->productCatalog->ensureDefaultCatalog();
+        app(SetupDefinitionCatalog::class)->ensureDefaults();
+        $this->setupReadiness->initializeForTenant($tenant->id);
+
+        $org = $this->legalOrganizations->create($input->organizationName);
+        $this->legalOrganizations->attachTenant($org, $tenant, $offering->id);
+        $tenant->forceFill(['setup_grandfathered' => false])->save();
+        $tenant->refresh();
     }
 
     /**

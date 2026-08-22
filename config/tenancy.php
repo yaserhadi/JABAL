@@ -178,7 +178,13 @@ return [
     ],
 
     /**
-     * CAP-022: Pending invitation lifetime (days) and public accept rate limits.
+     * WAVE-3 GAP-004 / J2: New User account-completion Invite lifetime (hours).
+     * Do not hard-code TTL in services — read this config.
+     */
+    'invitation_ttl_hours' => (int) env('TENANCY_INVITATION_TTL_HOURS', 24),
+
+    /**
+     * @deprecated Prefer invitation_ttl_hours (J2 = 24h). Kept for env compatibility only.
      */
     'invitation_ttl_days' => (int) env('TENANCY_INVITATION_TTL_DAYS', 7),
 

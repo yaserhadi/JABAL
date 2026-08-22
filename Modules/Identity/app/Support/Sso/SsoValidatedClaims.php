@@ -12,5 +12,6 @@ final class SsoValidatedClaims
         public readonly string $subject,
         public readonly ?string $email,
         public readonly ?bool $emailVerified,
+        public readonly string $providerFamily = 'oidc',
     ) {}
 }

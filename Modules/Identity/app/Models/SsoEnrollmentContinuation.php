@@ -39,6 +39,7 @@ class SsoEnrollmentContinuation extends Model
         'destination_host',
         'issuer_encrypted',
         'subject_encrypted',
+        'idp_email_encrypted',
         'lookup',
         'secret_hash',
         'browser_binding_secret_hash',
@@ -52,6 +53,7 @@ class SsoEnrollmentContinuation extends Model
         'browser_binding_secret_hash',
         'issuer_encrypted',
         'subject_encrypted',
+        'idp_email_encrypted',
     ];
 
     protected $casts = [

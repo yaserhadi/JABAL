@@ -45,6 +45,10 @@ class SsoAuthService
 
     public function assertTenantMayStartSso(Tenant $tenant, ?string $actorUserId = null): void
     {
+        // WAVE-3 GAP-009: LOGIN permission is evaluated before operational/entitlement gates.
+        app(\Modules\Identity\Support\Auth\AuthenticationLoginPolicy::class)
+            ->assertSsoLoginAllowed($tenant);
+
         app(SsoOperationalGate::class)->assertMayProceed(
             $tenant,
             SsoOperationalGate::STAGE_INITIATION,
@@ -272,8 +276,10 @@ class SsoAuthService
         }
 
         $safeIssuer = $this->issuerValidator->validateConfiguredIssuer($configuredIssuer);
+        $version = $this->configService->getActiveVersion($tenant);
+        $approvedDomains = is_array($version?->approved_email_domains) ? $version->approved_email_domains : [];
 
-        return $this->identityResolver->resolveExistingLinkOnly($tenant, $claims, $safeIssuer);
+        return $this->identityResolver->resolveExistingLinkOnly($tenant, $claims, $safeIssuer, $approvedDomains);
     }
 
     /**

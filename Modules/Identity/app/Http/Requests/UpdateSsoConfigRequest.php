@@ -20,6 +20,7 @@ class UpdateSsoConfigRequest extends FormRequest
         'client_secret',
         'redirect_uri',
         'scopes',
+        'approved_email_domains',
     ];
 
     public function authorize(): bool
@@ -41,6 +42,8 @@ class UpdateSsoConfigRequest extends FormRequest
             'redirect_uri' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'scopes' => ['sometimes', 'array', 'min:1'],
             'scopes.*' => ['string', 'max:64'],
+            'approved_email_domains' => ['sometimes', 'array'],
+            'approved_email_domains.*' => ['string', 'max:253'],
         ];
     }
 

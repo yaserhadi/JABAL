@@ -15,6 +15,7 @@ use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Support\Sso\SsoAssuranceEvaluator;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
+use Modules\Identity\Support\Sso\SsoIdentityLifecycle;
 use Modules\Identity\Support\Sso\SsoMfaContinuation;
 use Modules\Identity\Support\Sso\SsoSecurityAudit;
 use Modules\Tenancy\Models\Tenant;
@@ -35,6 +36,7 @@ class HostEnterpriseSsoHandoffService
         protected TenantAddressingProfile $addressing,
         protected TenantEntryUrlResolver $entryUrls,
         protected SsoSecurityAudit $securityAudit,
+        protected SsoIdentityLifecycle $lifecycle,
     ) {}
 
     public function handle(Request $request): RedirectResponse
@@ -99,21 +101,48 @@ class HostEnterpriseSsoHandoffService
             }
 
             if ($purpose === SsoAuthenticationTransaction::PURPOSE_ORDINARY) {
-                $consumed = $this->transactions->consumeHandoff(
-                    $reference,
-                    (string) $tenant->id,
-                    $destinationHost,
-                    $continuation,
-                );
-                if (! $consumed) {
-                    abort(404);
-                }
+                $activeVersionId = $this->configService->getActiveVersionId($tenant);
+                $link = TenantUserIdentity::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->whereKey($peek->identity_link_id)
+                    ->where('user_id', $current->id)
+                    ->first();
 
-                return $this->redirectClean($tenant, $consumed->post_login_path, $request)
-                    ->withCookie(SsoBrowserBindingCookieFactory::clear(
-                        SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
-                        $request->isSecure(),
-                    ));
+                // Already SSO Ready: ordinary same-user continuation may skip re-login.
+                // Linked-not-Ready must take the full session path (enrollment session ≠ verification).
+                if ($link instanceof TenantUserIdentity
+                    && ! $this->lifecycle->requiresOrdinarySessionProof($link, $current, $activeVersionId)
+                ) {
+                    $consumed = $this->transactions->consumeHandoff(
+                        $reference,
+                        (string) $tenant->id,
+                        $destinationHost,
+                        $continuation,
+                    );
+                    if (! $consumed) {
+                        abort(404);
+                    }
+
+                    $versionForReady = is_string($activeVersionId) && $activeVersionId !== ''
+                        ? $activeVersionId
+                        : (is_string($boundVersionId) && $boundVersionId !== '' ? $boundVersionId : null);
+
+                    if ($versionForReady !== null) {
+                        $this->lifecycle->markLoginVerifiedAndReady(
+                            $link,
+                            $current,
+                            (string) $tenant->id,
+                            $versionForReady,
+                            'ordinary_sso_continuation_idempotent',
+                        );
+                    }
+
+                    return $this->redirectClean($tenant, $consumed->post_login_path, $request)
+                        ->withCookie(SsoBrowserBindingCookieFactory::clear(
+                            SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
+                            $request->isSecure(),
+                        ));
+                }
             }
         }
 
@@ -129,6 +158,8 @@ class HostEnterpriseSsoHandoffService
 
         $user = $this->loadAndRevalidateUser($tenant, $consumed);
         if ($user === null) {
+            $this->markVerificationFailedFromHandoff($tenant, $consumed, 'revalidation_failed');
+
             return $this->terminalFailureRedirect($tenant, $request);
         }
 
@@ -175,7 +206,13 @@ class HostEnterpriseSsoHandoffService
                 'identity_link_id' => $federation['identity_link_id'] ?? null,
                 'reason' => 'mfa_continuation_complete',
             ]);
+            $this->markReadyAfterOrdinarySession($tenant, $user, $handoff);
         } catch (Throwable) {
+            try {
+                $this->markVerificationFailedFromHandoff($tenant, $handoff, 'session_register_failed');
+            } catch (Throwable) {
+                // Secondary lifecycle audit must not block fail-closed logout.
+            }
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -227,11 +264,32 @@ class HostEnterpriseSsoHandoffService
         SsoTenantHandoff $handoff,
         string $purpose,
     ): RedirectResponse {
+        $activeVersionId = $this->configService->getActiveVersionId($tenant);
+        $link = TenantUserIdentity::query()
+            ->where('tenant_id', $tenant->id)
+            ->whereKey($handoff->identity_link_id)
+            ->where('user_id', $user->id)
+            ->first();
+
         $alreadySameUser = Auth::guard('web')->check()
             && Auth::guard('web')->id() === $user->id
             && (string) (Auth::guard('web')->user()->tenant_id ?? '') === (string) $tenant->id;
 
-        if ($alreadySameUser && $purpose === SsoAuthenticationTransaction::PURPOSE_ORDINARY) {
+        $needsProof = $link instanceof TenantUserIdentity
+            && $this->lifecycle->requiresOrdinarySessionProof($link, $user, $activeVersionId);
+
+        // Skip re-login only when already Ready. Linked-not-Ready always regenerates.
+        if ($alreadySameUser && $purpose === SsoAuthenticationTransaction::PURPOSE_ORDINARY && ! $needsProof) {
+            if ($link instanceof TenantUserIdentity && is_string($activeVersionId) && $activeVersionId !== '') {
+                $this->lifecycle->markLoginVerifiedAndReady(
+                    $link,
+                    $user,
+                    (string) $tenant->id,
+                    $activeVersionId,
+                    'ordinary_sso_continuation_idempotent',
+                );
+            }
+
             return $this->redirectClean($tenant, $handoff->post_login_path, $request)
                 ->withCookie(SsoBrowserBindingCookieFactory::clear(
                     SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
@@ -267,7 +325,13 @@ class HostEnterpriseSsoHandoffService
                 'handoff_id' => (string) $handoff->id,
                 'reason' => 'full_session',
             ]);
+            $this->markReadyAfterOrdinarySession($tenant, $user, $handoff);
         } catch (Throwable) {
+            try {
+                $this->markVerificationFailedFromHandoff($tenant, $handoff, 'session_register_failed');
+            } catch (Throwable) {
+                // Secondary lifecycle audit must not block fail-closed logout.
+            }
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -279,11 +343,68 @@ class HostEnterpriseSsoHandoffService
                 ));
         }
 
-        return $this->redirectClean($tenant, $handoff->post_login_path, $request)
+        $redirect = $this->redirectClean($tenant, $handoff->post_login_path, $request)
             ->withCookie(SsoBrowserBindingCookieFactory::clear(
                 SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
                 $request->isSecure(),
             ));
+
+        if ($needsProof || ($link instanceof TenantUserIdentity && $link->fresh()?->verification_status === SsoIdentityLifecycle::STATUS_READY)) {
+            $redirect->with('status', 'Enterprise SSO is Ready. Your Company SSO sign-in was verified.');
+        }
+
+        return $redirect;
+    }
+
+    protected function markReadyAfterOrdinarySession(Tenant $tenant, TenantUser|User $user, ?SsoTenantHandoff $handoff): void
+    {
+        if (! $handoff instanceof SsoTenantHandoff) {
+            return;
+        }
+
+        $purpose = $this->transactionPurpose($handoff);
+        if ($purpose !== SsoAuthenticationTransaction::PURPOSE_ORDINARY) {
+            return;
+        }
+
+        $versionId = $this->configService->getActiveVersionId($tenant);
+        if (! is_string($versionId) || $versionId === '') {
+            return;
+        }
+
+        $link = TenantUserIdentity::query()
+            ->where('tenant_id', $tenant->id)
+            ->whereKey($handoff->identity_link_id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $link instanceof TenantUserIdentity) {
+            return;
+        }
+
+        $this->lifecycle->markLoginVerifiedAndReady(
+            $link,
+            $user,
+            (string) $tenant->id,
+            $versionId,
+            'ordinary_sso_session',
+        );
+    }
+
+    protected function markVerificationFailedFromHandoff(Tenant $tenant, ?SsoTenantHandoff $handoff, string $reason): void
+    {
+        if (! $handoff instanceof SsoTenantHandoff || ! is_string($handoff->identity_link_id)) {
+            return;
+        }
+
+        $link = TenantUserIdentity::query()
+            ->where('tenant_id', $tenant->id)
+            ->whereKey($handoff->identity_link_id)
+            ->first();
+
+        if ($link instanceof TenantUserIdentity) {
+            $this->lifecycle->markVerificationFailed($link, (string) $tenant->id, $reason);
+        }
     }
 
     protected function loadAndRevalidateUser(Tenant $tenant, SsoTenantHandoff $handoff): ?User

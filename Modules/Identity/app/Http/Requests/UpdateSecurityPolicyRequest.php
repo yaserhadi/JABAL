@@ -11,6 +11,9 @@ class UpdateSecurityPolicyRequest extends FormRequest
         'mfa_grace_period_days',
         'password_policy',
         'session_idle_timeout',
+        'authentication_policy',
+        'mandatory_sso_enrollment',
+        'sso_exception_closure_mode',
     ];
 
     public function authorize(): bool
@@ -32,6 +35,9 @@ class UpdateSecurityPolicyRequest extends FormRequest
             'password_policy.require_number' => ['required_with:password_policy', 'boolean'],
             'password_policy.require_special' => ['required_with:password_policy', 'boolean'],
             'session_idle_timeout' => ['sometimes', 'integer', 'min:-1', 'max:1440'],
+            'authentication_policy' => ['sometimes', 'string', 'in:password,sso,both'],
+            'mandatory_sso_enrollment' => ['sometimes', 'boolean'],
+            'sso_exception_closure_mode' => ['sometimes', 'string', 'in:automatic,manual'],
         ];
     }
 

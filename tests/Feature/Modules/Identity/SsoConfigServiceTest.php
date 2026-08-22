@@ -173,4 +173,27 @@ class SsoConfigServiceTest extends TestCase
         $this->assertStringNotContainsString('client_secret_encrypted', $encoded);
         $this->assertStringContainsString('has_client_secret', $encoded);
     }
+
+    #[Test]
+    public function approved_email_domains_are_normalized_and_copied_to_active_version(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $this->grantSsoAvailable($tenant);
+
+        tenancy()->initialize($tenant);
+        app(SsoConfigService::class)->update($tenant, [
+            'enabled' => true,
+            'issuer_url' => 'https://idp.example.com',
+            'client_id' => 'client-id',
+            'client_secret' => 'secret',
+            'approved_email_domains' => ['@Example.COM', 'contoso.com.', 'example.com'],
+        ]);
+
+        $public = app(SsoConfigService::class)->getForTenant($tenant);
+        $this->assertSame(['example.com', 'contoso.com'], $public['approved_email_domains']);
+
+        $version = app(SsoConfigService::class)->getActiveVersion($tenant);
+        $this->assertSame(['example.com', 'contoso.com'], $version?->approved_email_domains);
+        tenancy()->end();
+    }
 }
