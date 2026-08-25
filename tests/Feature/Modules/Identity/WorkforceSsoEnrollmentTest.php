@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Modules\Identity;
 
+use App\Models\Rbac\TenantPermission as Permission;
+use App\Models\Rbac\TenantRole as Role;
 use App\Models\User;
 use Facile\OpenIDClient\Token\TokenSetInterface;
 use Illuminate\Support\Facades\Mail;
@@ -15,7 +17,6 @@ use Modules\Identity\Models\SsoTenantHandoff;
 use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Models\UserMfa;
 use Modules\Identity\Models\WorkforceSsoEnrollmentInvitation;
-use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
 use Modules\Identity\Services\AuthenticationTransactionService;
 use Modules\Identity\Services\SsoAuthService;
 use Modules\Identity\Services\SsoConfigService;
@@ -23,6 +24,7 @@ use Modules\Identity\Services\WorkforceSsoEnrollmentAssociationService;
 use Modules\Identity\Services\WorkforceSsoEnrollmentInvitationService;
 use Modules\Identity\Support\Sso\SsoAuthorizationResponseParser;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
+use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
 use Modules\Identity\Support\Sso\SsoIdentityResolver;
 use Modules\Identity\Support\Sso\SsoSecretCrypto;
 use Modules\Identity\Support\Sso\SsoValidatedClaims;
@@ -875,5 +877,408 @@ class WorkforceSsoEnrollmentTest extends TestCase
         $this->assertSame($before, $afterCancel, 'cancel retains row; count unchanged');
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
         tenancy()->end();
+    }
+
+    // --- BK-111 Workforce SSO Enrollment Admin UX ---
+
+    #[Test]
+    public function bk111_security_hub_exposes_workforce_enrollment_navigation_for_sso_viewers(): void
+    {
+        $fixture = $this->prepareAdminEnrollmentSurface();
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'GET',
+            'https://'.$fixture['host'].'/security/settings',
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('SecuritySettings/Index')
+            ->where('tenant_ui_permissions.canViewSso', true)
+            ->whereNot('sso', null));
+
+        $vue = file_get_contents(base_path('resources/js/Pages/SecuritySettings/Index.vue'));
+        $this->assertStringContainsString('identity.sso.enrollments.index', $vue);
+        $this->assertStringContainsString('canViewSso', $vue);
+        $this->assertStringContainsString('Workforce SSO enrollments', $vue);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_enrollments_index_denied_without_sso_view(): void
+    {
+        $fixture = $this->prepareAdminEnrollmentSurface(assignAdminRole: false);
+
+        tenancy()->initialize($fixture['tenant']);
+        app(TenantRbacProvisioner::class)->ensureGlobalPermissions();
+        app(TenantRbacProvisioner::class)->ensureRolesForTenant($fixture['tenant']);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($fixture['tenant']->getTenantKey());
+        $guard = config('auth.defaults.guard');
+        $role = Role::firstOrCreate(
+            ['name' => 'member', 'guard_name' => $guard, 'tenant_id' => $fixture['tenant']->id],
+            ['name' => 'member', 'guard_name' => $guard, 'tenant_id' => $fixture['tenant']->id]
+        );
+        if (! $fixture['admin']->hasRole($role)) {
+            $fixture['admin']->assignRole($role);
+        }
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'GET',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $this->assertTrue(in_array($response->status(), [403, 401], true), 'expected deny, got '.$response->status());
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_view_only_can_list_but_cannot_issue_or_cancel(): void
+    {
+        $fixture = $this->prepareAdminEnrollmentSurface(assignAdminRole: false);
+        $this->assignSsoViewOnly($fixture['admin'], $fixture['tenant']);
+
+        $this->actingAs($fixture['admin']);
+        $get = $this->call(
+            'GET',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $get->assertOk();
+        $get->assertInertia(fn ($page) => $page
+            ->component('Security/SsoEnrollment/Index')
+            ->where('tenant_ui_permissions.canViewSso', true)
+            ->where('tenant_ui_permissions.canConfigureSso', false)
+            ->has('enrollmentCandidates')
+            ->has('invitations'));
+
+        $before = WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count();
+        $post = $this->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            [
+                'intended_user_id' => $fixture['target']->id,
+                'delivery_email' => 'view-only@example.invalid',
+            ],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $this->assertSame(403, $post->status());
+        $this->assertSame($before, WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count());
+
+        $vue = file_get_contents(base_path('resources/js/Pages/Security/SsoEnrollment/Index.vue'));
+        $this->assertStringContainsString('v-if="canConfigureSso"', $vue);
+        $this->assertStringContainsString('canConfigureSso && row.pending', $vue);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_enrollment_candidates_are_current_tenant_active_memberships_only(): void
+    {
+        $fixture = $this->prepareAdminEnrollmentSurface();
+
+        // Second tenant + user must not appear in Tenant A candidates
+        $tenantB = Tenant::factory()->create([
+            'slug' => 'enr-b-'.Str::lower(Str::random(8)),
+            'status' => 'active',
+        ]);
+        $this->grantSsoAvailable($tenantB);
+        app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenantB);
+        tenancy()->initialize($tenantB);
+        $userB = User::create([
+            'tenant_id' => $tenantB->id,
+            'name' => 'User B',
+            'email' => 'user-b-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenantB->id,
+            'user_id' => $userB->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        tenancy()->end();
+
+        tenancy()->initialize($fixture['tenant']);
+        // Inactive membership in Tenant A must not appear
+        $inactive = User::create([
+            'tenant_id' => $fixture['tenant']->id,
+            'name' => 'Inactive',
+            'email' => 'inactive-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $fixture['tenant']->id,
+            'user_id' => $inactive->id,
+            'membership_type' => 'member',
+            'status' => 'suspended',
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'GET',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $response->assertOk();
+        $response->assertInertia(function ($page) use ($fixture, $userB, $inactive) {
+            $page->component('Security/SsoEnrollment/Index')
+                ->has('enrollmentCandidates');
+            $candidates = $page->toArray()['props']['enrollmentCandidates'] ?? [];
+            $ids = collect($candidates)->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $this->assertContains((string) $fixture['target']->id, $ids);
+            $this->assertContains((string) $fixture['admin']->id, $ids);
+            $this->assertNotContains((string) $userB->id, $ids);
+            $this->assertNotContains((string) $inactive->id, $ids);
+            foreach ($candidates as $c) {
+                $this->assertArrayHasKey('name', $c);
+                $this->assertArrayHasKey('email', $c);
+                $this->assertMatchesRegularExpression(
+                    '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+                    (string) $c['id']
+                );
+            }
+
+            return $page;
+        });
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_cross_tenant_post_of_foreign_user_uuid_is_rejected(): void
+    {
+        Mail::fake();
+        $fixture = $this->prepareAdminEnrollmentSurface();
+
+        $tenantB = Tenant::factory()->create([
+            'slug' => 'enr-bx-'.Str::lower(Str::random(8)),
+            'status' => 'active',
+        ]);
+        tenancy()->initialize($tenantB);
+        $userB = User::create([
+            'tenant_id' => $tenantB->id,
+            'name' => 'Foreign',
+            'email' => 'foreign-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenantB->id,
+            'user_id' => $userB->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        tenancy()->end();
+
+        tenancy()->initialize($fixture['tenant']);
+        $before = WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count();
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            [
+                'intended_user_id' => $userB->id,
+                'delivery_email' => 'cross-tenant@example.invalid',
+            ],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $this->assertTrue(in_array($response->status(), [404, 422, 403], true), 'expected reject, got '.$response->status());
+        $this->assertSame($before, WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count());
+        Mail::assertNothingSent();
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_email_is_not_accepted_as_intended_user_id(): void
+    {
+        Mail::fake();
+        $fixture = $this->prepareAdminEnrollmentSurface();
+        $before = WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count();
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->from('https://'.$fixture['host'].'/security/sso/enrollments')->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            [
+                'intended_user_id' => $fixture['target']->email,
+                'delivery_email' => 'notify@example.invalid',
+            ],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $response->assertSessionHasErrors('intended_user_id');
+        $this->assertSame($before, WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count());
+        Mail::assertNothingSent();
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_picker_selected_uuid_issues_invitation_and_preserves_delivery_email(): void
+    {
+        Mail::fake();
+        $fixture = $this->prepareAdminEnrollmentSurface();
+        $before = WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count();
+        $delivery = 'bk111-delivery-'.uniqid().'@example.invalid';
+
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            [
+                'intended_user_id' => $fixture['target']->id,
+                'delivery_email' => $delivery,
+            ],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $this->assertTrue(in_array($response->status(), [302, 303], true), 'expected redirect, got '.$response->status());
+        $this->assertSame($before + 1, WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count());
+
+        $created = WorkforceSsoEnrollmentInvitation::query()
+            ->where('tenant_id', $fixture['tenant']->id)
+            ->where('intended_user_id', $fixture['target']->id)
+            ->orderByDesc('created_at')
+            ->first();
+        $this->assertNotNull($created);
+        $this->assertSame(strtolower($delivery), $created->delivery_email);
+
+        Mail::assertSent(WorkforceSsoEnrollmentInvitationMail::class, 1);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    #[Test]
+    public function bk111_domain_rejects_user_without_active_membership(): void
+    {
+        Mail::fake();
+        $fixture = $this->prepareAdminEnrollmentSurface();
+
+        $orphan = User::create([
+            'tenant_id' => $fixture['tenant']->id,
+            'name' => 'Orphan',
+            'email' => 'orphan-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        // No active membership row
+
+        $before = WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count();
+        $this->actingAs($fixture['admin']);
+        $response = $this->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollments',
+            [
+                'intended_user_id' => $orphan->id,
+                'delivery_email' => 'orphan-delivery@example.invalid',
+            ],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+        $this->assertTrue(in_array($response->status(), [404, 422], true), 'expected domain reject, got '.$response->status());
+        $this->assertSame($before, WorkforceSsoEnrollmentInvitation::query()->where('tenant_id', $fixture['tenant']->id)->count());
+        Mail::assertNothingSent();
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        tenancy()->end();
+    }
+
+    /**
+     * @return array{tenant: Tenant, admin: User, target: User, host: string}
+     */
+    protected function prepareAdminEnrollmentSurface(bool $assignAdminRole = true): array
+    {
+        $tenant = Tenant::factory()->create([
+            'slug' => 'enr-ux-'.Str::lower(Str::random(8)),
+            'status' => 'active',
+        ]);
+        $this->grantSsoAvailable($tenant);
+        app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+        $host = $tenant->slug.'.jabal.test';
+
+        tenancy()->initialize($tenant);
+
+        $admin = User::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Admin UX',
+            'email' => 'admin-ux-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $admin->id,
+            'membership_type' => 'owner',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $target = User::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Target UX',
+            'email' => 'target-ux-'.uniqid().'@example.com',
+            'password' => 'password',
+        ]);
+        Membership::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $target->id,
+            'membership_type' => 'member',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        app(SsoConfigService::class)->update($tenant, [
+            'enabled' => true,
+            'issuer_url' => $this->issuer,
+            'client_id' => 'client-id',
+            'client_secret' => 'client-secret',
+            'redirect_uri' => 'https://auth.jabal.test/auth/enterprise-sso/callback',
+            'approved_email_domains' => ['example.com'],
+        ]);
+
+        app(TenantRbacProvisioner::class)->ensureGlobalPermissions();
+        app(TenantRbacProvisioner::class)->ensureRolesForTenant($tenant);
+        if ($assignAdminRole) {
+            app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+            app(TenantRbacProvisioner::class)->assignTenantAdminRole($admin, $tenant);
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+        }
+
+        return [
+            'tenant' => $tenant->fresh(),
+            'admin' => $admin,
+            'target' => $target,
+            'host' => $host,
+        ];
+    }
+
+    protected function assignSsoViewOnly(User $user, Tenant $tenant): void
+    {
+        app(TenantRbacProvisioner::class)->ensureGlobalPermissions();
+        app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
+        $guard = config('auth.defaults.guard');
+        $role = Role::firstOrCreate(
+            ['name' => 'sso-viewer-bk111', 'guard_name' => $guard, 'tenant_id' => $tenant->id],
+            ['name' => 'sso-viewer-bk111', 'guard_name' => $guard, 'tenant_id' => $tenant->id]
+        );
+        $view = Permission::findByName('tenant.sso.view', $guard);
+        if ($view && ! $role->hasPermissionTo($view)) {
+            $role->givePermissionTo($view);
+        }
+        if (! $user->hasRole($role)) {
+            $user->assignRole($role);
+        }
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

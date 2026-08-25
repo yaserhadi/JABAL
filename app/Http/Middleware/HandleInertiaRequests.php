@@ -74,7 +74,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool, canViewSecurityPolicies: bool, canUpdateSecurityPolicies: bool, canViewSso: bool, canUpdateSso: bool, ssoEntitlementAvailable: bool}
+     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool, canViewSecurityPolicies: bool, canUpdateSecurityPolicies: bool, canViewSso: bool, canUpdateSso: bool, canConfigureSso: bool, ssoEntitlementAvailable: bool}
      */
     protected function sharedTenantUiPermissions(Request $request): array
     {
@@ -86,6 +86,7 @@ class HandleInertiaRequests extends Middleware
             'canUpdateSecurityPolicies' => false,
             'canViewSso' => false,
             'canUpdateSso' => false,
+            'canConfigureSso' => false,
             'ssoEntitlementAvailable' => false,
         ];
         $user = $request->user('web');
@@ -110,6 +111,7 @@ class HandleInertiaRequests extends Middleware
                 'canUpdateSecurityPolicies' => $user->can('tenant.security-policy.update'),
                 'canViewSso' => $user->can('tenant.sso.view'),
                 'canUpdateSso' => $user->can('tenant.sso.update'),
+                'canConfigureSso' => $user->can('tenant.sso.configure'),
                 'ssoEntitlementAvailable' => $featureGate->isSsoAvailable($tenant),
             ];
         } finally {
