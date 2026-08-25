@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
+use App\Models\User;
 use Facile\OpenIDClient\Token\TokenSetInterface;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -17,7 +17,6 @@ use Modules\Identity\Models\SsoTenantHandoff;
 use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Models\UserMfa;
 use Modules\Identity\Models\WorkforceSsoEnrollmentInvitation;
-use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
 use Modules\Identity\Services\AuthenticationTransactionService;
 use Modules\Identity\Services\SsoAuthService;
 use Modules\Identity\Services\SsoConfigService;
@@ -25,6 +24,7 @@ use Modules\Identity\Services\WorkforceSsoEnrollmentAssociationService;
 use Modules\Identity\Services\WorkforceSsoEnrollmentInvitationService;
 use Modules\Identity\Support\Sso\SsoAuthorizationResponseParser;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
+use Modules\Identity\Support\Sso\SsoFirstLinkAssurance;
 use Modules\Identity\Support\Sso\SsoIdentityResolver;
 use Modules\Identity\Support\Sso\SsoSecretCrypto;
 use Modules\Identity\Support\Sso\SsoValidatedClaims;
