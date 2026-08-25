@@ -202,6 +202,16 @@
                                 You can view SSO settings but cannot change them.
                             </v-alert>
                         </v-form>
+
+                        <v-btn
+                            v-if="tenant_ui_permissions?.canViewSso"
+                            class="mt-4"
+                            color="secondary"
+                            variant="outlined"
+                            @click="visitWorkforceEnrollments"
+                        >
+                            Workforce SSO enrollments
+                        </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -465,6 +475,13 @@ function revokeOtherSessions() {
 
 function visitEnroll() {
     router.visit(route('identity.mfa.enroll', tenantRouteParams(props.tenant)));
+}
+
+function visitWorkforceEnrollments() {
+    if (!tenant_ui_permissions.value?.canViewSso) {
+        return;
+    }
+    router.visit(route('identity.sso.enrollments.index', tenantRouteParams(props.tenant)));
 }
 
 function formatDate(iso) {

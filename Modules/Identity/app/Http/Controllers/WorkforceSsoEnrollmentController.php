@@ -57,8 +57,26 @@ class WorkforceSsoEnrollmentController extends Controller
                 'pending' => $inv->isPending(),
             ]);
 
+        // UX candidates only (current-Tenant active memberships). Eligibility authority remains store + createInvitation.
+        $enrollmentCandidates = Membership::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('status', 'active')
+            ->with(['user' => fn ($q) => $q->withoutGlobalScope('tenant')])
+            ->orderBy('joined_at')
+            ->limit(500)
+            ->get()
+            ->filter(fn (Membership $m) => $m->user !== null && (string) $m->user->tenant_id === (string) $tenant->id)
+            ->map(fn (Membership $m) => [
+                'id' => (string) $m->user->id,
+                'name' => (string) ($m->user->name ?? ''),
+                'email' => (string) ($m->user->email ?? ''),
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('Security/SsoEnrollment/Index', [
             'invitations' => $rows,
+            'enrollmentCandidates' => $enrollmentCandidates,
         ]);
     }
 
