@@ -14,15 +14,17 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    $resolver = app(TenantEntryUrlResolver::class);
+
     if (auth('web')->check()) {
         $user = auth('web')->user();
         $homeTenant = $user->homeTenant();
         if ($homeTenant) {
-            return redirect()->to(app(TenantEntryUrlResolver::class)->dashboardUrl($homeTenant));
+            return redirect()->to($resolver->dashboardUrl($homeTenant));
         }
 
-        return redirect()->route('login');
+        return redirect()->to($resolver->guestRedirectUrl(request()));
     }
 
-    return redirect()->route('login');
+    return redirect()->to($resolver->guestRedirectUrl(request()));
 });

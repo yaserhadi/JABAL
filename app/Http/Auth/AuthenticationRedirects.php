@@ -66,6 +66,6 @@ final class AuthenticationRedirects
             $request->session()->regenerateToken();
         }
 
-        return route('login');
+        return app(TenantEntryUrlResolver::class)->guestRedirectUrl($request);
     }
 }

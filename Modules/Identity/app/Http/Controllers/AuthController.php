@@ -223,9 +223,11 @@ class AuthController extends Controller
         }
 
         $secure = $request->isSecure();
-        $response = $tip instanceof Tenant
-            ? redirect()->to($resolver->loginUrl($tip))
-            : redirect()->route('login');
+        $response = redirect()->to(
+            $tip instanceof Tenant
+                ? $resolver->loginUrl($tip)
+                : $resolver->guestRedirectUrl($request)
+        );
 
         return $response
             ->withCookie(\Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::clear(

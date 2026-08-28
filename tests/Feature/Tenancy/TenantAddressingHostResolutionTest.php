@@ -118,6 +118,42 @@ class TenantAddressingHostResolutionTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_tenant_host_root_redirects_to_same_host_tenant_login(): void
+    {
+        $tenant = Tenant::factory()->create(['slug' => 'acme', 'status' => 'active']);
+        app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+
+        if (tenancy()->initialized) {
+            tenancy()->end();
+        }
+
+        $expectedLogin = app(\App\Http\Auth\TenantEntryUrlResolver::class)->loginUrl($tenant);
+
+        $response = $this->call(
+            'GET',
+            'http://acme.jabal.test/',
+            server: [
+                'HTTP_HOST' => 'acme.jabal.test',
+                'SERVER_NAME' => 'acme.jabal.test',
+            ]
+        );
+
+        $response->assertRedirect($expectedLogin);
+        $location = (string) $response->headers->get('Location');
+        $this->assertSame('acme.jabal.test', parse_url($location, PHP_URL_HOST));
+        $this->assertNotSame(route('login'), $location);
+    }
+
+    public function test_tenant_host_has_no_register_route(): void
+    {
+        $tenant = Tenant::factory()->create(['slug' => 'noreg', 'status' => 'active']);
+        app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
+
+        $this->withServerVariables(['HTTP_HOST' => 'noreg.jabal.test'])
+            ->get('http://noreg.jabal.test/register')
+            ->assertNotFound();
+    }
+
     public function test_platform_host_login_is_discovery_not_tenant(): void
     {
         $this->withServerVariables(['HTTP_HOST' => 'platform.jabal.test'])

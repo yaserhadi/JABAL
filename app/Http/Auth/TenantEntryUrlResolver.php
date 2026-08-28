@@ -155,6 +155,10 @@ final class TenantEntryUrlResolver
 
         $tenant = $this->resolveTenantForRedirect($request);
 
+        if ($tenant === null) {
+            $tenant = $this->tenantFromHostLabel($request);
+        }
+
         if ($tenant !== null) {
             if ($this->isActiveForTenantLogin($tenant)) {
                 $this->rememberIntended($request, $tenant);
@@ -164,6 +168,15 @@ final class TenantEntryUrlResolver
 
             // Inactive/suspended: do not send to central discovery; same path as visiting tenant login.
             return $this->loginUrl($tenant);
+        }
+
+        if ($this->addressing->isHost()) {
+            $label = $this->hostLabelFromTenantCandidateRequest($request);
+            if ($label !== null) {
+                return $this->addressing->absoluteOriginForHost(
+                    $this->addressing->tenantHostFqdn($label)
+                ).'/login';
+            }
         }
 
         return route('login');
@@ -308,5 +321,47 @@ final class TenantEntryUrlResolver
         }
 
         return Tenant::query()->where('slug', $key)->first();
+    }
+
+    private function tenantFromHostLabel(Request $request): ?Tenant
+    {
+        $label = $this->hostLabelFromTenantCandidateRequest($request);
+        if ($label === null) {
+            return null;
+        }
+
+        return $this->findTenantByKey($label);
+    }
+
+    private function hostLabelFromTenantCandidateRequest(Request $request): ?string
+    {
+        if (! $this->addressing->isHost()) {
+            return null;
+        }
+
+        $class = \App\Http\Middleware\RequestHostClassifier::classOf($request)
+            ?? app(\App\Http\Middleware\RequestHostClassifier::class)->classify($request);
+
+        if ($class !== \App\Http\Middleware\RequestHostClassifier::CLASS_TENANT_CANDIDATE) {
+            return null;
+        }
+
+        $host = strtolower($request->getHost());
+        $base = strtolower($this->addressing->platformBaseDomain());
+        if ($base === '') {
+            return null;
+        }
+
+        $suffix = '.'.$base;
+        if (! str_ends_with($host, $suffix)) {
+            return null;
+        }
+
+        $label = substr($host, 0, -strlen($suffix));
+        if ($label === '' || str_contains($label, '.')) {
+            return null;
+        }
+
+        return $label;
     }
 }

@@ -78,15 +78,6 @@
                                     </v-btn>
                                 </v-form>
                             </v-card-text>
-                            <v-card-actions class="justify-center">
-                                <v-btn
-                                    text
-                                    :href="route('login')"
-                                    variant="text"
-                                >
-                                    Back to workspace finder
-                                </v-btn>
-                            </v-card-actions>
                         </v-card>
                     </v-col>
                 </v-row>
