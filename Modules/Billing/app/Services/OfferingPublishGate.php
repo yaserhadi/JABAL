@@ -3,99 +3,166 @@
 namespace Modules\Billing\Services;
 
 use Modules\Billing\Exceptions\OfferingPublishBlockedException;
+use Modules\Billing\Exceptions\OfferingPublishOverrideRequiredException;
 use Modules\Billing\Models\Capability;
 use Modules\Billing\Models\Offering;
 use Modules\Billing\Models\Plan;
 use Modules\Tenancy\Models\SetupDefinition;
 
 /**
- * BK-115 PR-04: Authoritative Offering publish HARD BLOCK (Frozen PR §10.1–10.2).
+ * BK-115 PR-04: Offering publish decision support at the domain boundary.
  *
- * Domain boundary — all transitions to published must pass assertMayPublish.
+ * Completeness → warnings / NOT RECOMMENDED / explicit override allowed.
+ * Integrity → non-overridable ONLY when publication would create an invalid Product graph.
+ *
  * Does not invent channel taxonomy. Localization applies only when locales are claimed.
  */
 class OfferingPublishGate
 {
+    /** Request/process-scoped so ProductCatalogService and Eloquent hooks share one context. */
+    private static bool $explicitOverrideActive = false;
+
+    public function beginPublish(bool $explicitOverride = false): void
+    {
+        self::$explicitOverrideActive = $explicitOverride;
+    }
+
+    public function endPublish(): void
+    {
+        self::$explicitOverrideActive = false;
+    }
+
+    public function isExplicitOverrideActive(): bool
+    {
+        return self::$explicitOverrideActive;
+    }
+
     /**
+     * @return array{
+     *   integrity: list<array{lane: string, code: string, message: string}>,
+     *   warnings: list<array{lane: string, code: string, message: string}>,
+     *   complete: bool,
+     *   recommended: bool
+     * }
+     */
+    public function evaluateReport(Offering $offering): array
+    {
+        $offering->loadMissing(['product', 'plan.entitlements', 'capabilities']);
+
+        $integrity = $this->integrityFailures($offering);
+        $warnings = [];
+        $warnings = array_merge($warnings, $this->commercialWarnings($offering));
+        $warnings = array_merge($warnings, $this->technicalWarnings($offering));
+        $warnings = array_merge($warnings, $this->localizationWarnings($offering));
+        $warnings = array_merge($warnings, $this->blockingCapabilityWarnings($offering));
+
+        $complete = $integrity === [] && $warnings === [];
+
+        return [
+            'integrity' => $integrity,
+            'warnings' => $warnings,
+            'complete' => $complete,
+            'recommended' => $complete,
+        ];
+    }
+
+    /**
+     * Backward-compatible flat list: integrity first, then completeness warnings.
+     *
      * @return list<array{lane: string, code: string, message: string}>
      */
     public function evaluate(Offering $offering): array
     {
-        $offering->loadMissing(['product', 'plan.entitlements', 'capabilities']);
+        $report = $this->evaluateReport($offering);
 
-        $failures = [];
-
-        $failures = array_merge($failures, $this->commercialFailures($offering));
-        $failures = array_merge($failures, $this->technicalFailures($offering));
-        $failures = array_merge($failures, $this->localizationFailures($offering));
-        $failures = array_merge($failures, $this->blockingCapabilityFailures($offering));
-
-        return $failures;
+        return array_merge($report['integrity'], $report['warnings']);
     }
 
-    public function assertMayPublish(Offering $offering): void
+    /**
+     * Enforce publish contract for the active publish context (see beginPublish).
+     */
+    public function assertMayPublish(Offering $offering, ?bool $explicitOverride = null): void
     {
-        $failures = $this->evaluate($offering);
-        if ($failures !== []) {
-            throw OfferingPublishBlockedException::fromFailures($failures);
+        $override = $explicitOverride ?? self::$explicitOverrideActive;
+        $report = $this->evaluateReport($offering);
+
+        if ($report['integrity'] !== []) {
+            throw OfferingPublishBlockedException::fromFailures($report['integrity']);
         }
+
+        if ($report['warnings'] !== [] && ! $override) {
+            throw OfferingPublishOverrideRequiredException::fromWarnings($report['warnings']);
+        }
+    }
+
+    /**
+     * Structural only: Product FK/graph required for a coherent Offering.
+     * Evidence: WAVE-6 offerings.product_id → products (CASCADE); capability evaluation assumes Product.
+     *
+     * @return list<array{lane: string, code: string, message: string}>
+     */
+    protected function integrityFailures(Offering $offering): array
+    {
+        if (! $offering->product_id || ! $offering->product) {
+            return [[
+                'lane' => 'integrity',
+                'code' => 'integrity_product_missing',
+                'message' => 'Offering must reference an existing Product; publication without Product is structurally invalid.',
+            ]];
+        }
+
+        return [];
     }
 
     /**
      * @return list<array{lane: string, code: string, message: string}>
      */
-    protected function commercialFailures(Offering $offering): array
+    protected function commercialWarnings(Offering $offering): array
     {
-        $failures = [];
+        $warnings = [];
 
         if (! filled($offering->code) || ! filled($offering->name)) {
-            $failures[] = [
+            $warnings[] = [
                 'lane' => 'commercial',
                 'code' => 'commercial_identity_incomplete',
-                'message' => 'Offering code and name are required for Commercial Completeness.',
+                'message' => 'Offering code and name are incomplete for Commercial Completeness.',
             ];
         }
 
-        if (! $offering->product_id || ! $offering->product) {
-            $failures[] = [
-                'lane' => 'commercial',
-                'code' => 'commercial_product_missing',
-                'message' => 'Offering must reference an existing Product.',
-            ];
-        } elseif (! $offering->product->is_active) {
-            $failures[] = [
+        if ($offering->product && ! $offering->product->is_active) {
+            $warnings[] = [
                 'lane' => 'commercial',
                 'code' => 'commercial_product_inactive',
-                'message' => 'Offering Product must be active.',
+                'message' => 'Offering Product is inactive (not recommended).',
             ];
         }
 
         if (! $offering->plan_id || ! $offering->plan) {
-            $failures[] = [
+            $warnings[] = [
                 'lane' => 'commercial',
                 'code' => 'commercial_plan_missing',
-                'message' => 'Offering must reference an existing Plan (sellable commercial definition).',
+                'message' => 'Offering has no Plan (sellable commercial definition incomplete).',
             ];
         } elseif (! $offering->plan->is_active) {
-            $failures[] = [
+            $warnings[] = [
                 'lane' => 'commercial',
                 'code' => 'commercial_plan_inactive',
-                'message' => 'Offering Plan must be active.',
+                'message' => 'Offering Plan is inactive (not recommended).',
             ];
         }
 
-        return $failures;
+        return $warnings;
     }
 
     /**
      * @return list<array{lane: string, code: string, message: string}>
      */
-    protected function technicalFailures(Offering $offering): array
+    protected function technicalWarnings(Offering $offering): array
     {
-        $failures = [];
+        $warnings = [];
         $product = $offering->product;
         if (! $product) {
-            return $failures;
+            return $warnings;
         }
 
         $productCapIds = $product->capabilities()->pluck('capabilities.id')->all();
@@ -103,14 +170,14 @@ class OfferingPublishGate
 
         foreach ($included as $cap) {
             if (! $cap->is_active) {
-                $failures[] = [
+                $warnings[] = [
                     'lane' => 'technical',
                     'code' => 'technical_capability_inactive',
                     'message' => "Included Capability [{$cap->code}] is inactive.",
                 ];
             }
             if (! in_array($cap->id, $productCapIds, true)) {
-                $failures[] = [
+                $warnings[] = [
                     'lane' => 'technical',
                     'code' => 'technical_capability_not_on_product',
                     'message' => "Included Capability [{$cap->code}] is not attached to the Offering Product.",
@@ -131,7 +198,7 @@ class OfferingPublishGate
                         continue;
                     }
                     if (! in_array($need, $includedCodes, true)) {
-                        $failures[] = [
+                        $warnings[] = [
                             'lane' => 'technical',
                             'code' => 'technical_capability_dependency_unmet',
                             'message' => "Capability [{$capCode}] requires [{$need}] which is not included on the Offering.",
@@ -141,15 +208,13 @@ class OfferingPublishGate
             }
         }
 
-        return $failures;
+        return $warnings;
     }
 
     /**
-     * Localization Completeness applies only to locales the Offering claims to support.
-     *
      * @return list<array{lane: string, code: string, message: string}>
      */
-    protected function localizationFailures(Offering $offering): array
+    protected function localizationWarnings(Offering $offering): array
     {
         $meta = is_array($offering->metadata) ? $offering->metadata : [];
         $claimed = $meta['claimed_locales'] ?? $meta['supported_locales'] ?? null;
@@ -162,14 +227,14 @@ class OfferingPublishGate
             $completeness = [];
         }
 
-        $failures = [];
+        $warnings = [];
         foreach ($claimed as $locale) {
             if (! is_string($locale) || $locale === '') {
                 continue;
             }
             $ok = $completeness[$locale] ?? false;
             if ($ok !== true && $ok !== 'complete') {
-                $failures[] = [
+                $warnings[] = [
                     'lane' => 'localization',
                     'code' => 'localization_claimed_locale_incomplete',
                     'message' => "Claimed locale [{$locale}] is not marked complete in Offering metadata.",
@@ -177,20 +242,17 @@ class OfferingPublishGate
             }
         }
 
-        return $failures;
+        return $warnings;
     }
 
     /**
-     * Product Blocking Capability unavailable on Plan/Offering → BLOCK PUBLISH (Frozen §10.2).
-     *
-     * Uses active Setup Definitions of type blocking with a capability_code
-     * (Product Setup Definition → Capability link already in WAVE-6).
+     * Blocking Capability packaging gaps are completeness warnings (overridable), not integrity.
      *
      * @return list<array{lane: string, code: string, message: string}>
      */
-    protected function blockingCapabilityFailures(Offering $offering): array
+    protected function blockingCapabilityWarnings(Offering $offering): array
     {
-        $failures = [];
+        $warnings = [];
         $plan = $offering->plan;
         $includedCodes = $offering->capabilities
             ->filter(fn (Capability $c) => (bool) ($c->pivot->included ?? true))
@@ -207,7 +269,7 @@ class OfferingPublishGate
         foreach ($blockingDefs as $def) {
             $capCode = (string) $def->capability_code;
             if (! in_array($capCode, $includedCodes, true)) {
-                $failures[] = [
+                $warnings[] = [
                     'lane' => 'blocking_capability',
                     'code' => 'blocking_capability_not_on_offering',
                     'message' => "Blocking Capability [{$capCode}] (setup [{$def->code}]) is not included on the Offering.",
@@ -223,10 +285,10 @@ class OfferingPublishGate
             }
 
             if (! $plan instanceof Plan) {
-                $failures[] = [
+                $warnings[] = [
                     'lane' => 'blocking_capability',
                     'code' => 'blocking_capability_plan_missing',
-                    'message' => "Blocking Capability [{$capCode}] requires Plan entitlement [{$entitlement}] but Offering has no Plan.",
+                    'message' => "Blocking Capability [{$capCode}] expects Plan entitlement [{$entitlement}] but Offering has no Plan.",
                 ];
 
                 continue;
@@ -238,14 +300,14 @@ class OfferingPublishGate
                 ->isNotEmpty();
 
             if (! $hasEnt) {
-                $failures[] = [
+                $warnings[] = [
                     'lane' => 'blocking_capability',
                     'code' => 'blocking_capability_unavailable_in_plan',
-                    'message' => "Blocking Capability [{$capCode}] requires entitlement [{$entitlement}] which is unavailable on Plan [{$plan->code}].",
+                    'message' => "Blocking Capability [{$capCode}] expects entitlement [{$entitlement}] which is unavailable on Plan [{$plan->code}].",
                 ];
             }
         }
 
-        return $failures;
+        return $warnings;
     }
 }

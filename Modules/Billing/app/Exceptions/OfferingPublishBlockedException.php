@@ -4,20 +4,25 @@ namespace Modules\Billing\Exceptions;
 
 use RuntimeException;
 
+/**
+ * BK-115 PR-04: Non-overridable structural/integrity publish denial.
+ *
+ * @phpstan-type Failure array{lane: string, code: string, message: string}
+ */
 class OfferingPublishBlockedException extends RuntimeException
 {
     /**
-     * @param  list<array{lane: string, code: string, message: string}>  $failures
+     * @param  list<Failure>  $failures
      */
     public function __construct(
         public readonly array $failures,
-        string $message = 'Offering publish HARD BLOCKED due to incomplete or invalid publish completeness.',
+        string $message = 'Offering publish blocked by structural integrity constraints.',
     ) {
         parent::__construct($message);
     }
 
     /**
-     * @param  list<array{lane: string, code: string, message: string}>  $failures
+     * @param  list<Failure>  $failures
      */
     public static function fromFailures(array $failures): self
     {
@@ -26,6 +31,6 @@ class OfferingPublishBlockedException extends RuntimeException
             $failures
         ));
 
-        return new self($failures, 'Offering publish HARD BLOCKED: '.$summary);
+        return new self($failures, 'Offering publish INTEGRITY BLOCKED: '.$summary);
     }
 }

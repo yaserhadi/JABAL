@@ -9,10 +9,11 @@ use Modules\Billing\Models\Offering;
 use Modules\Billing\Models\Plan;
 use Modules\Billing\Models\Product;
 use Modules\Tenancy\Models\Tenant;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * WAVE-6 GAP-001 catalog bootstrap + offering assignment (no payment).
- * BK-115 PR-04: publish transitions go through OfferingPublishGate (HARD BLOCK).
+ * BK-115 PR-04: publish via OfferingPublishGate — completeness warnings + explicit override.
  */
 class ProductCatalogService
 {
@@ -66,7 +67,6 @@ class ProductCatalogService
                 ]
             );
 
-            // Ensure commercial identity fields present for republish paths.
             $offering->fill([
                 'name' => $offering->name ?: 'Jabal Standard',
                 'product_id' => $offering->product_id ?: $product->id,
@@ -86,8 +86,13 @@ class ProductCatalogService
             if ($offering->status !== Offering::STATUS_PUBLISHED) {
                 $this->publish($offering);
             } else {
-                // Already published: re-assert gate so invalid drift cannot remain silent.
-                $this->publishGate->assertMayPublish($offering->fresh(['product', 'plan.entitlements', 'capabilities']));
+                // Bootstrap drift: integrity only — do not treat completeness warnings as fatal.
+                $report = $this->publishGate->evaluateReport(
+                    $offering->fresh(['product', 'plan.entitlements', 'capabilities'])
+                );
+                if ($report['integrity'] !== []) {
+                    $this->publishGate->assertMayPublish($offering);
+                }
             }
 
             return $offering->fresh(['product', 'capabilities', 'plan']);
@@ -95,29 +100,62 @@ class ProductCatalogService
     }
 
     /**
-     * Authoritative publish transition — HARD BLOCK via OfferingPublishGate.
+     * Authoritative publish transition.
+     *
+     * Complete → normal publish.
+     * Incomplete → requires explicitOverride + auditable actor (Publish Anyway).
      */
-    public function publish(Offering $offering): Offering
-    {
+    public function publish(
+        Offering $offering,
+        bool $explicitOverride = false,
+        ?string $actorId = null,
+        ?string $overrideReason = null,
+    ): Offering {
         $offering->loadMissing(['product', 'plan.entitlements', 'capabilities']);
-        $this->publishGate->assertMayPublish($offering);
+        $report = $this->publishGate->evaluateReport($offering);
 
-        if ($offering->status === Offering::STATUS_PUBLISHED) {
-            return $offering;
+        if ($explicitOverride && $report['warnings'] !== []) {
+            if (! filled($actorId)) {
+                throw new AccessDeniedHttpException(
+                    'Explicit Publish Anyway requires an auditable authorized actor_id.'
+                );
+            }
+            $this->assertOverrideCallerAuthorized();
         }
 
-        $before = $offering->status;
-        $offering->status = Offering::STATUS_PUBLISHED;
-        $offering->save();
+        $this->publishGate->beginPublish($explicitOverride);
+        try {
+            $this->publishGate->assertMayPublish($offering);
 
-        $this->audit->log('offering.published', [
-            'auditable_type' => Offering::class,
-            'auditable_id' => $offering->id,
-            'old_values' => ['status' => $before],
-            'new_values' => ['status' => Offering::STATUS_PUBLISHED],
-        ]);
+            if ($offering->status === Offering::STATUS_PUBLISHED) {
+                return $offering;
+            }
 
-        return $offering->fresh(['product', 'capabilities', 'plan']);
+            $before = $offering->status;
+            $offering->status = Offering::STATUS_PUBLISHED;
+            $offering->save();
+
+            $usedOverride = $explicitOverride && $report['warnings'] !== [];
+
+            $this->audit->log($usedOverride ? 'offering.published_with_override' : 'offering.published', [
+                'actor_id' => $actorId,
+                'auditable_type' => Offering::class,
+                'auditable_id' => $offering->id,
+                'old_values' => ['status' => $before],
+                'new_values' => ['status' => Offering::STATUS_PUBLISHED],
+                'metadata' => [
+                    'explicit_override' => $usedOverride,
+                    'not_recommended' => $report['warnings'] !== [],
+                    'recommended' => $report['recommended'],
+                    'completeness_warnings' => $report['warnings'],
+                    'override_reason' => $usedOverride ? $overrideReason : null,
+                ],
+            ]);
+
+            return $offering->fresh(['product', 'capabilities', 'plan']);
+        } finally {
+            $this->publishGate->endPublish();
+        }
     }
 
     public function assignOfferingToTenant(Tenant $tenant, Offering $offering, ?string $actorId = null): Tenant
@@ -139,5 +177,29 @@ class ProductCatalogService
         ]);
 
         return $tenant->fresh();
+    }
+
+    /**
+     * When a Platform user is authenticated, require existing billing manage permission.
+     * Seed/system callers with no platform auth may proceed when actor_id is supplied.
+     */
+    protected function assertOverrideCallerAuthorized(): void
+    {
+        $platformUser = auth('platform')->user();
+        if ($platformUser === null) {
+            return;
+        }
+
+        if (! method_exists($platformUser, 'hasPlatformPermission')
+            || ! $platformUser->hasPlatformPermission('platform.billing.manage')) {
+            // Fallback: Spatie-style can() if present on platform user model.
+            if (method_exists($platformUser, 'can') && $platformUser->can('platform.billing.manage')) {
+                return;
+            }
+
+            throw new AccessDeniedHttpException(
+                'Explicit Publish Anyway requires platform.billing.manage (existing Platform billing boundary).'
+            );
+        }
     }
 }

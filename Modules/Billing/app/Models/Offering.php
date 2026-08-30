@@ -50,12 +50,16 @@ class Offering extends Model
             if ($offering->getOriginal('status') === self::STATUS_PUBLISHED) {
                 return;
             }
-            app(OfferingPublishGate::class)->assertMayPublish($offering);
+            $gate = app(OfferingPublishGate::class);
+            // Model writes inherit active override context from ProductCatalogService::publish;
+            // bare status flips never get silent incomplete publish.
+            $gate->assertMayPublish($offering, $gate->isExplicitOverrideActive());
         });
 
         static::creating(function (Offering $offering): void {
             if ($offering->status === self::STATUS_PUBLISHED) {
-                app(OfferingPublishGate::class)->assertMayPublish($offering);
+                $gate = app(OfferingPublishGate::class);
+                $gate->assertMayPublish($offering, $gate->isExplicitOverrideActive());
             }
         });
     }
