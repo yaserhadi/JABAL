@@ -12,11 +12,13 @@ use Modules\Tenancy\Models\Tenant;
 
 /**
  * WAVE-6 GAP-001 catalog bootstrap + offering assignment (no payment).
+ * BK-115 PR-04: publish transitions go through OfferingPublishGate (HARD BLOCK).
  */
 class ProductCatalogService
 {
     public function __construct(
-        private readonly AuditLoggerInterface $audit
+        private readonly AuditLoggerInterface $audit,
+        private readonly OfferingPublishGate $publishGate,
     ) {}
 
     public function ensureDefaultCatalog(): Offering
@@ -58,21 +60,20 @@ class ProductCatalogService
                     'name' => 'Jabal Standard',
                     'product_id' => $product->id,
                     'plan_id' => $plan?->id,
-                    'status' => Offering::STATUS_PUBLISHED,
+                    'status' => Offering::STATUS_DRAFT,
                     'version' => 1,
                     'metadata' => ['source' => 'wave6'],
                 ]
             );
 
-            if ($offering->status !== Offering::STATUS_PUBLISHED) {
-                $before = $offering->status;
-                $offering->update(['status' => Offering::STATUS_PUBLISHED]);
-                $this->audit->log('offering.published', [
-                    'auditable_type' => Offering::class,
-                    'auditable_id' => $offering->id,
-                    'old_values' => ['status' => $before],
-                    'new_values' => ['status' => Offering::STATUS_PUBLISHED],
-                ]);
+            // Ensure commercial identity fields present for republish paths.
+            $offering->fill([
+                'name' => $offering->name ?: 'Jabal Standard',
+                'product_id' => $offering->product_id ?: $product->id,
+                'plan_id' => $offering->plan_id ?: $plan?->id,
+            ]);
+            if ($offering->isDirty()) {
+                $offering->save();
             }
 
             $sync = [];
@@ -80,9 +81,43 @@ class ProductCatalogService
                 $sync[$cap->id] = ['included' => true];
             }
             $offering->capabilities()->sync($sync);
+            $offering->refresh();
+
+            if ($offering->status !== Offering::STATUS_PUBLISHED) {
+                $this->publish($offering);
+            } else {
+                // Already published: re-assert gate so invalid drift cannot remain silent.
+                $this->publishGate->assertMayPublish($offering->fresh(['product', 'plan.entitlements', 'capabilities']));
+            }
 
             return $offering->fresh(['product', 'capabilities', 'plan']);
         });
+    }
+
+    /**
+     * Authoritative publish transition — HARD BLOCK via OfferingPublishGate.
+     */
+    public function publish(Offering $offering): Offering
+    {
+        $offering->loadMissing(['product', 'plan.entitlements', 'capabilities']);
+        $this->publishGate->assertMayPublish($offering);
+
+        if ($offering->status === Offering::STATUS_PUBLISHED) {
+            return $offering;
+        }
+
+        $before = $offering->status;
+        $offering->status = Offering::STATUS_PUBLISHED;
+        $offering->save();
+
+        $this->audit->log('offering.published', [
+            'auditable_type' => Offering::class,
+            'auditable_id' => $offering->id,
+            'old_values' => ['status' => $before],
+            'new_values' => ['status' => Offering::STATUS_PUBLISHED],
+        ]);
+
+        return $offering->fresh(['product', 'capabilities', 'plan']);
     }
 
     public function assignOfferingToTenant(Tenant $tenant, Offering $offering, ?string $actorId = null): Tenant

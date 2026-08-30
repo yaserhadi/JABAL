@@ -33,10 +33,8 @@ class MfaService
             return false;
         }
 
-        if ($this->featureGate->featureEnabled($tenant, 'mfa_required')) {
-            return true;
-        }
-
+        // OD-3 / Option A: entitlement code `mfa_required` is NOT authoritative for ordinary-user require.
+        // Ordinary-user requirement = Tenant security policy only (when MFA available).
         return $this->securityPolicyService->isMfaRequired($tenant);
     }
 

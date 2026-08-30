@@ -81,6 +81,9 @@ final class PlatformTenantRegistryService
             'lifecycle_status' => $presentation['lifecycle_status'],
             'provisioning_status' => $presentation['status'],
             'provisioning_detail' => $presentation['detail'],
+            'establishment_complete' => (bool) ($presentation['establishment_complete'] ?? false),
+            'establishment_detail' => (string) ($presentation['establishment_detail'] ?? ''),
+            'establishment' => $presentation['establishment'] ?? null,
             'application_owner' => $applicationOwner,
             'commercial_owner_contact' => $commercialOwner,
             'created_at' => optional($tenant->created_at)?->toIso8601String(),
@@ -206,6 +209,7 @@ final class PlatformTenantRegistryService
             'lifecycle_status' => $presentation['lifecycle_status'],
             'provisioning_status' => $presentation['status'],
             'provisioning_detail' => $presentation['detail'],
+            'establishment_complete' => (bool) ($presentation['establishment_complete'] ?? false),
             'created_at' => optional($tenant->created_at)?->toIso8601String(),
         ];
     }
@@ -228,6 +232,9 @@ final class PlatformTenantRegistryService
             'provisioning_status' => $presentation['status'],
             'provisioning_detail' => $presentation['detail'],
             'ready_flags' => $presentation['ready_flags'] ?? null,
+            'establishment_complete' => (bool) ($presentation['establishment_complete'] ?? false),
+            'establishment_detail' => (string) ($presentation['establishment_detail'] ?? ''),
+            'establishment' => $presentation['establishment'] ?? null,
             'application_owner' => $result->owner ? [
                 'id' => (string) $result->owner->id,
                 'name' => (string) $result->owner->name,

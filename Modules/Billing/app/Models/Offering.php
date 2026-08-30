@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Modules\Billing\Services\OfferingPublishGate;
 
 /**
  * WAVE-6: Published commercial Offering (Product + Plan SKU + capabilities).
@@ -36,6 +37,28 @@ class Offering extends Model
         'metadata' => 'array',
         'version' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::updating(function (Offering $offering): void {
+            if (! $offering->isDirty('status')) {
+                return;
+            }
+            if ($offering->status !== self::STATUS_PUBLISHED) {
+                return;
+            }
+            if ($offering->getOriginal('status') === self::STATUS_PUBLISHED) {
+                return;
+            }
+            app(OfferingPublishGate::class)->assertMayPublish($offering);
+        });
+
+        static::creating(function (Offering $offering): void {
+            if ($offering->status === self::STATUS_PUBLISHED) {
+                app(OfferingPublishGate::class)->assertMayPublish($offering);
+            }
+        });
+    }
 
     public function product(): BelongsTo
     {
