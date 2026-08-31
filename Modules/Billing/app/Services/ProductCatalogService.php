@@ -9,17 +9,14 @@ use Modules\Billing\Models\Offering;
 use Modules\Billing\Models\Plan;
 use Modules\Billing\Models\Product;
 use Modules\Tenancy\Models\Tenant;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * WAVE-6 GAP-001 catalog bootstrap + offering assignment (no payment).
- * BK-115 PR-04: publish via OfferingPublishGate — completeness warnings + explicit override.
  */
 class ProductCatalogService
 {
     public function __construct(
-        private readonly AuditLoggerInterface $audit,
-        private readonly OfferingPublishGate $publishGate,
+        private readonly AuditLoggerInterface $audit
     ) {}
 
     public function ensureDefaultCatalog(): Offering
@@ -61,19 +58,21 @@ class ProductCatalogService
                     'name' => 'Jabal Standard',
                     'product_id' => $product->id,
                     'plan_id' => $plan?->id,
-                    'status' => Offering::STATUS_DRAFT,
+                    'status' => Offering::STATUS_PUBLISHED,
                     'version' => 1,
                     'metadata' => ['source' => 'wave6'],
                 ]
             );
 
-            $offering->fill([
-                'name' => $offering->name ?: 'Jabal Standard',
-                'product_id' => $offering->product_id ?: $product->id,
-                'plan_id' => $offering->plan_id ?: $plan?->id,
-            ]);
-            if ($offering->isDirty()) {
-                $offering->save();
+            if ($offering->status !== Offering::STATUS_PUBLISHED) {
+                $before = $offering->status;
+                $offering->update(['status' => Offering::STATUS_PUBLISHED]);
+                $this->audit->log('offering.published', [
+                    'auditable_type' => Offering::class,
+                    'auditable_id' => $offering->id,
+                    'old_values' => ['status' => $before],
+                    'new_values' => ['status' => Offering::STATUS_PUBLISHED],
+                ]);
             }
 
             $sync = [];
@@ -81,81 +80,9 @@ class ProductCatalogService
                 $sync[$cap->id] = ['included' => true];
             }
             $offering->capabilities()->sync($sync);
-            $offering->refresh();
-
-            if ($offering->status !== Offering::STATUS_PUBLISHED) {
-                $this->publish($offering);
-            } else {
-                // Bootstrap drift: integrity only — do not treat completeness warnings as fatal.
-                $report = $this->publishGate->evaluateReport(
-                    $offering->fresh(['product', 'plan.entitlements', 'capabilities'])
-                );
-                if ($report['integrity'] !== []) {
-                    $this->publishGate->assertMayPublish($offering);
-                }
-            }
 
             return $offering->fresh(['product', 'capabilities', 'plan']);
         });
-    }
-
-    /**
-     * Authoritative publish transition.
-     *
-     * Complete → normal publish.
-     * Incomplete → requires explicitOverride + auditable actor (Publish Anyway).
-     */
-    public function publish(
-        Offering $offering,
-        bool $explicitOverride = false,
-        ?string $actorId = null,
-        ?string $overrideReason = null,
-    ): Offering {
-        $offering->loadMissing(['product', 'plan.entitlements', 'capabilities']);
-        $report = $this->publishGate->evaluateReport($offering);
-
-        if ($explicitOverride && $report['warnings'] !== []) {
-            if (! filled($actorId)) {
-                throw new AccessDeniedHttpException(
-                    'Explicit Publish Anyway requires an auditable authorized actor_id.'
-                );
-            }
-            $this->assertOverrideCallerAuthorized();
-        }
-
-        $this->publishGate->beginPublish($explicitOverride);
-        try {
-            $this->publishGate->assertMayPublish($offering);
-
-            if ($offering->status === Offering::STATUS_PUBLISHED) {
-                return $offering;
-            }
-
-            $before = $offering->status;
-            $offering->status = Offering::STATUS_PUBLISHED;
-            $offering->save();
-
-            $usedOverride = $explicitOverride && $report['warnings'] !== [];
-
-            $this->audit->log($usedOverride ? 'offering.published_with_override' : 'offering.published', [
-                'actor_id' => $actorId,
-                'auditable_type' => Offering::class,
-                'auditable_id' => $offering->id,
-                'old_values' => ['status' => $before],
-                'new_values' => ['status' => Offering::STATUS_PUBLISHED],
-                'metadata' => [
-                    'explicit_override' => $usedOverride,
-                    'not_recommended' => $report['warnings'] !== [],
-                    'recommended' => $report['recommended'],
-                    'completeness_warnings' => $report['warnings'],
-                    'override_reason' => $usedOverride ? $overrideReason : null,
-                ],
-            ]);
-
-            return $offering->fresh(['product', 'capabilities', 'plan']);
-        } finally {
-            $this->publishGate->endPublish();
-        }
     }
 
     public function assignOfferingToTenant(Tenant $tenant, Offering $offering, ?string $actorId = null): Tenant
@@ -177,29 +104,5 @@ class ProductCatalogService
         ]);
 
         return $tenant->fresh();
-    }
-
-    /**
-     * When a Platform user is authenticated, require existing billing manage permission.
-     * Seed/system callers with no platform auth may proceed when actor_id is supplied.
-     */
-    protected function assertOverrideCallerAuthorized(): void
-    {
-        $platformUser = auth('platform')->user();
-        if ($platformUser === null) {
-            return;
-        }
-
-        if (! method_exists($platformUser, 'hasPlatformPermission')
-            || ! $platformUser->hasPlatformPermission('platform.billing.manage')) {
-            // Fallback: Spatie-style can() if present on platform user model.
-            if (method_exists($platformUser, 'can') && $platformUser->can('platform.billing.manage')) {
-                return;
-            }
-
-            throw new AccessDeniedHttpException(
-                'Explicit Publish Anyway requires platform.billing.manage (existing Platform billing boundary).'
-            );
-        }
     }
 }

@@ -23,7 +23,6 @@ class BillingServiceProvider extends ServiceProvider
         $this->app->singleton(TenantCapabilityEvaluator::class, DatabaseTenantCapabilityEvaluator::class);
         $this->app->singleton(SubscriptionService::class);
         $this->app->singleton(ProductCatalogService::class);
-        $this->app->singleton(\Modules\Billing\Services\OfferingPublishGate::class);
         $this->app->singleton(TenantSubscriptionProvisioner::class, SubscriptionService::class);
     }
 
