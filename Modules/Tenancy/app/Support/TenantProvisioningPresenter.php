@@ -4,11 +4,15 @@ namespace Modules\Tenancy\Support;
 
 use Modules\Tenancy\Data\TenantProvisioningResult;
 use Modules\Tenancy\Models\Tenant;
+use Modules\Tenancy\Services\TenantEstablishmentService;
 use Modules\Tenancy\Services\TenantOnboardingService;
 
 /**
  * Derives truthful Platform provisioning presentation (BK-069 O2).
  * Only: completed | action_required. Never failed/in_progress without persisted evidence.
+ *
+ * BK-115 J0-04: establishment_* fields are separate from R1–R5 provisioning_status
+ * (Active alone ≠ establishment complete).
  */
 final class TenantProvisioningPresenter
 {
@@ -18,18 +22,27 @@ final class TenantProvisioningPresenter
 
     public function __construct(
         private readonly TenantOnboardingService $onboarding,
+        private readonly TenantEstablishmentService $establishment,
     ) {}
 
     /**
      * From central Tenant (+ optional databaseConfig relation).
      *
-     * @return array{status: string, detail: string, lifecycle_status: string}
+     * @return array{
+     *   status: string,
+     *   detail: string,
+     *   lifecycle_status: string,
+     *   establishment_complete: bool,
+     *   establishment_detail: string,
+     *   establishment: array<string, mixed>
+     * }
      */
     public function fromTenant(Tenant $tenant): array
     {
         $tenant->loadMissing('databaseConfig');
 
         $lifecycle = (string) ($tenant->status ?: 'active');
+        $establishment = $this->establishment->evaluate($tenant);
         $storageReady = $this->onboarding->isStorageReady($tenant);
 
         if (! $storageReady) {
@@ -42,6 +55,9 @@ final class TenantProvisioningPresenter
                     ? 'Dedicated storage provisioning is incomplete. Run: php artisan tenant:provision-storage '.$tenant->id
                     : 'Tenant storage is not ready for the configured isolation mode.',
                 'lifecycle_status' => $lifecycle,
+                'establishment_complete' => $establishment['complete'],
+                'establishment_detail' => $establishment['detail'],
+                'establishment' => $establishment,
             ];
         }
 
@@ -57,6 +73,9 @@ final class TenantProvisioningPresenter
                     'status' => self::ACTION_REQUIRED,
                     'detail' => 'Dedicated database provisioning is incomplete. Run: php artisan tenant:provision-storage '.$tenant->id,
                     'lifecycle_status' => $lifecycle,
+                    'establishment_complete' => $establishment['complete'],
+                    'establishment_detail' => $establishment['detail'],
+                    'establishment' => $establishment,
                 ];
             }
         }
@@ -65,17 +84,29 @@ final class TenantProvisioningPresenter
             'status' => self::COMPLETED,
             'detail' => 'Required storage readiness for this isolation mode is satisfied.',
             'lifecycle_status' => $lifecycle,
+            'establishment_complete' => $establishment['complete'],
+            'establishment_detail' => $establishment['detail'],
+            'establishment' => $establishment,
         ];
     }
 
     /**
-     * @return array{status: string, detail: string, lifecycle_status: string, ready_flags: array<string, bool>}
+     * @return array{
+     *   status: string,
+     *   detail: string,
+     *   lifecycle_status: string,
+     *   ready_flags: array<string, bool>,
+     *   establishment_complete: bool,
+     *   establishment_detail: string,
+     *   establishment: array<string, mixed>
+     * }
      */
     public function fromProvisioningResult(TenantProvisioningResult $result): array
     {
         $tenant = $result->tenant->loadMissing('databaseConfig');
         $lifecycle = (string) ($tenant->status ?: 'active');
         $complete = $this->onboarding->isProvisioningComplete($result);
+        $establishment = $this->establishment->evaluate($tenant);
 
         $flags = [
             'r1_registry' => $result->r1Registry,
@@ -91,6 +122,9 @@ final class TenantProvisioningPresenter
                 'detail' => 'Required R1–R5 conditions are satisfied for this isolation mode.',
                 'lifecycle_status' => $lifecycle,
                 'ready_flags' => $flags,
+                'establishment_complete' => $establishment['complete'],
+                'establishment_detail' => $establishment['detail'],
+                'establishment' => $establishment,
             ];
         }
 
@@ -111,6 +145,9 @@ final class TenantProvisioningPresenter
             'detail' => $detail,
             'lifecycle_status' => $lifecycle,
             'ready_flags' => $flags,
+            'establishment_complete' => $establishment['complete'],
+            'establishment_detail' => $establishment['detail'],
+            'establishment' => $establishment,
         ];
     }
 
