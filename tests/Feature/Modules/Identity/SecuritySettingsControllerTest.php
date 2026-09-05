@@ -4,7 +4,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\UserSession;
 use Modules\Tenancy\Models\Tenant;
@@ -14,11 +14,11 @@ use Tests\TestCase;
 /** BK-035: SecuritySettingsController — tenant security settings UI hub. */
 class SecuritySettingsControllerTest extends TestCase
 {
-    protected User $admin;
+    protected TenantUser $admin;
 
-    protected User $member;
+    protected TenantUser $member;
 
-    protected User $otherUser;
+    protected TenantUser $otherUser;
 
     protected Tenant $tenant;
 
@@ -32,7 +32,7 @@ class SecuritySettingsControllerTest extends TestCase
         $this->tenant = $this->admin->personalTenant();
         $this->assignSecurityPolicyAdmin($this->admin, $this->tenant);
 
-        $this->member = User::withoutGlobalScope('tenant')->create([
+        $this->member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Member User',
@@ -45,7 +45,7 @@ class SecuritySettingsControllerTest extends TestCase
         $otherAdmin = $this->registerTenantUser('Other Admin', 'other-admin-'.uniqid().'@example.com');
         $this->otherTenant = $otherAdmin->personalTenant();
 
-        $this->otherUser = User::withoutGlobalScope('tenant')->create([
+        $this->otherUser = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->otherTenant->id,
             'name' => 'Other User',
@@ -298,7 +298,7 @@ class SecuritySettingsControllerTest extends TestCase
         }
     }
 
-    protected function assignSecurityPolicyAdmin(User $user, Tenant $tenant): void
+    protected function assignSecurityPolicyAdmin(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $guard = config('auth.defaults.guard');
@@ -318,7 +318,7 @@ class SecuritySettingsControllerTest extends TestCase
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 
-    protected function assignMemberRole(User $user, Tenant $tenant): void
+    protected function assignMemberRole(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $guard = config('auth.defaults.guard');

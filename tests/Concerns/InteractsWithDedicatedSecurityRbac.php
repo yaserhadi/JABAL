@@ -4,7 +4,7 @@ namespace Tests\Concerns;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -24,7 +24,7 @@ trait InteractsWithDedicatedSecurityRbac
         }
     }
 
-    protected function assignSecurityPolicyAdmin(User $user, Tenant $tenant): void
+    protected function assignSecurityPolicyAdmin(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $guard = config('auth.defaults.guard');

@@ -6,7 +6,7 @@ use App\Models\PlatformEmergencyAuthorityCase;
 use App\Models\PlatformUser;
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Services\Platform\PlatformEmergencyAuthorityService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -39,9 +39,9 @@ class SsoEnforcementAndEmergencyRecoveryTest extends TestCase
     use GrantsSsoEntitlement;
     use InteractsWithTenantAddressingProfile;
 
-    protected User $admin;
+    protected TenantUser $admin;
 
-    protected User $member;
+    protected TenantUser $member;
 
     protected Tenant $tenant;
 
@@ -56,7 +56,7 @@ class SsoEnforcementAndEmergencyRecoveryTest extends TestCase
         $this->seedAuthAdminPermission($this->admin, $this->tenant);
 
         tenancy()->initialize($this->tenant);
-        $this->member = User::withoutGlobalScope('tenant')->create([
+        $this->member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Wave5 Member',
@@ -73,7 +73,7 @@ class SsoEnforcementAndEmergencyRecoveryTest extends TestCase
         $this->restoreAddressingEnv();
     }
 
-    protected function seedAuthAdminPermission(User $user, Tenant $tenant): void
+    protected function seedAuthAdminPermission(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $guard = config('auth.defaults.guard');
@@ -98,7 +98,7 @@ class SsoEnforcementAndEmergencyRecoveryTest extends TestCase
         AuthenticationAdministrationAssurance::markSatisfiedForTests($purpose);
     }
 
-    protected function makeReadyLink(User $user): TenantUserIdentity
+    protected function makeReadyLink(TenantUser $user): TenantUserIdentity
     {
         tenancy()->initialize($this->tenant);
         $link = TenantUserIdentity::query()->create([

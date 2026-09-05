@@ -2,13 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Tenancy\TenantLayerMigrationRunner;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Models\Membership;
-use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\UserMfa;
 use Modules\Identity\Services\MfaService;
 use Modules\Tenancy\Models\Tenant;
@@ -135,7 +134,7 @@ class DedicatedTenantAuthModelTest extends TestCase
             $provisioner->ensureGlobalPermissions();
             $provisioner->ensureRolesForTenant($tenant);
 
-            $user = User::create([
+            $user = TenantUser::create([
                 'tenant_id' => $tenant->id,
                 'name' => 'Dedicated User',
                 'email' => $email,
@@ -152,7 +151,7 @@ class DedicatedTenantAuthModelTest extends TestCase
 
             $provisioner->assignTenantAdminRole($user, $tenant);
 
-            $resolvedUser = User::withoutGlobalScope('tenant')->findOrFail($user->id);
+            $resolvedUser = TenantUser::withoutGlobalScope('tenant')->findOrFail($user->id);
         } finally {
             tenancy()->end();
         }

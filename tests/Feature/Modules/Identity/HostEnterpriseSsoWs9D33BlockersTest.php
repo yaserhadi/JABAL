@@ -3,7 +3,7 @@
 namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Domain;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Facile\OpenIDClient\Token\TokenSetInterface;
 use Illuminate\Support\Facades\Cache;
@@ -73,7 +73,7 @@ class HostEnterpriseSsoWs9D33BlockersTest extends TestCase
         $host = $tenant->slug.'.jabal.test';
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS9B User',
             'email' => 'ws9b-'.uniqid().'@example.com',
@@ -482,7 +482,7 @@ class HostEnterpriseSsoWs9D33BlockersTest extends TestCase
         $this->withSession(['tenant_id' => $fixture['tenant']->id]);
 
         tenancy()->initialize($fixture['tenant']);
-        $other = User::create([
+        $other = TenantUser::create([
             'tenant_id' => $fixture['tenant']->id,
             'name' => 'Other',
             'email' => 'ws9b-other-'.uniqid().'@example.com',

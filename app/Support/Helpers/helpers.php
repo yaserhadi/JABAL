@@ -39,14 +39,14 @@ if (! function_exists('is_tenant_context')) {
 }
 
 if (! function_exists('current_actor')) {
-    function current_actor(): ?\App\Models\User
+    function current_actor(): ?\Modules\Identity\Models\TenantUser
     {
         return auth()->user();
     }
 }
 
 if (! function_exists('actor')) {
-    function actor(): \App\Models\User
+    function actor(): \Modules\Identity\Models\TenantUser
     {
         $user = auth()->user();
 

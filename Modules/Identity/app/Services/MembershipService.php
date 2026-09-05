@@ -2,13 +2,12 @@
 
 namespace Modules\Identity\Services;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Billing\TenantSeatLimitResolver;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
-use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\TenantRbacProvisioner;
 use Modules\Tenancy\Services\TenantSettingsService;
@@ -181,7 +180,7 @@ class MembershipService
                     'joined_at' => $membership->joined_at ?? now(),
                 ]);
 
-                $user = User::withoutGlobalScope('tenant')->find($membership->user_id);
+                $user = TenantUser::withoutGlobalScope('tenant')->find($membership->user_id);
                 if ($user) {
                     app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
                     try {
@@ -309,7 +308,7 @@ class MembershipService
 
     protected function clearMemberRoles(Membership $membership, Tenant $tenant): void
     {
-        $user = User::withoutGlobalScope('tenant')->find($membership->user_id);
+        $user = TenantUser::withoutGlobalScope('tenant')->find($membership->user_id);
         if (! $user) {
             return;
         }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Modules\Billing\Models\Entitlement;
@@ -54,7 +54,7 @@ class HostMfaControllerTenantContextBindingTest extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'MFA Host User',
             'email' => 'mfa-host-'.uniqid().'@example.com',

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Api;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -42,7 +42,7 @@ class ApiTest extends TestCase
      */
     public function test_authenticated_user_can_access_user_endpoint(): void
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
         $this->assignDashboardViewToUser($user, $tenant);
 

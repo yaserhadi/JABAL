@@ -1,8 +1,8 @@
-﻿# Testing Conventions
+# Testing Conventions
 
 This document defines testing standards and practices for the Jabal SaaS Core Platform.
 
-## âš  Test database isolation (required â€” read this first)
+## âš  Test database isolation (required — read this first)
 
 Tests use `RefreshDatabase`, which calls `migrate:fresh` and **drops every table** on
 the central and tenant connections. Without isolation this destroys the dev databases.
@@ -10,7 +10,7 @@ the central and tenant connections. Without isolation this destroys the dev data
 This project enforces isolation in two independent layers:
 
 1. **`phpunit.xml`** overrides `DB_DATABASE_CENTRAL` and `DB_DATABASE_TENANT` so test runs
-   target `jabal_central_testing` and `jabal_tenant_shared_testing` only â€” never the dev DBs.
+   target `jabal_central_testing` and `jabal_tenant_shared_testing` only — never the dev DBs.
 2. **`tests/TestCase.php::setUp()`** reads the env BEFORE the framework boots and throws
    a `RuntimeException` if either name does not end with `_testing`. This catches
    accidental `phpunit.xml` regressions before any migration runs.
@@ -22,7 +22,7 @@ psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_central_testing"'
 psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "jabal_tenant_shared_testing"'
 ```
 
-### Stage 5B â€” dedicated tenant session attestation DBs (T-S5B-08)
+### Stage 5B — dedicated tenant session attestation DBs (T-S5B-08)
 
 `DatabasePerTenantSessionIsolationTest` requires two additional physical PostgreSQL databases (`_testing` suffix):
 
@@ -39,16 +39,16 @@ php tests/Support/ensure_dedicated_test_databases.php
 
 The helper creates the databases (if missing) and ensures tenant-layer migrations exist on each dedicated connection. If the databases are absent, dedicated test classes skip with a message pointing to this script.
 
-**BK-053** â€” `DedicatedStorageApiTokenTest`, `DedicatedStorageSessionRegistryTest`, `DedicatedStorageSecurityPolicyTest`, and `DedicatedStorageSecuritySettingsTest` use the same dedicated DB setup (`jabal_tenant_dedicated_a_testing` via `InteractsWithDedicatedTenantDatabase`).
+**BK-053** — `DedicatedStorageApiTokenTest`, `DedicatedStorageSessionRegistryTest`, `DedicatedStorageSecurityPolicyTest`, and `DedicatedStorageSecuritySettingsTest` use the same dedicated DB setup (`jabal_tenant_dedicated_a_testing` via `InteractsWithDedicatedTenantDatabase`).
 
 
 ### Verifying isolation is still in place
 
 A test run should never modify dev data. To prove it, snapshot a value in your dev DB
-before and after a test run â€” e.g. count of `platform_users` â€” and confirm it is unchanged.
+before and after a test run — e.g. count of `platform_users` — and confirm it is unchanged.
 For background on why this matters, see `.cursor/reports/TEST_DB_ISOLATION.md` (local agent workspace).
 
-### Stage 2.5 â€” runtime session isolation tests
+### Stage 2.5 — runtime session isolation tests
 
 `phpunit.xml` sets `SESSION_DRIVER=array` by default. Tests that assert session **persistence**
 in `central.platform_sessions` vs `tenant.sessions` (see `RuntimeSessionIsolationTest`) override
@@ -195,7 +195,7 @@ Set the current tenant context for the test. This method sets the tenant in the 
 public function test_user_can_access_tenant_data()
 {
     $tenant = Tenant::factory()->create();
-    $user = User::factory()->create();
+    $user = TenantUser::factory()->create();
     
     $this->actingAs($user)
          ->actingAsTenant($tenant)
@@ -221,7 +221,7 @@ Create a personal tenant for a user. This helper creates both the tenant and the
 ```php
 public function test_personal_tenant_creation()
 {
-    $user = User::factory()->create();
+    $user = TenantUser::factory()->create();
     $tenant = $this->createPersonalTenant($user);
     
     $this->assertEquals('personal', $tenant->type);
@@ -243,7 +243,7 @@ Assign `dashboard.view` permission to a user in a tenant. Required for tests tha
 ```php
 public function test_authenticated_user_can_access_me()
 {
-    $user = User::factory()->create();
+    $user = TenantUser::factory()->create();
     $tenant = $this->createPersonalTenant($user);
     $this->assignDashboardViewToUser($user, $tenant);
 
@@ -308,7 +308,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 
 class UserRegistrationTest extends TestCase
@@ -352,7 +352,7 @@ namespace Tests\Feature\Modules\Tenancy;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 
 class TenantContextTest extends TestCase
@@ -375,7 +375,7 @@ class TenantContextTest extends TestCase
     public function test_user_can_access_tenant_scoped_data()
     {
         // Arrange
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
         
         // Act
@@ -561,7 +561,7 @@ namespace Tests\Feature\Modules;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 
 class TenantContextTest extends TestCase
@@ -579,7 +579,7 @@ class TenantContextTest extends TestCase
     
     public function test_personal_tenant_fallback_for_user()
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
         
         $this->actingAs($user);
@@ -602,7 +602,7 @@ namespace Tests\Feature\Modules;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Hash;
 
 class UserAuthTest extends TestCase
@@ -611,7 +611,7 @@ class UserAuthTest extends TestCase
     
     public function test_login_redirects_to_dashboard()
     {
-        $user = User::factory()->create([
+        $user = TenantUser::factory()->create([
             'email' => 'test@example.com',
             'password' => Hash::make('password'),
         ]);
@@ -628,7 +628,7 @@ class UserAuthTest extends TestCase
     
     public function test_logout_clears_session()
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $this->createPersonalTenant($user);
         
         $response = $this->actingAs($user)->post(route('logout'));
@@ -728,7 +728,7 @@ namespace Tests\Feature\Modules;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 
 class ApiResponseTest extends TestCase
 {
@@ -736,7 +736,7 @@ class ApiResponseTest extends TestCase
     
     public function test_api_returns_standard_success_format_when_authenticated()
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $this->createPersonalTenant($user);
         $token = $user->createToken('test')->plainTextToken;
         
@@ -761,7 +761,7 @@ class ApiResponseTest extends TestCase
 
 ```php
 // Good
-$user = User::factory()->create();
+$user = TenantUser::factory()->create();
 
 // Bad
 $user = User::create([
@@ -797,10 +797,10 @@ protected function tearDown(): void
 ```php
 // Good - use relationships
 $tenant = Tenant::factory()->create();
-$user = User::factory()->for($tenant)->create();
+$user = TenantUser::factory()->for($tenant)->create();
 
 // Bad - hard-coded IDs
-$user = User::factory()->create(['tenant_id' => 1]);
+$user = TenantUser::factory()->create(['tenant_id' => 1]);
 ```
 
 ## Performance Guidelines
@@ -853,7 +853,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Modules\Identity\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 
 class UserRegistrationTest extends TestCase
@@ -886,7 +886,7 @@ class UserRegistrationTest extends TestCase
     public function test_personal_tenant_is_created_on_registration()
     {
         // Arrange
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         
         // Act
         $tenant = $this->createPersonalTenant($user);

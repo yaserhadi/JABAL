@@ -4,7 +4,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -35,9 +35,9 @@ use Tests\TestCase;
  */
 class AuthenticationAdministrationTest extends TestCase
 {
-    protected User $admin;
+    protected TenantUser $admin;
 
-    protected User $target;
+    protected TenantUser $target;
 
     protected Tenant $tenant;
 
@@ -51,7 +51,7 @@ class AuthenticationAdministrationTest extends TestCase
         $this->seedAuthAdminPermission($this->admin, $this->tenant);
 
         tenancy()->initialize($this->tenant);
-        $this->target = User::withoutGlobalScope('tenant')->create([
+        $this->target = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Target User',
@@ -62,7 +62,7 @@ class AuthenticationAdministrationTest extends TestCase
         tenancy()->end();
     }
 
-    protected function seedAuthAdminPermission(User $user, Tenant $tenant): void
+    protected function seedAuthAdminPermission(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $guard = config('auth.defaults.guard');
@@ -93,7 +93,7 @@ class AuthenticationAdministrationTest extends TestCase
         AuthenticationAdministrationAssurance::markSatisfiedForTests($purpose);
     }
 
-    protected function makeCurrentReadyLink(User $user, string $issuer = 'https://idp.example.com', string $subject = null): TenantUserIdentity
+    protected function makeCurrentReadyLink(TenantUser $user, string $issuer = 'https://idp.example.com', string $subject = null): TenantUserIdentity
     {
         tenancy()->initialize($this->tenant);
         $link = TenantUserIdentity::query()->create([

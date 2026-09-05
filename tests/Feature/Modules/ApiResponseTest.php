@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,7 +23,7 @@ class ApiResponseTest extends TestCase
      */
     public function test_api_returns_standard_success_format_when_authenticated(): void
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
         $this->assignDashboardViewToUser($user, $tenant);
         $token = $user->createToken('test', ['tenant:'.$tenant->id])->plainTextToken;

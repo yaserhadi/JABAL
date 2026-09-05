@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
@@ -24,8 +24,8 @@ class RbacTenancyTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $userA;
-    protected User $userB;
+    protected TenantUser $userA;
+    protected TenantUser $userB;
     protected Tenant $tenantA;
     protected Tenant $tenantB;
 
@@ -33,8 +33,8 @@ class RbacTenancyTest extends TestCase
     {
         parent::setUp();
         $this->seedRbacCatalog();
-        $this->userA = User::factory()->create();
-        $this->userB = User::factory()->create();
+        $this->userA = TenantUser::factory()->create();
+        $this->userB = TenantUser::factory()->create();
         $this->tenantA = $this->createPersonalTenant($this->userA);
         $this->tenantB = $this->createPersonalTenant($this->userB);
     }
@@ -74,7 +74,7 @@ class RbacTenancyTest extends TestCase
         return $role;
     }
 
-    protected function assignRoleToUser(User $user, Tenant $tenant, string $roleName): void
+    protected function assignRoleToUser(TenantUser $user, Tenant $tenant, string $roleName): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::where('name', $roleName)->where('tenant_id', $tenant->id)->first();

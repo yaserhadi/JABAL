@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Facile\OpenIDClient\Exception\OAuth2Exception;
 use Facile\OpenIDClient\Exception\RuntimeException as OpenIdRuntimeException;
 use Facile\OpenIDClient\Token\TokenSetInterface;
@@ -47,7 +47,7 @@ class SsoCallbackSecurityTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Callback Security User',
             'email' => 'sso-cb-'.uniqid().'@example.com',

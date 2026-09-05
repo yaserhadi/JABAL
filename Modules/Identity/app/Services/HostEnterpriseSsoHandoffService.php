@@ -3,7 +3,7 @@
 namespace Modules\Identity\Services;
 
 use App\Http\Auth\TenantEntryUrlResolver;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Tenancy\TenantAddressingProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Auth;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\SsoAuthenticationTransaction;
 use Modules\Identity\Models\SsoTenantHandoff;
-use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\TenantUserIdentity;
 use Modules\Identity\Support\Sso\SsoAssuranceEvaluator;
 use Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory;
@@ -188,8 +187,8 @@ class HostEnterpriseSsoHandoffService
 
         SsoMfaContinuation::clear($request->session());
 
-        $registryUser = $user instanceof User ? $user : User::query()->whereKey($user->id)->first();
-        if (! $registryUser instanceof User) {
+        $registryUser = $user instanceof TenantUser ? $user : TenantUser::query()->whereKey($user->id)->first();
+        if (! $registryUser instanceof TenantUser) {
             return null;
         }
 
@@ -226,7 +225,7 @@ class HostEnterpriseSsoHandoffService
     protected function beginMfaContinuation(
         Request $request,
         Tenant $tenant,
-        User $user,
+        TenantUser $user,
         SsoTenantHandoff $handoff,
     ): RedirectResponse {
         SsoMfaContinuation::store($request->session(), [
@@ -260,7 +259,7 @@ class HostEnterpriseSsoHandoffService
     protected function issueFullSession(
         Request $request,
         Tenant $tenant,
-        User $user,
+        TenantUser $user,
         SsoTenantHandoff $handoff,
         string $purpose,
     ): RedirectResponse {
@@ -356,7 +355,7 @@ class HostEnterpriseSsoHandoffService
         return $redirect;
     }
 
-    protected function markReadyAfterOrdinarySession(Tenant $tenant, TenantUser|User $user, ?SsoTenantHandoff $handoff): void
+    protected function markReadyAfterOrdinarySession(Tenant $tenant, TenantUser $user, ?SsoTenantHandoff $handoff): void
     {
         if (! $handoff instanceof SsoTenantHandoff) {
             return;
@@ -407,7 +406,7 @@ class HostEnterpriseSsoHandoffService
         }
     }
 
-    protected function loadAndRevalidateUser(Tenant $tenant, SsoTenantHandoff $handoff): ?User
+    protected function loadAndRevalidateUser(Tenant $tenant, SsoTenantHandoff $handoff): ?TenantUser
     {
         if (! $this->configService->isOperationalForTenant($tenant)) {
             return null;
@@ -419,7 +418,7 @@ class HostEnterpriseSsoHandoffService
             return null;
         }
 
-        $user = User::query()
+        $user = TenantUser::query()
             ->withoutGlobalScope('tenant')
             ->where('tenant_id', $tenant->id)
             ->whereKey($userId)

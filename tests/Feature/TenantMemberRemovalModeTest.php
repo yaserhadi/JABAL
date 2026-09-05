@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -27,9 +27,9 @@ class TenantMemberRemovalModeTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $owner;
+    protected TenantUser $owner;
 
-    protected User $memberUser;
+    protected TenantUser $memberUser;
 
     protected Tenant $tenant;
 
@@ -37,10 +37,10 @@ class TenantMemberRemovalModeTest extends TestCase
     {
         parent::setUp();
         $this->seedMemberRbac();
-        $this->owner = User::factory()->create();
+        $this->owner = TenantUser::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
 
-        $this->memberUser = User::withoutGlobalScope('tenant')->create([
+        $this->memberUser = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Member User',
@@ -62,7 +62,7 @@ class TenantMemberRemovalModeTest extends TestCase
         }
     }
 
-    protected function assignAdmin(User $user, Tenant $tenant, array $extra = []): void
+    protected function assignAdmin(TenantUser $user, Tenant $tenant, array $extra = []): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::firstOrCreate(
@@ -90,7 +90,7 @@ class TenantMemberRemovalModeTest extends TestCase
         );
     }
 
-    protected function assignMemberRole(User $user, Tenant $tenant, string $roleName): void
+    protected function assignMemberRole(TenantUser $user, Tenant $tenant, string $roleName): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $user->syncRoles([$roleName]);
@@ -304,7 +304,7 @@ class TenantMemberRemovalModeTest extends TestCase
         $membership = $this->findMembership($this->memberUser);
         app(MembershipService::class)->remove($membership, $this->tenant);
 
-        $other = User::withoutGlobalScope('tenant')->create([
+        $other = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Other Member',
@@ -442,7 +442,7 @@ class TenantMemberRemovalModeTest extends TestCase
         $membership = $this->findMembership($this->memberUser);
         app(MembershipService::class)->remove($membership, $this->tenant);
 
-        $other = User::withoutGlobalScope('tenant')->create([
+        $other = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Seat Filler',
@@ -471,7 +471,7 @@ class TenantMemberRemovalModeTest extends TestCase
         tenancy()->end();
     }
 
-    protected function findMembership(User $user): ?Membership
+    protected function findMembership(TenantUser $user): ?Membership
     {
         tenancy()->initialize($this->tenant);
         try {

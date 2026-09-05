@@ -145,6 +145,9 @@ class SsoApplicationControlTest extends TestCase
             'SsoBackchannelLogoutEvent.php',
             'SsoAuthenticationTransaction.php',
             'SsoTenantHandoff.php',
+            // WAVE-5 readiness gate: Schema::connection('central') only to attest
+            // platform_emergency_authority_cases exists (DEC-0024 emergency recovery).
+            'SsoEnforcementReadinessGate.php',
         ];
 
         foreach ($this->identityAppPhpFiles() as $path) {

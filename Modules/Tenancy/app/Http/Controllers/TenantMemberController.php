@@ -4,7 +4,7 @@ namespace Modules\Tenancy\Http\Controllers;
 
 use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -208,7 +208,7 @@ class TenantMemberController extends Controller
             }
         }
 
-        $intended = User::withoutGlobalScope('tenant')
+        $intended = TenantUser::withoutGlobalScope('tenant')
             ->where('tenant_id', $tenantModel->id)
             ->whereKey($validated['user_id'])
             ->first();
@@ -643,8 +643,8 @@ class TenantMemberController extends Controller
         }
     }
 
-    protected function resolveApplicationUser(string $userId): User
+    protected function resolveApplicationUser(string $userId): TenantUser
     {
-        return User::withoutGlobalScope('tenant')->findOrFail($userId);
+        return TenantUser::withoutGlobalScope('tenant')->findOrFail($userId);
     }
 }

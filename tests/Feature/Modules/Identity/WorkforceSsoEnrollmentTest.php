@@ -4,7 +4,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Facile\OpenIDClient\Token\TokenSetInterface;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -88,7 +88,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
         tenancy()->initialize($tenant);
 
-        $admin = User::create([
+        $admin = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Admin',
             'email' => 'admin-'.uniqid().'@example.com',
@@ -102,7 +102,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'joined_at' => now(),
         ]);
 
-        $target = User::create([
+        $target = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Target',
             'email' => 'target-'.uniqid().'@example.com',
@@ -116,7 +116,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'joined_at' => now(),
         ]);
 
-        $other = User::create([
+        $other = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Other',
             'email' => 'other-'.uniqid().'@example.com',
@@ -227,7 +227,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         $this->assertContains(SsoBrowserBindingCookieFactory::ENROLLMENT_BROWSER_BINDING, $names);
     }
 
-    protected function satisfyFirstLink(User $user): void
+    protected function satisfyFirstLink(TenantUser $user): void
     {
         tenancy()->initialize($user->tenant_id ? \Modules\Tenancy\Models\Tenant::query()->findOrFail($user->tenant_id) : tenancy()->tenant);
         UserMfa::query()->updateOrCreate(
@@ -745,7 +745,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
         tenancy()->initialize($tenant);
 
-        $admin = User::create([
+        $admin = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Admin',
             'email' => 'admin-'.uniqid().'@example.com',
@@ -762,7 +762,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         app(TenantRbacProvisioner::class)->assignTenantAdminRole($admin, $tenant);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $target = User::create([
+        $target = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Target',
             'email' => 'target-'.uniqid().'@example.com',
@@ -992,7 +992,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         $this->grantSsoAvailable($tenantB);
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenantB);
         tenancy()->initialize($tenantB);
-        $userB = User::create([
+        $userB = TenantUser::create([
             'tenant_id' => $tenantB->id,
             'name' => 'User B',
             'email' => 'user-b-'.uniqid().'@example.com',
@@ -1009,7 +1009,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
         tenancy()->initialize($fixture['tenant']);
         // Inactive membership in Tenant A must not appear
-        $inactive = User::create([
+        $inactive = TenantUser::create([
             'tenant_id' => $fixture['tenant']->id,
             'name' => 'Inactive',
             'email' => 'inactive-'.uniqid().'@example.com',
@@ -1066,7 +1066,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'status' => 'active',
         ]);
         tenancy()->initialize($tenantB);
-        $userB = User::create([
+        $userB = TenantUser::create([
             'tenant_id' => $tenantB->id,
             'name' => 'Foreign',
             'email' => 'foreign-'.uniqid().'@example.com',
@@ -1168,7 +1168,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         Mail::fake();
         $fixture = $this->prepareAdminEnrollmentSurface();
 
-        $orphan = User::create([
+        $orphan = TenantUser::create([
             'tenant_id' => $fixture['tenant']->id,
             'name' => 'Orphan',
             'email' => 'orphan-'.uniqid().'@example.com',
@@ -1210,7 +1210,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
         tenancy()->initialize($tenant);
 
-        $admin = User::create([
+        $admin = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Admin UX',
             'email' => 'admin-ux-'.uniqid().'@example.com',
@@ -1224,7 +1224,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
             'joined_at' => now(),
         ]);
 
-        $target = User::create([
+        $target = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Target UX',
             'email' => 'target-ux-'.uniqid().'@example.com',
@@ -1263,7 +1263,7 @@ class WorkforceSsoEnrollmentTest extends TestCase
         ];
     }
 
-    protected function assignSsoViewOnly(User $user, Tenant $tenant): void
+    protected function assignSsoViewOnly(TenantUser $user, Tenant $tenant): void
     {
         app(TenantRbacProvisioner::class)->ensureGlobalPermissions();
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());

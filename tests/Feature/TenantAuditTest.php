@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -20,9 +20,9 @@ class TenantAuditTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $owner;
+    protected TenantUser $owner;
 
-    protected User $memberUser;
+    protected TenantUser $memberUser;
 
     protected Tenant $tenant;
 
@@ -30,10 +30,10 @@ class TenantAuditTest extends TestCase
     {
         parent::setUp();
         Mail::fake();
-        $this->owner = User::factory()->create();
+        $this->owner = TenantUser::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
 
-        $this->memberUser = User::withoutGlobalScope('tenant')->create([
+        $this->memberUser = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Member User',
@@ -47,7 +47,7 @@ class TenantAuditTest extends TestCase
     /**
      * @param  array<int, string>  $permissions
      */
-    protected function assignMemberRole(User $user, array $permissions): void
+    protected function assignMemberRole(TenantUser $user, array $permissions): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($this->tenant->getTenantKey());
         $role = Role::firstOrCreate(
@@ -112,7 +112,7 @@ class TenantAuditTest extends TestCase
 
     public function test_tenant_isolation(): void
     {
-        $otherOwner = User::factory()->create();
+        $otherOwner = TenantUser::factory()->create();
         $otherTenant = $this->createPersonalTenant($otherOwner);
 
         $this->createAuditLog($this->tenant, [
@@ -163,7 +163,7 @@ class TenantAuditTest extends TestCase
 
     public function test_cross_tenant_url_blocked(): void
     {
-        $otherOwner = User::factory()->create();
+        $otherOwner = TenantUser::factory()->create();
         $otherTenant = $this->createPersonalTenant($otherOwner);
 
         $response = $this->actingAsTenantUser($this->owner, $this->tenant)
@@ -175,7 +175,7 @@ class TenantAuditTest extends TestCase
     public function test_actor_deleted_still_renders(): void
     {
         $deletedActorId = (string) Str::uuid();
-        $deletedActor = User::withoutGlobalScope('tenant')->create([
+        $deletedActor = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => $deletedActorId,
             'tenant_id' => $this->tenant->id,
             'name' => 'Deleted Actor',

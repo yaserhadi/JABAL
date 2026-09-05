@@ -12,7 +12,7 @@ use Modules\Tenancy\Models\Tenant;
  */
 class UserFactory extends Factory
 {
-    protected $model = \App\Models\User::class;
+    protected $model = \Modules\Identity\Models\TenantUser::class;
 
     protected $connection = 'tenant';
     /**

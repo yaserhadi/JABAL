@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\SsoBackchannelLogoutEvent;
@@ -54,7 +54,7 @@ class HostEnterpriseSsoWs7LogoutTest extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS7 User',
             'email' => 'ws7-'.uniqid().'@example.com',

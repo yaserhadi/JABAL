@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Workspaces\Models\Workspace;
@@ -18,8 +18,8 @@ class WorkspaceCrudTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $userA;
-    protected User $userB;
+    protected TenantUser $userA;
+    protected TenantUser $userB;
     protected Tenant $tenantA;
     protected Tenant $tenantB;
 
@@ -31,8 +31,8 @@ class WorkspaceCrudTest extends TestCase
             '--database' => 'tenant',
         ]);
         $this->seedWorkspaceRbac();
-        $this->userA = User::factory()->create();
-        $this->userB = User::factory()->create();
+        $this->userA = TenantUser::factory()->create();
+        $this->userB = TenantUser::factory()->create();
         $this->tenantA = $this->createPersonalTenant($this->userA);
         $this->tenantB = $this->createPersonalTenant($this->userB);
     }
@@ -46,7 +46,7 @@ class WorkspaceCrudTest extends TestCase
         }
     }
 
-    protected function assignWorkspaceRole(User $user, Tenant $tenant, string $roleName = 'tenant-admin'): void
+    protected function assignWorkspaceRole(TenantUser $user, Tenant $tenant, string $roleName = 'tenant-admin'): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::firstOrCreate(

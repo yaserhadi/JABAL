@@ -2,7 +2,7 @@
 
 namespace Modules\Identity\Services;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Tenancy\TenantDatabaseProvisioner;
 use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
@@ -11,7 +11,7 @@ use Modules\Tenancy\Services\TenantRbacProvisioner;
 
 class TenantRegistrationService
 {
-    public function registerTenantUser(string $name, string $email, string $password): User
+    public function registerTenantUser(string $name, string $email, string $password): TenantUser
     {
         $isolationLevel = $this->resolveRegistrationIsolationLevel();
 
@@ -41,7 +41,7 @@ class TenantRegistrationService
         tenancy()->initialize($tenant->fresh(['databaseConfig']));
 
         try {
-            $tenantUser = User::create([
+            $tenantUser = TenantUser::create([
                 'tenant_id' => $tenant->id,
                 'name' => $name,
                 'email' => $email,
@@ -70,7 +70,7 @@ class TenantRegistrationService
             $rbac->ensureRolesForTenant($tenant);
             $rbac->assignTenantAdminRole($tenantUser, $tenant);
 
-            return User::withoutGlobalScope('tenant')->findOrFail($tenantUser->getKey());
+            return TenantUser::withoutGlobalScope('tenant')->findOrFail($tenantUser->getKey());
         } finally {
             tenancy()->end();
         }

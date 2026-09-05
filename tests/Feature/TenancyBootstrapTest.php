@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -30,8 +30,8 @@ class TenancyBootstrapTest extends TestCase
     {
         parent::setUp();
 
-        $userA = User::factory()->create();
-        $userB = User::factory()->create();
+        $userA = TenantUser::factory()->create();
+        $userB = TenantUser::factory()->create();
         $this->tenantA = $this->createPersonalTenant($userA);
         $this->tenantB = $this->createPersonalTenant($userB);
     }

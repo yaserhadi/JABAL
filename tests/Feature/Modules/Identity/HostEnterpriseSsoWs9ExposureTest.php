@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\SsoPlatformControl;
@@ -58,7 +58,7 @@ class HostEnterpriseSsoWs9ExposureTest extends TestCase
         $host = $tenant->slug.'.jabal.test';
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS9 User',
             'email' => 'ws9-'.uniqid().'@example.com',

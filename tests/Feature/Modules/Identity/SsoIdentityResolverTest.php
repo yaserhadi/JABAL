@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUserIdentity;
@@ -26,7 +26,7 @@ class SsoIdentityResolverTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Org Member',
             'email' => $email,
@@ -304,7 +304,7 @@ class SsoIdentityResolverTest extends TestCase
 
         tenancy()->initialize($tenant);
         // Second active member with a different email — still no link for subject.
-        User::create([
+        TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Other',
             'email' => 'ambiguous-b-'.uniqid().'@example.com',

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -87,7 +87,7 @@ class HostEnterpriseSsoWs7BcLogoutRs256Test extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS7 RS User',
             'email' => 'ws7r-'.uniqid().'@example.com',

@@ -61,7 +61,7 @@ class TenantSeatLimitResolverTest extends TestCase
             'starts_at' => now(),
         ]);
 
-        $member = \App\Models\User::factory()->create(['tenant_id' => $tenant->id]);
+        $member = \Modules\Identity\Models\TenantUser::factory()->create(['tenant_id' => $tenant->id]);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Seat limit reached');

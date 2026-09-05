@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use LogicException;
 use Modules\Identity\Exceptions\SsoSecurityException;
@@ -65,7 +65,7 @@ class HostEnterpriseSsoWs8GovernanceTest extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS8 Admin',
             'email' => 'ws8-'.uniqid().'@example.com',
@@ -220,7 +220,7 @@ class HostEnterpriseSsoWs8GovernanceTest extends TestCase
         app(TenantRbacProvisioner::class)->ensureRolesForTenant($fixture['tenant']);
 
         tenancy()->initialize($fixture['tenant']);
-        $member = User::create([
+        $member = TenantUser::create([
             'tenant_id' => $fixture['tenant']->id,
             'name' => 'Member',
             'email' => 'ws8-member-'.uniqid().'@example.com',

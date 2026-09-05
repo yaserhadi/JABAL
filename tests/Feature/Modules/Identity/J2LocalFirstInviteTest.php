@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +20,7 @@ use Tests\TestCase;
  */
 class J2LocalFirstInviteTest extends TestCase
 {
-    protected User $owner;
+    protected TenantUser $owner;
 
     protected Tenant $tenant;
 
@@ -28,7 +28,7 @@ class J2LocalFirstInviteTest extends TestCase
     {
         parent::setUp();
         Mail::fake();
-        $this->owner = User::factory()->create();
+        $this->owner = TenantUser::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
     }
 
@@ -56,14 +56,14 @@ class J2LocalFirstInviteTest extends TestCase
         $email = 'j2-complete-'.uniqid().'@example.com';
         $created = $service->createUserAndInvite($this->tenant, 'Grace', 'Hopper', $email, $this->owner);
 
-        $userCountBefore = User::withoutGlobalScope('tenant')->where('tenant_id', $this->tenant->id)->count();
+        $userCountBefore = TenantUser::withoutGlobalScope('tenant')->where('tenant_id', $this->tenant->id)->count();
 
         $result = $service->completeAccountInvitation($created['invitation'], 'SecurePass1!');
 
         $this->assertSame((string) $created['user']->id, (string) $result['user']->id);
         $this->assertSame(
             $userCountBefore,
-            User::withoutGlobalScope('tenant')->where('tenant_id', $this->tenant->id)->count()
+            TenantUser::withoutGlobalScope('tenant')->where('tenant_id', $this->tenant->id)->count()
         );
         $this->assertTrue(Hash::check('SecurePass1!', $result['user']->password));
     }
@@ -174,7 +174,7 @@ class J2LocalFirstInviteTest extends TestCase
             $this->owner
         );
 
-        $other = User::factory()->create([
+        $other = TenantUser::factory()->create([
             'tenant_id' => $this->tenant->id,
             'email' => 'other-'.uniqid().'@example.com',
         ]);
@@ -186,7 +186,7 @@ class J2LocalFirstInviteTest extends TestCase
     #[Test]
     public function tenant_isolation_preserved_on_create_user(): void
     {
-        $otherOwner = User::factory()->create();
+        $otherOwner = TenantUser::factory()->create();
         $otherTenant = $this->createPersonalTenant($otherOwner);
         $email = 'j2-iso-'.uniqid().'@example.com';
 

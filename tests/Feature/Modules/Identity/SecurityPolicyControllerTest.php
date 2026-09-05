@@ -4,7 +4,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Billing\Models\Entitlement;
 use Modules\Billing\Models\Plan;
@@ -16,9 +16,9 @@ use Tests\TestCase;
 /** BK-043: SecurityPolicyController — tenant-facing security policies API. */
 class SecurityPolicyControllerTest extends TestCase
 {
-    protected User $admin;
+    protected TenantUser $admin;
 
-    protected User $member;
+    protected TenantUser $member;
 
     protected Tenant $tenant;
 
@@ -237,7 +237,7 @@ class SecurityPolicyControllerTest extends TestCase
         }
     }
 
-    protected function assignSecurityPolicyAdmin(User $user, Tenant $tenant): void
+    protected function assignSecurityPolicyAdmin(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $guard = config('auth.defaults.guard');
@@ -257,7 +257,7 @@ class SecurityPolicyControllerTest extends TestCase
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 
-    protected function assignMemberRole(User $user, Tenant $tenant): void
+    protected function assignMemberRole(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $guard = config('auth.defaults.guard');

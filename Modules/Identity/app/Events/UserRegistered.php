@@ -2,13 +2,13 @@
 
 namespace Modules\Identity\Events;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Events\DomainEvent;
 
 class UserRegistered extends DomainEvent
 {
     public function __construct(
-        public readonly User $user
+        public readonly TenantUser $user
     ) {
         parent::__construct();
     }

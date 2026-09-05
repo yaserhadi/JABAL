@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,7 +30,7 @@ class SsoAuthControllerTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'SSO User',
             'email' => 'sso-user-'.uniqid().'@example.com',
@@ -349,7 +349,7 @@ class SsoAuthControllerTest extends TestCase
         $this->enableSsoForTenant($tenant);
 
         tenancy()->initialize($tenant);
-        $other = User::create([
+        $other = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Other User',
             'email' => 'other-'.uniqid().'@example.com',

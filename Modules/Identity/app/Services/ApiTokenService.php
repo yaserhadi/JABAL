@@ -2,7 +2,7 @@
 
 namespace Modules\Identity\Services;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 use Modules\Identity\Exceptions\ApiTokenException;
-use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 
 /**
@@ -46,7 +45,7 @@ class ApiTokenService
             ]);
         }
 
-        $user = User::on($tenantUser->getConnectionName())
+        $user = TenantUser::on($tenantUser->getConnectionName())
             ->withoutGlobalScope('tenant')
             ->findOrFail($tenantUser->getKey());
 
@@ -73,7 +72,7 @@ class ApiTokenService
             app(AuditLoggerInterface::class)->log('api_token.created', [
                 'tenant_id' => $tenantId,
                 'actor_id' => $user->id,
-                'auditable_type' => User::class,
+                'auditable_type' => TenantUser::class,
                 'auditable_id' => $user->id,
                 'metadata' => [
                     'token_id' => $accessToken->getKey(),
@@ -101,7 +100,7 @@ class ApiTokenService
     /**
      * @return Collection<int, PersonalAccessToken>
      */
-    public function listTokensForTenant(User $user, string $tenantId): Collection
+    public function listTokensForTenant(TenantUser $user, string $tenantId): Collection
     {
         $ability = $this->tenantAbility($tenantId);
 
@@ -126,7 +125,7 @@ class ApiTokenService
         ])->all();
     }
 
-    public function revokeCurrentToken(User $user, string $tenantId): void
+    public function revokeCurrentToken(TenantUser $user, string $tenantId): void
     {
         $token = $user->currentAccessToken();
         if (! $token instanceof PersonalAccessToken) {
@@ -140,7 +139,7 @@ class ApiTokenService
         $this->revokeToken($user, $tenantId, $token);
     }
 
-    public function revokeTokenById(User $user, string $tenantId, int|string $tokenId): void
+    public function revokeTokenById(TenantUser $user, string $tenantId, int|string $tokenId): void
     {
         $token = $user->tokens()->whereKey($tokenId)->first();
         if (! $token || ! $this->tokenHasTenantAbility($token, $this->tenantAbility($tenantId))) {
@@ -150,7 +149,7 @@ class ApiTokenService
         $this->revokeToken($user, $tenantId, $token);
     }
 
-    protected function revokeToken(User $user, string $tenantId, PersonalAccessToken $token): void
+    protected function revokeToken(TenantUser $user, string $tenantId, PersonalAccessToken $token): void
     {
         $tokenId = $token->getKey();
         $tokenName = $token->name;
@@ -159,7 +158,7 @@ class ApiTokenService
         app(AuditLoggerInterface::class)->log('api_token.revoked', [
             'tenant_id' => $tenantId,
             'actor_id' => $user->id,
-            'auditable_type' => User::class,
+            'auditable_type' => TenantUser::class,
             'auditable_id' => $user->id,
             'metadata' => [
                 'token_id' => $tokenId,
@@ -169,7 +168,7 @@ class ApiTokenService
         ]);
     }
 
-    protected function resolveTenantForUser(User $user, ?string $tenantId): Tenant
+    protected function resolveTenantForUser(TenantUser $user, ?string $tenantId): Tenant
     {
         if ($tenantId) {
             $hasAccess = $this->membershipService->hasActiveMembership($user->id, $tenantId);
@@ -203,7 +202,7 @@ class ApiTokenService
     /**
      * @throws ApiTokenException
      */
-    protected function assertMfaGrantAllowed(User $user, Tenant $tenant, ?string $mfaCode): void
+    protected function assertMfaGrantAllowed(TenantUser $user, Tenant $tenant, ?string $mfaCode): void
     {
         if (! $this->mfaService->isMfaRequired($tenant)) {
             return;

@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
@@ -19,18 +19,18 @@ class TenantMemberManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $owner;
-    protected User $memberUser;
+    protected TenantUser $owner;
+    protected TenantUser $memberUser;
     protected Tenant $tenant;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seedMemberRbac();
-        $this->owner = User::factory()->create();
+        $this->owner = TenantUser::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
 
-        $this->memberUser = User::withoutGlobalScope('tenant')->create([
+        $this->memberUser = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Member User',
@@ -49,7 +49,7 @@ class TenantMemberManagementTest extends TestCase
         }
     }
 
-    protected function assignMemberRole(User $user, Tenant $tenant, string $roleName, array $permissions): void
+    protected function assignMemberRole(TenantUser $user, Tenant $tenant, string $roleName, array $permissions): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::firstOrCreate(
@@ -79,10 +79,10 @@ class TenantMemberManagementTest extends TestCase
 
     public function test_member_list_includes_name_when_home_tenant_differs(): void
     {
-        $otherOwner = User::factory()->create();
+        $otherOwner = TenantUser::factory()->create();
         $otherTenant = $this->createPersonalTenant($otherOwner);
 
-        $crossTenantMember = User::withoutGlobalScope('tenant')->create([
+        $crossTenantMember = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $otherTenant->id,
             'name' => 'Cross Tenant Member',

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\AppSetting;
 use Modules\Tenancy\Models\Tenant;
@@ -20,7 +20,7 @@ class TenantAppSettingsBackfillTest extends TestCase
 
     public function test_backfill_copies_central_row_to_app_settings_with_field_parity(): void
     {
-        $owner = User::factory()->create();
+        $owner = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($owner);
 
         TenantSetting::query()->create([
@@ -48,7 +48,7 @@ class TenantAppSettingsBackfillTest extends TestCase
 
     public function test_backfill_is_idempotent_when_parity_already_exists(): void
     {
-        $owner = User::factory()->create();
+        $owner = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($owner);
 
         TenantSetting::query()->create([
@@ -63,7 +63,7 @@ class TenantAppSettingsBackfillTest extends TestCase
 
     public function test_backfill_skips_when_no_central_row(): void
     {
-        $owner = User::factory()->create();
+        $owner = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($owner);
 
         $backfill = app(TenantAppSettingsBackfill::class);
@@ -73,7 +73,7 @@ class TenantAppSettingsBackfillTest extends TestCase
 
     public function test_service_uses_app_settings_after_backfill(): void
     {
-        $owner = User::factory()->create();
+        $owner = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($owner);
 
         TenantSetting::query()->create([
@@ -88,7 +88,7 @@ class TenantAppSettingsBackfillTest extends TestCase
 
     public function test_invalid_central_mode_still_resolves_permanent_after_backfill(): void
     {
-        $owner = User::factory()->create();
+        $owner = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($owner);
 
         TenantSetting::query()->create([

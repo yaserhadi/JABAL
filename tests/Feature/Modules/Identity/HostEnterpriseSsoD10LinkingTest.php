@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Facile\OpenIDClient\Token\TokenSetInterface;
 use Illuminate\Support\Str;
@@ -62,7 +62,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS6 Member',
             'email' => $email,
@@ -306,7 +306,7 @@ class HostEnterpriseSsoD10LinkingTest extends TestCase
         $this->assertGuest('web');
         tenancy()->initialize($fixture['tenant']);
         $this->assertSame(0, TenantUserIdentity::query()->count());
-        $this->assertSame(1, User::query()->whereKey($fixture['user']->id)->count());
+        $this->assertSame(1, TenantUser::query()->whereKey($fixture['user']->id)->count());
         tenancy()->end();
     }
 

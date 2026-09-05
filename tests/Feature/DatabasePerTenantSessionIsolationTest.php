@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Tenancy\TenantLayerMigrationRunner;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
@@ -149,10 +149,10 @@ class DatabasePerTenantSessionIsolationTest extends TestCase
             $provisioner = app(TenantRbacProvisioner::class);
             $provisioner->ensureGlobalPermissions();
             $provisioner->ensureRolesForTenant($tenant);
-            $user = User::create(['tenant_id' => $tenant->id, 'name' => $name.' User', 'email' => $email, 'password' => 'password']);
+            $user = TenantUser::create(['tenant_id' => $tenant->id, 'name' => $name.' User', 'email' => $email, 'password' => 'password']);
             Membership::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'membership_type' => 'owner', 'status' => 'active', 'joined_at' => now()]);
             $provisioner->assignTenantAdminRole($user, $tenant);
-            $resolvedUser = User::withoutGlobalScope('tenant')->findOrFail($user->id);
+            $resolvedUser = TenantUser::withoutGlobalScope('tenant')->findOrFail($user->id);
         } finally {
             tenancy()->end();
         }

@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\PlatformUser;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Hash;
 use Modules\Tenancy\Models\Tenant;
 use Tests\TestCase;
@@ -127,7 +127,7 @@ class PlatformTenantIsolationTest extends TestCase
 
     public function test_stale_tenant_session_on_login_does_not_redirect_loop(): void
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         \Modules\Tenancy\Models\Tenant::where('created_by', $user->id)->update(['created_by' => null]);
         \Modules\Identity\Models\Membership::query()
             ->withoutGlobalScope('tenant')

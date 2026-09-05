@@ -2,7 +2,7 @@
 
 namespace Tests\Concerns;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use App\Support\Tenancy\TenantLayerMigrationRunner;
 use Illuminate\Support\Facades\Config;
@@ -62,7 +62,7 @@ trait InteractsWithDedicatedTenantDatabase
             $provisioner->ensureGlobalPermissions();
             $provisioner->ensureRolesForTenant($tenant);
 
-            $user = User::create([
+            $user = TenantUser::create([
                 'tenant_id' => $tenant->id,
                 'name' => 'Dedicated User',
                 'email' => $email,
@@ -79,7 +79,7 @@ trait InteractsWithDedicatedTenantDatabase
 
             $provisioner->assignTenantAdminRole($user, $tenant);
 
-            $resolvedUser = User::withoutGlobalScope('tenant')->findOrFail($user->id);
+            $resolvedUser = TenantUser::withoutGlobalScope('tenant')->findOrFail($user->id);
         } finally {
             tenancy()->end();
         }

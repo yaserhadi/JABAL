@@ -2,20 +2,29 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
+use Modules\Identity\Models\TenantUser;
+use Modules\Identity\Services\TenantRegistrationService;
 
+/**
+ * BK-116: bootstrap lab admin via TenantRegistrationService (TenantUser-only; legacy User bridge absent).
+ */
 class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::firstOrCreate(
-            ['email' => config('app.admin_email')],
-            [
-                'name' => config('app.admin_name'),
-                'password' => Hash::make(config('app.admin_password')),
-            ]
-        );
+        $email = (string) config('app.admin_email');
+        $name = (string) config('app.admin_name', 'Admin');
+        $password = (string) config('app.admin_password', 'password');
+
+        $existing = TenantUser::withoutGlobalScope('tenant')
+            ->where('email', $email)
+            ->first();
+
+        if ($existing) {
+            return;
+        }
+
+        app(TenantRegistrationService::class)->registerTenantUser($name, $email, $password);
     }
 }

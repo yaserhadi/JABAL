@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Tenancy;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Identity\Models\Membership;
 use Modules\Tenancy\Models\Tenant;
@@ -27,7 +27,7 @@ class TenantTest extends TestCase
 
     public function test_user_can_have_home_tenant(): void
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $userService = app(\Modules\Identity\Services\UserService::class);
         $homeTenant = $userService->resolveHomeTenant($user);
 
@@ -37,7 +37,7 @@ class TenantTest extends TestCase
 
     public function test_user_can_belong_to_multiple_tenants(): void
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
 
         $tenant1 = Tenant::factory()->create();
         $tenant2 = Tenant::factory()->create();
@@ -65,7 +65,7 @@ class TenantTest extends TestCase
     public function test_tenant_can_have_multiple_members(): void
     {
         $tenant = Tenant::factory()->create();
-        $users = User::factory()->count(3)->create();
+        $users = TenantUser::factory()->count(3)->create();
 
         tenancy()->initialize($tenant);
         foreach ($users as $user) {

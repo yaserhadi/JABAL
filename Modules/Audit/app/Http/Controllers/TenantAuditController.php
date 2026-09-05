@@ -4,7 +4,7 @@ namespace Modules\Audit\Http\Controllers;
 
 use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -124,7 +124,7 @@ class TenantAuditController extends Controller
             return collect();
         }
 
-        return User::query()
+        return TenantUser::query()
             ->whereIn('id', $userIds)
             ->get()
             ->keyBy('id');

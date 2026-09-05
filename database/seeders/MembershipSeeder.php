@@ -2,38 +2,36 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
-use Modules\Tenancy\Models\Tenant;
+use Modules\Identity\Models\TenantUser;
 
+/**
+ * BK-116: owner membership is created by TenantRegistrationService in AdminUserSeeder.
+ * Attests active owner membership for the lab admin TenantUser.
+ */
 class MembershipSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = User::where('email', config('app.admin_email', 'admin@example.com'))->first();
-        $tenant = $user
-            ? Tenant::where('slug', Str::slug($user->name).'-personal')->first()
-            : null;
+        $email = (string) config('app.admin_email', 'admin@example.com');
 
-        if (! $user || ! $tenant) {
+        $user = TenantUser::withoutGlobalScope('tenant')
+            ->where('email', $email)
+            ->first();
+
+        if (! $user) {
             return;
         }
 
-        // Create membership on the tenant database/connection
-        tenancy()->initialize($tenant);
-        Membership::firstOrCreate(
-            [
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-            ],
-            [
-                'membership_type' => 'owner',
-                'status' => 'active',
-                'joined_at' => now(),
-            ]
-        );
-        tenancy()->end();
+        $hasOwner = Membership::withoutGlobalScope('tenant')
+            ->where('user_id', $user->id)
+            ->where('membership_type', 'owner')
+            ->where('status', 'active')
+            ->exists();
+
+        if (! $hasOwner && $this->command) {
+            $this->command->warn('Admin TenantUser has no active owner membership; re-run AdminUserSeeder.');
+        }
     }
 }

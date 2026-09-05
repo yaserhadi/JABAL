@@ -2,7 +2,7 @@
 
 namespace Modules\Identity\Services;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -12,7 +12,6 @@ use InvalidArgumentException;
 use Modules\Identity\Mail\TenantInvitationMail;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantInvitation;
-use Modules\Identity\Models\TenantUser;
 use Modules\Tenancy\Models\Tenant;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -69,7 +68,7 @@ class TenantInvitationService
 
             // Unusable password until account-completion Invite sets a User-owned Password.
             // Model casts password as hashed — pass plain random string (do not pre-hash).
-            $user = User::create([
+            $user = TenantUser::create([
                 'tenant_id' => $tenant->id,
                 'name' => $name,
                 'email' => $email,

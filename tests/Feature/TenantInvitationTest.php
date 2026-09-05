@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -26,7 +26,7 @@ class TenantInvitationTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $owner;
+    protected TenantUser $owner;
 
     protected Tenant $tenant;
 
@@ -35,7 +35,7 @@ class TenantInvitationTest extends TestCase
         parent::setUp();
         Mail::fake();
         $this->seedMemberRbac();
-        $this->owner = User::factory()->create();
+        $this->owner = TenantUser::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
     }
 
@@ -51,7 +51,7 @@ class TenantInvitationTest extends TestCase
         }
     }
 
-    protected function assignAdminPermissions(User $user, Tenant $tenant): void
+    protected function assignAdminPermissions(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::firstOrCreate(
@@ -73,7 +73,7 @@ class TenantInvitationTest extends TestCase
     /**
      * WAVE-3: Admin creates User, then Invite binds intended_user_id.
      *
-     * @return array{user: \App\Models\User, invitation: \Modules\Identity\Models\TenantInvitation, plainToken: string, acceptUrl: string}
+     * @return array{user: \Modules\Identity\Models\TenantUser, invitation: \Modules\Identity\Models\TenantInvitation, plainToken: string, acceptUrl: string}
      */
     protected function issueInvitation(string $email, string $role = 'member', string $firstName = 'Joiner', string $lastName = 'User'): array
     {
@@ -112,7 +112,7 @@ class TenantInvitationTest extends TestCase
         tenancy()->initialize($this->tenant);
         $invitation = TenantInvitation::query()->withoutGlobalScope('tenant')->where('email', $email)->pending()->first();
         $this->assertNotNull($invitation);
-        $user = User::withoutGlobalScope('tenant')->where('email', $email)->first();
+        $user = TenantUser::withoutGlobalScope('tenant')->where('email', $email)->first();
         $this->assertNotNull($user);
         $this->assertSame((string) $user->id, (string) $invitation->intended_user_id);
         $this->assertFalse(
@@ -192,7 +192,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_existing_user_can_accept_invitation(): void
     {
-        $existing = User::withoutGlobalScope('tenant')->create([
+        $existing = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Existing',
@@ -247,7 +247,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Remove Me',
@@ -282,7 +282,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Successor',
@@ -306,7 +306,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_non_owner_cannot_transfer_ownership(): void
     {
-        $admin = User::withoutGlobalScope('tenant')->create([
+        $admin = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Admin Not Owner',
@@ -316,7 +316,7 @@ class TenantInvitationTest extends TestCase
         $this->createMembership($admin, $this->tenant, 'admin', 'active');
         $this->assignAdminPermissions($admin, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Member',
@@ -333,7 +333,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_non_owner_tenant_admin_cannot_invite_as_tenant_admin(): void
     {
-        $admin = User::withoutGlobalScope('tenant')->create([
+        $admin = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Admin Not Owner',
@@ -470,7 +470,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_api_non_owner_cannot_invite_as_tenant_admin(): void
     {
-        $admin = User::withoutGlobalScope('tenant')->create([
+        $admin = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'API Admin',
@@ -499,7 +499,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_cross_tenant_web_invite_returns_403(): void
     {
-        $otherUser = User::factory()->create();
+        $otherUser = TenantUser::factory()->create();
         $otherTenant = $this->createPersonalTenant($otherUser);
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
@@ -515,7 +515,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_cross_tenant_api_invite_returns_401_or_403(): void
     {
-        $otherUser = User::factory()->create();
+        $otherUser = TenantUser::factory()->create();
         $otherTenant = $this->createPersonalTenant($otherUser);
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
@@ -664,7 +664,7 @@ class TenantInvitationTest extends TestCase
 
     public function test_resend_requires_member_invite_permission(): void
     {
-        $viewer = User::withoutGlobalScope('tenant')->create([
+        $viewer = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Viewer',
@@ -741,7 +741,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Active Member',
@@ -798,7 +798,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Suspended Member',
@@ -830,7 +830,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Suspended Web',
@@ -856,7 +856,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Removed Member',
@@ -884,7 +884,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Suspended Removed',
@@ -915,7 +915,7 @@ class TenantInvitationTest extends TestCase
     {
         $this->assignAdminPermissions($this->owner, $this->tenant);
 
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $this->tenant->id,
             'name' => 'Reinvite Flow',

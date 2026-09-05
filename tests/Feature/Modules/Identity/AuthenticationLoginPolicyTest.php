@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Modules\Identity\Exceptions\SsoSecurityException;
@@ -25,7 +25,7 @@ class AuthenticationLoginPolicyTest extends TestCase
     use GrantsSsoEntitlement;
     use InteractsWithTenantAddressingProfile;
 
-    protected User $user;
+    protected TenantUser $user;
 
     protected Tenant $tenant;
 
@@ -103,7 +103,7 @@ class AuthenticationLoginPolicyTest extends TestCase
         $this->setAuthPolicy(AuthenticationLoginPolicy::SSO);
 
         tenancy()->initialize($this->tenant);
-        $fresh = User::withoutGlobalScope('tenant')->findOrFail($this->user->id);
+        $fresh = TenantUser::withoutGlobalScope('tenant')->findOrFail($this->user->id);
         $this->assertNotEmpty($fresh->password);
         $this->assertTrue(Hash::check('password', $fresh->password));
         tenancy()->end();
@@ -112,7 +112,7 @@ class AuthenticationLoginPolicyTest extends TestCase
         $hashBefore = $fresh->password;
         $this->setAuthPolicy(AuthenticationLoginPolicy::SSO);
         tenancy()->initialize($this->tenant);
-        $this->assertSame($hashBefore, User::withoutGlobalScope('tenant')->findOrFail($this->user->id)->password);
+        $this->assertSame($hashBefore, TenantUser::withoutGlobalScope('tenant')->findOrFail($this->user->id)->password);
         tenancy()->end();
     }
 

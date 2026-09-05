@@ -2,7 +2,6 @@
 
 namespace Modules\Identity\Support\Sso;
 
-use App\Models\User;
 use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Services\MfaService;
 use Modules\Tenancy\Models\Tenant;
@@ -32,14 +31,14 @@ final class SsoAssuranceEvaluator
     /**
      * @param  array<string, mixed>|null  $assuranceEvidence
      */
-    public function isSufficientForFullSession(Tenant $tenant, User|TenantUser $user, ?array $assuranceEvidence): bool
+    public function isSufficientForFullSession(Tenant $tenant, TenantUser $user, ?array $assuranceEvidence): bool
     {
         if (! $this->mfaService->isMfaRequired($tenant)) {
             return true;
         }
 
-        $authUser = $user instanceof User ? $user : User::query()->whereKey($user->id)->first();
-        if (! $authUser instanceof User) {
+        $authUser = $user instanceof TenantUser ? $user : TenantUser::query()->whereKey($user->id)->first();
+        if (! $authUser instanceof TenantUser) {
             return false;
         }
 

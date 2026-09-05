@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Facades\Config;
 use Modules\Billing\Models\Entitlement;
 use Modules\Billing\Models\Plan;
@@ -246,10 +246,10 @@ class DisableSsoOnEntitlementLossTest extends TestCase
         return [$tenant, $secret];
     }
 
-    protected function createSsoAdmin(Tenant $tenant): User
+    protected function createSsoAdmin(Tenant $tenant): TenantUser
     {
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'SSO Admin',
             'email' => 'sso-admin-'.uniqid().'@example.com',

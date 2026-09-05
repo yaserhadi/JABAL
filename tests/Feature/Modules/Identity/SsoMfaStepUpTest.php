@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Billing\Models\Entitlement;
 use Modules\Billing\Models\Plan;
@@ -35,7 +35,7 @@ class SsoMfaStepUpTest extends TestCase
         $this->grantSsoAndMfaEntitlements($tenant, required: true);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'SSO MFA User',
             'email' => 'sso-mfa-'.uniqid().'@example.com',

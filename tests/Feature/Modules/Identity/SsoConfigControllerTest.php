@@ -4,7 +4,7 @@ namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantSsoConfig;
 use Modules\Identity\Services\SsoConfigService;
@@ -19,9 +19,9 @@ class SsoConfigControllerTest extends TestCase
 {
     use GrantsSsoEntitlement;
 
-    protected User $admin;
+    protected TenantUser $admin;
 
-    protected User $member;
+    protected TenantUser $member;
 
     protected Tenant $tenant;
 
@@ -37,7 +37,7 @@ class SsoConfigControllerTest extends TestCase
         $this->grantSsoAvailable($this->tenant);
 
         tenancy()->initialize($this->tenant);
-        $this->admin = User::create([
+        $this->admin = TenantUser::create([
             'tenant_id' => $this->tenant->id,
             'name' => 'SSO Admin',
             'email' => 'sso-admin-'.uniqid().'@example.com',
@@ -51,7 +51,7 @@ class SsoConfigControllerTest extends TestCase
             'joined_at' => now(),
         ]);
 
-        $this->member = User::create([
+        $this->member = TenantUser::create([
             'tenant_id' => $this->tenant->id,
             'name' => 'SSO Member',
             'email' => 'sso-member-'.uniqid().'@example.com',
@@ -185,7 +185,7 @@ class SsoConfigControllerTest extends TestCase
             'status' => 'active',
         ]);
         tenancy()->initialize($tenant);
-        $admin = User::create([
+        $admin = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'No Entitlement Admin',
             'email' => 'no-ent-'.uniqid().'@example.com',
@@ -329,7 +329,7 @@ class SsoConfigControllerTest extends TestCase
         $this->assertStringNotContainsString('client_secret_encrypted', $patchBody);
     }
 
-    protected function assignMemberRole(User $user, Tenant $tenant): void
+    protected function assignMemberRole(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $guard = config('auth.defaults.guard');

@@ -2,7 +2,7 @@
 
 namespace Modules\Identity\Services;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Audit\AuditLoggerInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -38,7 +38,7 @@ class MfaService
         return $this->securityPolicyService->isMfaRequired($tenant);
     }
 
-    public function userHasConfirmedMfa(User $user): bool
+    public function userHasConfirmedMfa(TenantUser $user): bool
     {
         $record = UserMfa::query()->where('user_id', $user->id)->first();
 
@@ -53,7 +53,7 @@ class MfaService
     /**
      * @return array{secret: string, qr_url: string}
      */
-    public function beginEnrollment(User $user): array
+    public function beginEnrollment(TenantUser $user): array
     {
         $secret = $this->google2fa->generateSecretKey();
 
@@ -74,7 +74,7 @@ class MfaService
     /**
      * @return array<int, string>
      */
-    public function confirmEnrollment(User $user, string $code): array
+    public function confirmEnrollment(TenantUser $user, string $code): array
     {
         $record = UserMfa::query()->where('user_id', $user->id)->firstOrFail();
         if (! $this->google2fa->verifyKey($record->secret, $code)) {
@@ -97,7 +97,7 @@ class MfaService
         return $plainCodes;
     }
 
-    public function verifyChallenge(User $user, string $code, string $stepUpPurpose = 'login'): bool
+    public function verifyChallenge(TenantUser $user, string $code, string $stepUpPurpose = 'login'): bool
     {
         $record = UserMfa::query()->where('user_id', $user->id)->first();
         if (! $record || ! $record->isConfirmed()) {
@@ -115,7 +115,7 @@ class MfaService
     }
 
     /** Stateless MFA verification for API token grant (DEC-0014). No session side effects. */
-    public function verifyCodeForGrant(User $user, string $code): bool
+    public function verifyCodeForGrant(TenantUser $user, string $code): bool
     {
         $record = UserMfa::query()->where('user_id', $user->id)->first();
         if (! $record || ! $record->isConfirmed()) {
@@ -129,7 +129,7 @@ class MfaService
         return $this->consumeRecoveryCodeForGrant($user, $code);
     }
 
-    public function resetForUser(User $user): void
+    public function resetForUser(TenantUser $user): void
     {
         $this->revokeEnrollmentRecords($user);
         session()->forget('mfa_verified_at');
@@ -145,7 +145,7 @@ class MfaService
     /**
      * WAVE-4: Revoke MFA enrollment for a target User without mutating the actor's session.
      */
-    public function revokeEnrollmentRecords(User $user): void
+    public function revokeEnrollmentRecords(TenantUser $user): void
     {
         UserMfaRecoveryCode::query()->where('user_id', $user->id)->delete();
         UserMfa::query()->where('user_id', $user->id)->delete();
@@ -154,7 +154,7 @@ class MfaService
     /**
      * @return array<int, string>
      */
-    protected function regenerateRecoveryCodes(User $user): array
+    protected function regenerateRecoveryCodes(TenantUser $user): array
     {
         UserMfaRecoveryCode::query()->where('user_id', $user->id)->delete();
 
@@ -171,7 +171,7 @@ class MfaService
         return $plain;
     }
 
-    protected function consumeRecoveryCode(User $user, string $code, string $stepUpPurpose): bool
+    protected function consumeRecoveryCode(TenantUser $user, string $code, string $stepUpPurpose): bool
     {
         $codes = UserMfaRecoveryCode::query()
             ->where('user_id', $user->id)
@@ -192,7 +192,7 @@ class MfaService
         return false;
     }
 
-    protected function consumeRecoveryCodeForGrant(User $user, string $code): bool
+    protected function consumeRecoveryCodeForGrant(TenantUser $user, string $code): bool
     {
         $codes = UserMfaRecoveryCode::query()
             ->where('user_id', $user->id)

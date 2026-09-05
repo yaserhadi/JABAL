@@ -77,7 +77,7 @@ class CrossDatabaseAuthDependencyTest extends TestCase
 
         tenancy()->initialize($tenant->fresh(['databaseConfig']));
         try {
-            $user = \App\Models\User::create([
+            $user = \Modules\Identity\Models\TenantUser::create([
                 'tenant_id' => $tenant->id,
                 'name' => 'F8 Dedicated User',
                 'email' => $email,

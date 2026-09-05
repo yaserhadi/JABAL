@@ -3,7 +3,7 @@
 namespace Modules\Identity\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -51,7 +51,7 @@ class TokenController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        /** @var User $user */
+        /** @var TenantUser $user */
         $user = $request->user();
         $tenantId = (string) $request->header('X-Tenant-Id');
 
@@ -64,7 +64,7 @@ class TokenController extends Controller
 
     public function destroy(Request $request): JsonResponse
     {
-        /** @var User $user */
+        /** @var TenantUser $user */
         $user = $request->user();
         $tenantId = (string) $request->header('X-Tenant-Id');
 
@@ -79,7 +79,7 @@ class TokenController extends Controller
 
     public function destroyById(Request $request, int|string $tokenId): JsonResponse
     {
-        /** @var User $user */
+        /** @var TenantUser $user */
         $user = $request->user();
         $tenantId = (string) $request->header('X-Tenant-Id');
 

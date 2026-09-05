@@ -2,7 +2,7 @@
 
 namespace Modules\Tenancy\Services;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Modules\Identity\Services\MfaService;
 use Modules\Tenancy\Models\LegalOrganizationBusinessOwner;
 use Modules\Tenancy\Models\Tenant;
@@ -93,7 +93,7 @@ class TenantEstablishmentService
                 tenancy()->initialize($tenant);
             }
 
-            $user = User::query()->find($userId);
+            $user = TenantUser::query()->find($userId);
             if (! $user) {
                 return false;
             }

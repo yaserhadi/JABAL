@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Audit\Models\AuditLog;
 use Modules\Tenancy\Models\AppSetting;
@@ -19,9 +19,9 @@ class TenantSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $owner;
+    protected TenantUser $owner;
 
-    protected User $memberUser;
+    protected TenantUser $memberUser;
 
     protected Tenant $tenant;
 
@@ -29,8 +29,8 @@ class TenantSettingsTest extends TestCase
     {
         parent::setUp();
         $this->seedSettingsRbac();
-        $this->owner = User::factory()->create();
-        $this->memberUser = User::factory()->create();
+        $this->owner = TenantUser::factory()->create();
+        $this->memberUser = TenantUser::factory()->create();
         $this->tenant = $this->createPersonalTenant($this->owner);
         $this->createMembership($this->memberUser, $this->tenant, 'member', 'active');
     }
@@ -49,7 +49,7 @@ class TenantSettingsTest extends TestCase
         }
     }
 
-    protected function assignTenantAdmin(User $user, Tenant $tenant): void
+    protected function assignTenantAdmin(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::firstOrCreate(
@@ -68,7 +68,7 @@ class TenantSettingsTest extends TestCase
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 
-    protected function assignMember(User $user, Tenant $tenant): void
+    protected function assignMember(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getTenantKey());
         $role = Role::firstOrCreate(
@@ -193,7 +193,7 @@ class TenantSettingsTest extends TestCase
     public function test_api_settings_requires_matching_tenant_header(): void
     {
         $this->assignTenantAdmin($this->owner, $this->tenant);
-        $tenantB = $this->createPersonalTenant(User::factory()->create());
+        $tenantB = $this->createPersonalTenant(TenantUser::factory()->create());
         $token = $this->owner->createToken('test', ['tenant:'.$this->tenant->id])->plainTextToken;
 
         $response = $this->withHeaders([

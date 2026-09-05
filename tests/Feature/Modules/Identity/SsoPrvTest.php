@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -105,7 +105,7 @@ class SsoPrvTest extends TestCase
         $activeConnection = app(TenantStorageResolver::class)->connectionFor($tenant);
         $this->assertSame($connection, $activeConnection);
 
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Dedicated SSO User',
             'email' => 'ded-sso-prv-'.uniqid().'@example.com',
@@ -231,7 +231,7 @@ class SsoPrvTest extends TestCase
         $this->registerDedicatedConnection($connectionB, 'jabal_tenant_dedicated_b_testing');
 
         tenancy()->initialize($tenantA->fresh(['databaseConfig']));
-        $userA = User::create([
+        $userA = TenantUser::create([
             'tenant_id' => $tenantA->id,
             'name' => 'Tenant A User',
             'email' => 'tenant-a-'.uniqid().'@example.com',

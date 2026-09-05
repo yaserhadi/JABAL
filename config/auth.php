@@ -70,7 +70,7 @@ return [
     'providers' => [
         'tenant_users' => [
             'driver' => 'tenant_aware_eloquent',
-            'model' => App\Models\User::class,
+            'model' => Modules\Identity\Models\TenantUser::class,
         ],
         'platform_users' => [
             'driver' => 'eloquent',

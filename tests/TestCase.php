@@ -4,7 +4,7 @@ namespace Tests;
 
 use App\Models\Rbac\TenantPermission as Permission;
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Modules\Identity\Services\TenantRegistrationService;
@@ -106,7 +106,7 @@ abstract class TestCase extends BaseTestCase
     }
 
     protected function createMembership(
-        \App\Models\User $user,
+        \Modules\Identity\Models\TenantUser $user,
         \Modules\Tenancy\Models\Tenant $tenant,
         string $membershipType = 'member',
         string $status = 'active'
@@ -154,7 +154,7 @@ abstract class TestCase extends BaseTestCase
     /**
      * Web/session tests: initialize tenancy before actingAs to avoid scoped User/RBAC query errors.
      */
-    protected function actingAsTenantUser(User $user, Tenant $tenant, string $guard = 'web'): static
+    protected function actingAsTenantUser(TenantUser $user, Tenant $tenant, string $guard = 'web'): static
     {
         $this->actingAsTenant($tenant);
 
@@ -186,7 +186,7 @@ abstract class TestCase extends BaseTestCase
         return $tenant;
     }
 
-    protected function registerTenantUser(string $name = 'Test User', ?string $email = null): User
+    protected function registerTenantUser(string $name = 'Test User', ?string $email = null): TenantUser
     {
         $email ??= 'tenant-'.uniqid().'@example.com';
 
@@ -201,7 +201,7 @@ abstract class TestCase extends BaseTestCase
      * Assign dashboard.view to user in tenant (for /me and dashboard routes).
      * PHASE 3B: /api/v1/me and /t/{tenant}/dashboard require permission:dashboard.view.
      */
-    protected function assignDashboardViewToUser(User $user, Tenant $tenant): void
+    protected function assignDashboardViewToUser(TenantUser $user, Tenant $tenant): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $guard = config('auth.defaults.guard');

@@ -2,59 +2,53 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
+use Modules\Identity\Models\TenantUser;
+use Modules\Identity\Services\TenantRegistrationService;
 use Modules\Identity\Services\UserService;
 use Modules\Tenancy\Models\Tenant;
 
+/**
+ * Development lab fixtures — TenantUser-only bootstrap (BK-116).
+ */
 class DevelopmentSeeder extends Seeder
 {
-    /**
-     * Run the database seeds for development environment.
-     */
     public function run(): void
     {
+        $registration = app(TenantRegistrationService::class);
         $userService = app(UserService::class);
 
-        // Create admin user
-        $admin = User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@jabal.test',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-        ]);
+        $admin = TenantUser::withoutGlobalScope('tenant')
+            ->where('email', 'admin@jabal.test')
+            ->first();
 
-        // Create home tenant for admin using UserService
-        $personalTenant = $userService->createPersonalTenant($admin);
+        if (! $admin) {
+            $admin = $registration->registerTenantUser('Admin User', 'admin@jabal.test', 'password');
+        }
 
-        // Create additional tenant workspace
-        $orgTenant = Tenant::create([
-            'name' => 'Demo Organization',
-            'slug' => 'demo-org',
-            'isolation_level' => 'shared',
-            'status' => 'active',
-        ]);
+        $orgTenant = Tenant::firstOrCreate(
+            ['slug' => 'demo-org'],
+            [
+                'name' => 'Demo Organization',
+                'isolation_level' => 'shared',
+                'status' => 'active',
+            ]
+        );
 
-        // Add admin as owner of organization using UserService
         $userService->addUserToTenant($admin, $orgTenant, 'owner', 'active');
 
-        // Create regular test user
-        $user = User::create([
-            'name' => 'Test User',
-            'email' => 'user@jabal.test',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-        ]);
+        $user = TenantUser::withoutGlobalScope('tenant')
+            ->where('email', 'user@jabal.test')
+            ->first();
 
-        // Create personal tenant for test user using UserService
-        $userService->createPersonalTenant($user);
+        if (! $user) {
+            $user = $registration->registerTenantUser('Test User', 'user@jabal.test', 'password');
+        }
 
-        // Add test user as member of demo organization using UserService
         $userService->addUserToTenant($user, $orgTenant, 'member', 'active');
 
-        $this->command->info('Development data seeded successfully!');
-        $this->command->info('Admin: admin@jabal.test / password');
-        $this->command->info('User: user@jabal.test / password');
+        $this->command?->info('Development data seeded successfully!');
+        $this->command?->info('Admin: admin@jabal.test / password');
+        $this->command?->info('User: user@jabal.test / password');
     }
 }

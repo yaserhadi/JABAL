@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use App\Support\Context\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tenancy\Models\Tenant;
@@ -28,7 +28,7 @@ class TenantContextTest extends TestCase
 
     public function test_personal_tenant_fallback_for_user(): void
     {
-        $user = User::factory()->create();
+        $user = TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
 
         $this->actingAs($user);

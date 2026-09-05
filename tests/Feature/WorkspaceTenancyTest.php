@@ -59,7 +59,7 @@ class WorkspaceTenancyTest extends TestCase
 
     public function test_create_with_tenant_context_auto_sets_tenant_id(): void
     {
-        $user = \App\Models\User::factory()->create();
+        $user = \Modules\Identity\Models\TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
 
         $this->actingAsTenant($tenant);
@@ -71,8 +71,8 @@ class WorkspaceTenancyTest extends TestCase
 
     public function test_tenant_a_data_invisible_to_tenant_b(): void
     {
-        $userA = \App\Models\User::factory()->create();
-        $userB = \App\Models\User::factory()->create();
+        $userA = \Modules\Identity\Models\TenantUser::factory()->create();
+        $userB = \Modules\Identity\Models\TenantUser::factory()->create();
         $tenantA = $this->createPersonalTenant($userA);
         $tenantB = $this->createPersonalTenant($userB);
 
@@ -96,7 +96,7 @@ class WorkspaceTenancyTest extends TestCase
             tenancy()->end();
         }
 
-        $user = \App\Models\User::factory()->create();
+        $user = \Modules\Identity\Models\TenantUser::factory()->create();
         $tenant = $this->createPersonalTenant($user);
 
         $workspace = new Workspace;

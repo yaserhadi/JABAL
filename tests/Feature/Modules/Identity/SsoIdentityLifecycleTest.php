@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
 use Modules\Identity\Models\TenantUserIdentity;
@@ -31,7 +31,7 @@ class SsoIdentityLifecycleTest extends TestCase
         $this->grantSsoAvailable($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'Lifecycle User',
             'email' => $email,

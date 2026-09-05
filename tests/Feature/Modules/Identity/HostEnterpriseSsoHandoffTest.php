@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Modules\Identity;
 
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Support\Str;
 use Modules\Billing\Models\Entitlement;
 use Modules\Billing\Models\Plan;
@@ -70,7 +70,7 @@ class HostEnterpriseSsoHandoffTest extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         tenancy()->initialize($tenant);
-        $user = User::create([
+        $user = TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => 'WS5 User',
             'email' => 'ws5-'.uniqid().'@example.com',
@@ -374,7 +374,7 @@ class HostEnterpriseSsoHandoffTest extends TestCase
         $this->withSession(['tenant_id' => $fixture['tenant']->id]);
 
         tenancy()->initialize($fixture['tenant']);
-        $other = User::create([
+        $other = TenantUser::create([
             'tenant_id' => $fixture['tenant']->id,
             'name' => 'Other User',
             'email' => 'ws5-other-'.uniqid().'@example.com',

@@ -19,7 +19,7 @@ class MembershipFactory extends Factory
     {
         return [
             'tenant_id' => Tenant::factory(),
-            'user_id' => \App\Models\User::factory(),
+            'user_id' => \Modules\Identity\Models\TenantUser::factory(),
             'membership_type' => 'member',
             'status' => 'active',
             'joined_at' => now(),

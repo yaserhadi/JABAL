@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Modules\Identity;
 
 use App\Models\Rbac\TenantRole as Role;
-use App\Models\User;
+use Modules\Identity\Models\TenantUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Modules\Identity\Models\Membership;
@@ -53,7 +53,7 @@ class HostSecuritySettingsSessionRevokeBindingTest extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
         tenancy()->initialize($tenant);
-        $member = User::withoutGlobalScope('tenant')->create([
+        $member = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $tenant->id,
             'name' => 'Member User',
@@ -75,7 +75,7 @@ class HostSecuritySettingsSessionRevokeBindingTest extends TestCase
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($otherTenant);
 
         tenancy()->initialize($otherTenant);
-        $otherUser = User::withoutGlobalScope('tenant')->create([
+        $otherUser = TenantUser::withoutGlobalScope('tenant')->create([
             'id' => (string) Str::uuid(),
             'tenant_id' => $otherTenant->id,
             'name' => 'Other User',
@@ -183,7 +183,7 @@ class HostSecuritySettingsSessionRevokeBindingTest extends TestCase
         $this->assertNotEquals(500, $response->status());
     }
 
-    protected function assignMemberRole(User $user, Tenant $tenant): void
+    protected function assignMemberRole(TenantUser $user, Tenant $tenant): void
     {
         $registrar = app(PermissionRegistrar::class);
         $registrar->setPermissionsTeamId($tenant->getTenantKey());
