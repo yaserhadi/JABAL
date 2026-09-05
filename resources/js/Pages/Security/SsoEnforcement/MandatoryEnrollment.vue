@@ -19,6 +19,7 @@
                     :href="ssoStartUrl"
                     size="large"
                     class="mb-4"
+                    @click.prevent="goToSsoStart"
                 >
                     Continue with Company SSO
                 </v-btn>
@@ -38,7 +39,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-defineProps({
+const props = defineProps({
     readinessState: { type: String, required: true },
     reason: { type: String, default: null },
     ssoOperational: { type: Boolean, default: false },
@@ -46,4 +47,10 @@ defineProps({
     skipAllowed: { type: Boolean, default: false },
     maybeLaterAllowed: { type: Boolean, default: false },
 });
+
+const goToSsoStart = () => {
+    if (props.ssoStartUrl) {
+        window.location.assign(props.ssoStartUrl);
+    }
+};
 </script>

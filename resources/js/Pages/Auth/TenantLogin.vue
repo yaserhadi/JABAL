@@ -36,6 +36,7 @@
                                     block
                                     class="mb-4"
                                     :href="ssoStartUrl"
+                                    @click.prevent="goToSsoStart"
                                 >
                                     Sign in with SSO
                                 </v-btn>
@@ -131,5 +132,12 @@ const submit = () => {
     form.post(route('tenant.login.submit', tenantRouteParams(props.tenant)), {
         onFinish: () => form.reset('password'),
     });
+};
+
+// Same-origin SSO start returns a server redirect chain — must bypass Inertia XHR.
+const goToSsoStart = () => {
+    if (props.ssoStartUrl) {
+        window.location.assign(props.ssoStartUrl);
+    }
 };
 </script>

@@ -279,6 +279,53 @@ class WorkforceSsoEnrollmentTest extends TestCase
 
     #[Test]
     #[Group('host-profile-contract')]
+    public function enrollment_start_with_inertia_returns_external_location_without_server_error(): void
+    {
+        $fixture = $this->prepareEnrollmentFixture();
+
+        $this->actingAs($fixture['target']);
+        tenancy()->initialize($fixture['tenant']);
+
+        $response = $this->call(
+            'GET',
+            'https://'.$fixture['host'].'/security/sso/enrollment/invitations/'.$fixture['plainToken'],
+            server: ['HTTP_HOST' => $fixture['host'], 'SERVER_NAME' => $fixture['host'], 'HTTPS' => 'on']
+        );
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('Security/SsoEnrollment/Ready')
+                ->where('invitation_id', $fixture['invitation']->id)
+        );
+
+        $start = $this->call(
+            'POST',
+            'https://'.$fixture['host'].'/security/sso/enrollment/start',
+            ['invitation_id' => $fixture['invitation']->id],
+            server: [
+                'HTTP_HOST' => $fixture['host'],
+                'SERVER_NAME' => $fixture['host'],
+                'HTTPS' => 'on',
+                'HTTP_X_INERTIA' => 'true',
+            ]
+        );
+
+        $start->assertStatus(409);
+        $inertiaLocation = (string) $start->headers->get('X-Inertia-Location');
+        $this->assertNotSame('', $inertiaLocation);
+        $this->assertStringContainsString('auth.jabal.test/auth/enterprise-sso/initiate', $inertiaLocation);
+
+        $txn = SsoAuthenticationTransaction::query()->latest('created_at')->first();
+        $this->assertSame(SsoAuthenticationTransaction::PURPOSE_WORKFORCE_SSO_ENROLLMENT, $txn->purpose);
+        $this->assertSame((string) $fixture['invitation']->id, (string) $txn->enrollment_invitation_id);
+        $this->assertSame((string) $fixture['target']->id, (string) $txn->intended_user_id);
+
+        tenancy()->end();
+    }
+
+    #[Test]
+    #[Group('host-profile-contract')]
     public function session_as_other_user_is_denied(): void
     {
         $fixture = $this->prepareEnrollmentFixture();

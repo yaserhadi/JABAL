@@ -6,6 +6,7 @@ use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -265,7 +266,7 @@ class WorkforceSsoEnrollmentController extends Controller
         ]);
     }
 
-    public function start(Request $request): RedirectResponse
+    public function start(Request $request): RedirectResponse|HttpResponse
     {
         $tenant = tenancy()->tenant;
         if (! $tenant) {
@@ -295,11 +296,17 @@ class WorkforceSsoEnrollmentController extends Controller
         }
 
         try {
-            return $this->oidc->startEnrollmentOidc($tenant, $invitation, $user, $request);
+            $redirect = $this->oidc->startEnrollmentOidc($tenant, $invitation, $user, $request);
         } catch (SsoSecurityException $e) {
             throw ValidationException::withMessages([
                 'invitation_id' => $e->getMessage(),
             ]);
         }
+
+        if ($request->header('X-Inertia')) {
+            return Inertia::location($redirect->getTargetUrl());
+        }
+
+        return $redirect;
     }
 }
