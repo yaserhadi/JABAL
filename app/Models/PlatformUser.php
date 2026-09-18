@@ -85,6 +85,6 @@ class PlatformUser extends Authenticatable
 
     public function homeRedirectPath(): string
     {
-        return route('platform.settings.index');
+        return route('platform.dashboard');
     }
 }

@@ -28,7 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function () {
             $addressing = app(\App\Support\Tenancy\TenantAddressingProfile::class);
-            if ($addressing->isHost() && $addressing->platformHost() !== '') {
+            if ($addressing->isPathHost() && $addressing->platformHost() !== '') {
                 Route::middleware('web')
                     ->domain($addressing->platformHost())
                     ->group(base_path('routes/platform.php'));
@@ -42,11 +42,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // BK-105: TrustProxies is applied from config in AppServiceProvider::boot()
         // (tenancy_addressing). Do not call env() here — Dotenv is not loaded yet on HTTP boot.
 
-        // BK-073: TrustHosts when Host profile — env-only (config:cache-safe values live in config file for runtime).
+        // BK-125: TrustHosts when PATH_HOST.
         // BK-105: TrustHosts changes are out of scope; early env() timing is inspected/reported only.
         $profile = strtolower(trim((string) env('TENANCY_ADDRESSING_PROFILE', 'path')));
         $platformBaseDomain = strtolower(trim((string) env('TENANT_PLATFORM_BASE_DOMAIN', '')));
-        if ($profile === 'host' && $platformBaseDomain !== '') {
+        if (\App\Support\Tenancy\TenantAddressingProfile::configSelectsPathHost($profile) && $platformBaseDomain !== '') {
             $base = preg_quote($platformBaseDomain, '/');
             $centralRaw = (string) env('TENANCY_CENTRAL_HOSTS', 'localhost,127.0.0.1');
             $central = array_values(array_filter(array_map(
@@ -167,9 +167,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \Modules\Identity\Support\Sso\SsoBrowserBindingCookieFactory::ENROLLMENT_BROWSER_BINDING,
         ]);
 
-        // BK-082 IH-7: IdP form_post posts to Auth Host without a Laravel CSRF token.
+        // BK-082 IH-7 / BK-125: IdP form_post posts to Auth Host without Laravel CSRF.
+        // PATH_HOST canonical callback is root-relative on Auth Host (enterprise-sso/callback).
         $middleware->validateCsrfTokens(except: [
-            'auth/enterprise-sso/callback',
+            'enterprise-sso/callback',
+            'auth/enterprise-sso/callback', // legacy path must not be CSRF-gated if hit; route itself is absent on Auth Host
         ]);
 
         $middleware->redirectGuestsTo([AuthenticationRedirects::class, 'guestRedirect']);

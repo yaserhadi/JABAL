@@ -9,16 +9,19 @@
                                 {{ appName }}
                             </v-card-title>
                             <v-card-subtitle class="text-center pb-2">
-                                Find your workspace
+                                Tenant user — find your organization
                             </v-card-subtitle>
                             <v-card-text>
+                                <p class="text-body-2 text-medium-emphasis text-center mb-4">
+                                    Sign in to your organization.
+                                </p>
                                 <v-form @submit.prevent="submit">
                                     <v-text-field
                                         v-model="form.slug"
-                                        label="Workspace slug"
+                                        label="Tenant handle"
                                         :error-messages="form.errors.slug"
                                         prepend-inner-icon="mdi-office-building"
-                                        hint="Preferred: go directly to your workspace login"
+                                        hint="Preferred: go directly to your tenant login"
                                         persistent-hint
                                     />
                                     <v-text-field
@@ -27,7 +30,7 @@
                                         type="email"
                                         :error-messages="form.errors.email"
                                         prepend-inner-icon="mdi-email"
-                                        hint="Or discover your workspace by email"
+                                        hint="Or discover your organization by email"
                                         persistent-hint
                                         class="mt-2"
                                     />
@@ -42,7 +45,7 @@
                                     </v-btn>
                                 </v-form>
                             </v-card-text>
-                            <v-card-actions class="justify-center">
+                            <v-card-actions class="justify-center flex-column ga-1 pb-4">
                                 <v-btn
                                     text
                                     :href="route('register')"
@@ -62,6 +65,13 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+
+defineProps({
+    entryPlane: {
+        type: String,
+        default: 'tenant_user',
+    },
+});
 
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
 

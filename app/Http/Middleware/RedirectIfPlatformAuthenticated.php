@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\PlatformUser;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +20,10 @@ class RedirectIfPlatformAuthenticated
             return $next($request);
         }
 
-        $target = route('platform.settings.index');
+        $user = Auth::guard('platform')->user();
+        $target = $user instanceof PlatformUser
+            ? $user->homeRedirectPath()
+            : route('platform.dashboard');
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);

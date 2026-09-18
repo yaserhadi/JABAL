@@ -28,7 +28,7 @@ class HostZiggyRouteParameterContractTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->forceAddressingEnv('host');
+        $this->forceAddressingEnv('path_host');
         parent::setUp();
     }
 
@@ -40,7 +40,7 @@ class HostZiggyRouteParameterContractTest extends TestCase
 
     public function test_host_tenant_routes_require_tenant_label_domain_parameter(): void
     {
-        $this->assertTrue(app(TenantAddressingProfile::class)->isHost());
+        $this->assertTrue(app(TenantAddressingProfile::class)->isPathHost());
 
         foreach ([
             'tenant.login',

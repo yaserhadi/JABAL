@@ -18,7 +18,7 @@ class TenantAddressingCookieIsolationTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->forceAddressingEnv('host');
+        $this->forceAddressingEnv('path_host');
         parent::setUp();
     }
 
@@ -103,7 +103,7 @@ class TenantAddressingCookieIsolationTest extends TestCase
 
         $platformLogin = $this->call(
             'POST',
-            'https://platform.jabal.test/platform/login',
+            'https://platform.jabal.test/login',
             ['email' => $admin->email, 'password' => 'password'],
             server: [
                 'HTTP_HOST' => 'platform.jabal.test',
@@ -153,7 +153,7 @@ class TenantAddressingCookieIsolationTest extends TestCase
 
         $platform = $this->call(
             'GET',
-            'https://platform.jabal.test/platform/tenants',
+            'https://platform.jabal.test/tenants',
             server: [
                 'HTTP_HOST' => 'platform.jabal.test',
                 'SERVER_NAME' => 'platform.jabal.test',

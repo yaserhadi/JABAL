@@ -2,9 +2,11 @@
 
 namespace Modules\Tenancy\Support;
 
+use App\Models\Domain;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Modules\Tenancy\Models\Tenant;
+use Modules\Tenancy\Models\TenantHandleAllocation;
 
 /**
  * Single authoritative Tenant Handle validation (BK-069).
@@ -129,13 +131,24 @@ final class TenantHandleValidator
     }
 
     /**
-     * Includes soft-deleted rows (non-reuse policy).
+     * BK-125 Wave 8: blocking allocations (active|retired|releasable), *live* slug holders,
+     * or active domain label rows. Soft-deleted Tenants clear slug on delete — AVAILABLE
+     * allocations are actually allocatable.
      */
     public function isTaken(string $normalizedHandle): bool
     {
-        return Tenant::withTrashed()
-            ->where('slug', $normalizedHandle)
-            ->exists();
+        if (TenantHandleAllocation::query()
+            ->where('handle', $normalizedHandle)
+            ->whereIn('status', TenantHandleAllocation::BLOCKING_STATUSES)
+            ->exists()) {
+            return true;
+        }
+
+        if (Tenant::query()->where('slug', $normalizedHandle)->exists()) {
+            return true;
+        }
+
+        return Domain::query()->where('domain', $normalizedHandle)->exists();
     }
 
     /**

@@ -114,6 +114,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($userId.'|'.$request->ip());
         });
 
+        // BK-114: public /register Web address UX check (guest; IP-bound; no enumeration payloads).
+        RateLimiter::for('register-web-address-availability', function (Request $request) {
+            return Limit::perMinute(20)->by('reg-web-addr|'.$request->ip());
+        });
+
         // BK-082 WS7: stage-specific Enterprise SSO abuse controls (multi-dimensional; IP alone not sole authority).
         RateLimiter::for('sso-enterprise-start', function (Request $request) {
             $host = strtolower((string) $request->getHost());

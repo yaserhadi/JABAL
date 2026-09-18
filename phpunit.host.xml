@@ -45,14 +45,14 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <!-- BK-073 Host-profile suite: Path Enterprise SSO positive HTTP surfaces are skipped via trait;
              Host negative SSO gate is covered under tests/Feature/Tenancy. -->
-        <env name="TENANCY_ADDRESSING_PROFILE" value="host" force="true"/>
+        <env name="TENANCY_ADDRESSING_PROFILE" value="path_host" force="true"/>
         <env name="TENANCY_CANONICAL_SCHEME" value="https" force="true"/>
         <env name="TENANT_PLATFORM_BASE_DOMAIN" value="jabal.test" force="true"/>
         <env name="TENANCY_CENTRAL_HOSTS" value="localhost,127.0.0.1,jabal.test,platform.jabal.test,auth.jabal.test,api.jabal.test" force="true"/>
         <env name="TENANCY_PLATFORM_HOST" value="platform.jabal.test" force="true"/>
         <env name="TENANCY_AUTH_HOST" value="auth.jabal.test" force="true"/>
         <env name="TENANCY_API_HOST" value="api.jabal.test" force="true"/>
-        <env name="APP_URL" value="https://platform.jabal.test" force="true"/>
+        <env name="APP_URL" value="https://jabal.test" force="true"/>
         <!-- BK-098: enable local_sealed for Host Identity SSO tests. -->
         <env name="SECRET_RUNTIME_CLASS" value="test" force="true"/>
         <env name="LOCAL_SEALED_ENABLED" value="true" force="true"/>

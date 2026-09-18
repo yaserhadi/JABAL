@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Tenancy\TenantSessionMismatchGuard;
 use App\Support\Tenancy\TenantAddressingProfile;
 use Closure;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
  * BK-073 Host profile: never calls tenancy()->initialize().
  * - No resolved Tenant → no-op
  * - Session claim present → validate against tenancy()->tenant (fail closed on mismatch)
+ *
+ * BK-125 Wave 7: mismatch invalidates session (no silent remap).
  */
 class InitializeTenancyFromSession
 {
@@ -23,7 +26,7 @@ class InitializeTenancyFromSession
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $this->validateOnlyInHostMode($request, $next);
         }
 
@@ -43,6 +46,20 @@ class InitializeTenancyFromSession
                 if ($tenant) {
                     tenancy()->initialize($tenant);
                 }
+            }
+        }
+
+        // PATH: when URL already resolved a Tenant, enforce session Tenant-ID match.
+        if ($isTenantPath && $request->hasSession() && $request->session()->isStarted()) {
+            $sessionTenantId = $request->session()->get('tenant_id');
+            $resolved = tenancy()->tenant;
+            if (
+                is_string($sessionTenantId)
+                && $sessionTenantId !== ''
+                && $resolved instanceof Tenant
+                && (string) $resolved->id !== $sessionTenantId
+            ) {
+                TenantSessionMismatchGuard::denyAndInvalidate($request);
             }
         }
 
@@ -67,7 +84,7 @@ class InitializeTenancyFromSession
         }
 
         if ((string) $resolved->id !== $sessionTenantId) {
-            abort(403, 'Tenant session conflict.');
+            TenantSessionMismatchGuard::denyAndInvalidate($request);
         }
 
         return $next($request);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Support\Tenancy\TenantAddressingProfile;
+
 trait InteractsWithTenantAddressingProfile
 {
     /** @var array<string, string|null> */
@@ -12,19 +14,29 @@ trait InteractsWithTenantAddressingProfile
     /**
      * Force addressing env BEFORE the application is created (routes register at boot).
      *
+     * Accepts permanent profiles only: path | path_host.
+     *
      * @param  array<string, string>  $overrides
      */
     protected function forceAddressingEnv(string $profile, array $overrides = []): void
     {
+        $normalized = strtolower(trim($profile));
+        if ($normalized === 'host' || $normalized === 'host_redirect') {
+            throw new \InvalidArgumentException(
+                "forceAddressingEnv rejects legacy profile [{$normalized}]; use path_host."
+            );
+        }
+        $pathHost = TenantAddressingProfile::configSelectsPathHost($normalized);
+
         $values = array_merge([
-            'TENANCY_ADDRESSING_PROFILE' => $profile,
+            'TENANCY_ADDRESSING_PROFILE' => $normalized,
             'TENANT_PLATFORM_BASE_DOMAIN' => 'jabal.test',
-            'TENANCY_PLATFORM_HOST' => $profile === 'host' ? 'platform.jabal.test' : 'localhost',
-            'TENANCY_AUTH_HOST' => $profile === 'host' ? 'auth.jabal.test' : 'localhost',
-            'TENANCY_API_HOST' => $profile === 'host' ? 'api.jabal.test' : '',
+            'TENANCY_PLATFORM_HOST' => $pathHost ? 'platform.jabal.test' : 'localhost',
+            'TENANCY_AUTH_HOST' => $pathHost ? 'auth.jabal.test' : 'localhost',
+            'TENANCY_API_HOST' => $pathHost ? 'api.jabal.test' : '',
             'TENANCY_CENTRAL_HOSTS' => 'localhost,127.0.0.1,jabal.test,platform.jabal.test,auth.jabal.test,api.jabal.test',
-            'TENANCY_CANONICAL_SCHEME' => $profile === 'host' ? 'https' : 'http',
-            'APP_URL' => $profile === 'host' ? 'https://platform.jabal.test' : 'http://localhost',
+            'TENANCY_CANONICAL_SCHEME' => $pathHost ? 'https' : 'http',
+            'APP_URL' => $pathHost ? 'https://jabal.test' : 'http://localhost',
         ], $overrides);
 
         foreach ($values as $key => $value) {
@@ -38,7 +50,7 @@ trait InteractsWithTenantAddressingProfile
 
         // Keep Laravel config in sync when the app is already booted (mid-test profile switches).
         if (isset($this->app) && $this->app->bound('config')) {
-            $this->app['config']->set('tenancy_addressing.profile', $profile);
+            $this->app['config']->set('tenancy_addressing.profile', $normalized);
             $this->app['config']->set('tenancy_addressing.platform_base_domain', $values['TENANT_PLATFORM_BASE_DOMAIN']);
             $this->app['config']->set('tenancy_addressing.platform_host', $values['TENANCY_PLATFORM_HOST']);
             $this->app['config']->set('tenancy_addressing.auth_host', $values['TENANCY_AUTH_HOST']);

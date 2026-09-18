@@ -28,7 +28,7 @@ class HostSetupAuthzRcaConfirmationTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->forceAddressingEnv('host');
+        $this->forceAddressingEnv('path_host');
         parent::setUp();
         CapturePermissionsTeamContext::$snapshot = null;
     }

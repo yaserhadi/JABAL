@@ -56,12 +56,12 @@
                                 :error-messages="form.errors.owner_email"
                                 required
                             />
-                            <v-text-field
+                            <PasswordField
                                 v-model="form.owner_password"
                                 label="Owner password"
-                                type="password"
                                 :error-messages="form.errors.owner_password"
                                 required
+                                autocomplete="new-password"
                             />
 
                             <div class="d-flex ga-2 mt-4">
@@ -82,6 +82,7 @@
 
 <script setup>
 import PlatformLayout from '@/Layouts/PlatformLayout.vue';
+import PasswordField from '@/Components/PasswordField.vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, ref } from 'vue';
@@ -114,10 +115,9 @@ const liveEntryUrl = computed(() => {
     if (example.includes('example')) {
         return example.replace('example', handle);
     }
-    if (props.addressing_profile === 'host') {
-        return `https://${handle}.jabal.test`;
-    }
-    return `https://localhost/t/${handle}`;
+
+    // Backend always supplies entry_url_preview_example (BK-125 Wave 6 — no hand-built origins).
+    return example || '';
 });
 
 const checkAvailability = async () => {

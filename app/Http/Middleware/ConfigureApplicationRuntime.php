@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\Contracts\Tenancy\TenantStorageResolver;
+use App\Support\Tenancy\PlatformOperatorSurface;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -133,7 +134,7 @@ class ConfigureApplicationRuntime
             return false;
         }
 
-        if ($request->is('platform', 'platform/*', 'api', 'api/*')) {
+        if ($request->is('api', 'api/*') || app(PlatformOperatorSurface::class)->matches($request)) {
             return false;
         }
 
@@ -180,7 +181,7 @@ class ConfigureApplicationRuntime
 
     private function resolveProfile(Request $request): string
     {
-        if ($request->is('platform', 'platform/*')) {
+        if (app(PlatformOperatorSurface::class)->matches($request)) {
             return 'platform';
         }
 

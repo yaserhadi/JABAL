@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 /**
- * BK-073 / DEC-0023 — Tenant addressing profiles and canonical origin.
+ * BK-125 / DEC-0023 / DEC-0028 — Tenant addressing profiles and canonical origin.
  *
- * Valid profiles: host | path only. Profile C (host_redirect) is rejected at boot (BK-096).
- * Services MUST read config('tenancy_addressing.*') — never env() directly.
+ * Permanent profiles: path | path_host (Owner: PATH | PATH_HOST).
+ * host and host_redirect are rejected at boot — not product profiles.
+ * Services MUST read config('tenancy_addressing.*') — never env() directly
+ * (except bootstrap TrustHosts early gate).
  */
 $centralHostsRaw = (string) env('TENANCY_CENTRAL_HOSTS', 'localhost,127.0.0.1');
 $centralHosts = array_values(array_filter(array_map(
@@ -39,10 +41,10 @@ return [
     | Deployment addressing profile
     |--------------------------------------------------------------------------
     |
-    | host — Platform subdomain Tenant Hosts (DEC-0023 Profile A, default)
-    | path — /t/{handle|uuid} (DEC-0023 Profile B)
+    | path      — PATH: shared Apex; plane/Tenant identity in path
+    | path_host — PATH_HOST: dedicated hosts; root-relative paths
     |
-    | host_redirect (Profile C) is NOT supported in BK-073 — boot fails (BK-096).
+    | host and host_redirect are NOT supported — boot fails.
     |
     */
     'profile' => strtolower(trim((string) env('TENANCY_ADDRESSING_PROFILE', 'path'))),

@@ -46,14 +46,44 @@ final class TenantEntryUrlResolver
             return '';
         }
 
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $this->addressing->absoluteOriginForHost(
                 $this->addressing->tenantHostFqdn($key)
             );
         }
 
-        return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
-            .'/t/'.$key;
+        // PATH: deployment root = Apex (APP_URL / platformHost on shared host).
+        return $this->apexOrigin().'/t/'.$key;
+    }
+
+    /**
+     * Absolute Apex (deployment-root) origin — BK-125 Wave 6 / CONFLICT-E.
+     * Uses addressing apexHost, not Platform Host and not Tenant Host.
+     */
+    public function apexOrigin(): string
+    {
+        return $this->addressing->absoluteOriginForHost($this->addressing->apexHost());
+    }
+
+    /**
+     * Absolute URL on the Apex origin (public discovery/registration/shared entry paths).
+     */
+    public function apexUrl(string $path): string
+    {
+        $normalized = '/'.ltrim($path, '/');
+
+        return $this->apexOrigin().($normalized === '/' ? '' : $normalized);
+    }
+
+    /**
+     * Absolute URL on the Tenant plane for a path (Host: tenant FQDN; Path: /t/{handle}/…).
+     */
+    public function tenantPathUrl(Tenant $tenant, string $path): string
+    {
+        $normalized = '/'.ltrim($path, '/');
+        $base = $this->entryUrl($tenant);
+
+        return $base.($normalized === '/' ? '' : $normalized);
     }
 
     /**
@@ -66,17 +96,17 @@ final class TenantEntryUrlResolver
 
     public function loginUrl(Tenant $tenant): string
     {
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $this->entryUrl($tenant).'/login';
         }
 
-        return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
+        return $this->apexOrigin()
             .route('tenant.login', ['tenant' => $this->entryKey($tenant)], absolute: false);
     }
 
     public function loginPath(Tenant $tenant): string
     {
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return '/login';
         }
 
@@ -85,17 +115,17 @@ final class TenantEntryUrlResolver
 
     public function dashboardUrl(Tenant $tenant): string
     {
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $this->entryUrl($tenant).'/dashboard';
         }
 
-        return $this->addressing->absoluteOriginForHost($this->addressing->platformHost())
+        return $this->apexOrigin()
             .route('dashboard', ['tenant' => $this->entryKey($tenant)], absolute: false);
     }
 
     public function dashboardPath(Tenant $tenant): string
     {
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return '/dashboard';
         }
 
@@ -109,13 +139,13 @@ final class TenantEntryUrlResolver
      */
     public function namedRouteUrl(string $name, Tenant $tenant, array $parameters = []): string
     {
-        $tenantParameter = $this->addressing->isHost()
+        $tenantParameter = $this->addressing->isPathHost()
             ? ['tenant_label' => $this->entryKey($tenant)]
             : ['tenant' => $this->entryKey($tenant)];
 
         $generated = route($name, array_merge($tenantParameter, $parameters), absolute: true);
 
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             $parts = parse_url($generated);
             $path = $parts['path'] ?? '/';
             $query = isset($parts['query']) ? '?'.$parts['query'] : '';
@@ -149,7 +179,7 @@ final class TenantEntryUrlResolver
      */
     public function guestRedirectUrl(Request $request): string
     {
-        if ($request->is('platform') || $request->is('platform/*')) {
+        if (app(\App\Support\Tenancy\PlatformOperatorSurface::class)->matches($request)) {
             return route('platform.login');
         }
 
@@ -170,12 +200,18 @@ final class TenantEntryUrlResolver
             return $this->loginUrl($tenant);
         }
 
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             $label = $this->hostLabelFromTenantCandidateRequest($request);
             if ($label !== null) {
                 return $this->addressing->absoluteOriginForHost(
                     $this->addressing->tenantHostFqdn($label)
                 ).'/login';
+            }
+
+            // Bare Platform Operator host → operator login (discovery is Apex /login).
+            $host = strtolower($request->getHost());
+            if ($host !== '' && $host === strtolower($this->addressing->platformHost())) {
+                return route('platform.login');
             }
         }
 
@@ -215,7 +251,7 @@ final class TenantEntryUrlResolver
             if (strcasecmp((string) $scheme, (string) $expectedScheme) !== 0) {
                 return false;
             }
-        } elseif ($this->addressing->isHost()) {
+        } elseif ($this->addressing->isPathHost()) {
             // Relative URLs on Host profile are only safe when already on the tenant host.
             if (strcasecmp($request->getHost(), (string) $canonicalEntry['host']) !== 0) {
                 return false;
@@ -227,7 +263,7 @@ final class TenantEntryUrlResolver
             return false;
         }
 
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             // Any path on the tenant origin is acceptable (same-host boundary).
             return true;
         }
@@ -335,7 +371,7 @@ final class TenantEntryUrlResolver
 
     private function hostLabelFromTenantCandidateRequest(Request $request): ?string
     {
-        if (! $this->addressing->isHost()) {
+        if (! $this->addressing->isPathHost()) {
             return null;
         }
 

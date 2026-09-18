@@ -111,7 +111,8 @@ class CanonicalEmailChangeService
                 'expires_at' => now()->addHours($hours),
             ]);
 
-            $verifyUrl = url('/security/email-change/verify/'.$plain);
+            $verifyUrl = app(\App\Http\Auth\TenantEntryUrlResolver::class)
+                ->apexUrl('/security/email-change/verify/'.$plain);
 
             try {
                 Mail::to($proposed)->send(new CanonicalEmailChangeMail(

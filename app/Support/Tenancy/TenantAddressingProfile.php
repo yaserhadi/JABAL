@@ -8,27 +8,47 @@ use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * Read-only accessor for the active Tenant addressing profile (BK-073 / DEC-0023).
+ * Read-only accessor for the active Tenant addressing profile (BK-125 / DEC-0023 / DEC-0028).
  *
- * Profile is deployment-wide. No per-Tenant switching. No host_redirect support.
+ * Permanent profiles only: path | path_host.
+ * host and host_redirect are rejected (not product profiles).
+ *
+ * Profile is deployment-wide. No per-Tenant switching.
  */
 final class TenantAddressingProfile
 {
-    public const PROFILE_HOST = 'host';
-
     public const PROFILE_PATH = 'path';
 
+    public const PROFILE_PATH_HOST = 'path_host';
+
     /** @var list<string> */
-    public const VALID_PROFILES = [self::PROFILE_HOST, self::PROFILE_PATH];
+    public const VALID_CANONICAL_PROFILES = [self::PROFILE_PATH, self::PROFILE_PATH_HOST];
+
+    /** @var list<string> */
+    public const VALID_CONFIG_PROFILES = [self::PROFILE_PATH, self::PROFILE_PATH_HOST];
+
+    public function rawProfile(): string
+    {
+        return strtolower(trim((string) config('tenancy_addressing.profile', self::PROFILE_PATH)));
+    }
 
     public function profile(): string
     {
-        return (string) config('tenancy_addressing.profile', self::PROFILE_PATH);
+        return $this->rawProfile();
     }
 
+    public function isPathHost(): bool
+    {
+        return $this->profile() === self::PROFILE_PATH_HOST;
+    }
+
+    /**
+     * Compatibility synonym for PATH_HOST semantics.
+     * Does NOT mean TENANCY_ADDRESSING_PROFILE=host (that env value is rejected).
+     */
     public function isHost(): bool
     {
-        return $this->profile() === self::PROFILE_HOST;
+        return $this->isPathHost();
     }
 
     public function isPath(): bool
@@ -36,9 +56,32 @@ final class TenantAddressingProfile
         return $this->profile() === self::PROFILE_PATH;
     }
 
+    /**
+     * Whether an env/config profile string selects PATH_HOST semantics.
+     */
+    public static function configSelectsPathHost(string $profile): bool
+    {
+        return strtolower(trim($profile)) === self::PROFILE_PATH_HOST;
+    }
+
     public function platformBaseDomain(): string
     {
         return (string) config('tenancy_addressing.platform_base_domain', '');
+    }
+
+    /**
+     * Public Apex host for Tenant discovery /register (BK-125 Wave 4 / DEC-0028 §C).
+     *
+     * PATH: shared deployment host (platformHost).
+     * PATH_HOST: platform base domain (apex of the wildcard tree) — never Platform Operator host.
+     */
+    public function apexHost(): string
+    {
+        if ($this->isPathHost()) {
+            return $this->platformBaseDomain();
+        }
+
+        return $this->platformHost();
     }
 
     public function platformHost(): string
@@ -124,17 +167,18 @@ final class TenantAddressingProfile
      */
     public function assertValidConfiguration(): void
     {
-        $profile = $this->profile();
+        $raw = $this->rawProfile();
 
-        if ($profile === 'host_redirect') {
+        if ($raw === 'host' || $raw === 'host_redirect') {
             throw new InvalidArgumentException(
-                'TENANCY_ADDRESSING_PROFILE=host_redirect (Profile C) is not implemented in BK-073. Deferred to BK-096.'
+                "TENANCY_ADDRESSING_PROFILE [{$raw}] is not a supported product profile (BK-125 Wave 8)."
+                .' Valid values: path, path_host.'
             );
         }
 
-        if (! in_array($profile, self::VALID_PROFILES, true)) {
+        if (! in_array($raw, self::VALID_CONFIG_PROFILES, true)) {
             throw new InvalidArgumentException(
-                "Invalid TENANCY_ADDRESSING_PROFILE [{$profile}]. Valid values: host, path."
+                "Invalid TENANCY_ADDRESSING_PROFILE [{$raw}]. Valid values: path, path_host."
             );
         }
 
@@ -164,16 +208,16 @@ final class TenantAddressingProfile
             }
         }
 
-        if ($this->isHost()) {
+        if ($this->isPathHost()) {
             if ($this->platformBaseDomain() === '') {
                 throw new RuntimeException(
-                    'TENANT_PLATFORM_BASE_DOMAIN is required when TENANCY_ADDRESSING_PROFILE=host.'
+                    'TENANT_PLATFORM_BASE_DOMAIN is required when TENANCY_ADDRESSING_PROFILE=path_host.'
                 );
             }
 
             if ($this->platformHost() === '') {
                 throw new RuntimeException(
-                    'TENANCY_PLATFORM_HOST (or APP_URL host) is required when TENANCY_ADDRESSING_PROFILE=host.'
+                    'TENANCY_PLATFORM_HOST (or APP_URL host) is required when TENANCY_ADDRESSING_PROFILE=path_host.'
                 );
             }
         }
@@ -202,7 +246,7 @@ final class TenantAddressingProfile
     }
 
     /**
-     * Tenant host FQDN for Host profile: {label}.{platform_base_domain}.
+     * Tenant host FQDN for PATH_HOST: {label}.{platform_base_domain}.
      */
     public function tenantHostFqdn(string $label): string
     {

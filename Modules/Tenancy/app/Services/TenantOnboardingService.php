@@ -141,6 +141,9 @@ class TenantOnboardingService
             // BK-073: universal platform-subdomain reservation in every profile.
             app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
 
+            // BK-125 Wave 7: record ACTIVE handle allocation (Tenant ID remains durable).
+            app(TenantHandleLifecycleService::class)->recordInitialAssignment($tenant);
+
             return $tenant;
         });
     }

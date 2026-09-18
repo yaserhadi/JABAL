@@ -50,6 +50,10 @@ return [
     | the Artisan command line tool. You should set this to the root of
     | the application so that it's available within Artisan commands.
     |
+    | BK-125 Wave 6 / CONFLICT-E: APP_URL is the Laravel deployment root.
+    | In a normal Jabal deployment this is the Apex origin — not Platform Host,
+    | Tenant Host, or Auth Host. Plane URLs use addressing + named routes.
+    |
     */
 
     'url' => env('APP_URL', 'http://localhost'),

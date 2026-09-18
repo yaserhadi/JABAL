@@ -144,7 +144,8 @@ class TenantInvitationService
 
             $plainToken = Str::random(64);
             $expiresAt = now()->addHours($this->invitationTtlHours());
-            $acceptUrl = url('/invitations/'.$plainToken);
+            $acceptUrl = app(\App\Http\Auth\TenantEntryUrlResolver::class)
+                ->apexUrl('/invitations/'.$plainToken);
 
             $invitation = DB::connection('tenant')->transaction(function () use (
                 $tenant,
@@ -408,7 +409,8 @@ class TenantInvitationService
 
             $plainToken = Str::random(64);
             $expiresAt = now()->addHours($this->invitationTtlHours());
-            $acceptUrl = url('/invitations/'.$plainToken);
+            $acceptUrl = app(\App\Http\Auth\TenantEntryUrlResolver::class)
+                ->apexUrl('/invitations/'.$plainToken);
             $previousTokenHash = $invitation->token_hash;
 
             $invitation = DB::connection('tenant')->transaction(function () use (

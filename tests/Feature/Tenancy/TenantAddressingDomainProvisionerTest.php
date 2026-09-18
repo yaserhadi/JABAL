@@ -83,7 +83,7 @@ class TenantAddressingDomainProvisionerTest extends TestCase
     public function test_entry_url_is_absolute_host_canonical_from_config_not_request(): void
     {
         config([
-            'tenancy_addressing.profile' => 'host',
+            'tenancy_addressing.profile' => 'path_host',
             'tenancy_addressing.platform_base_domain' => 'jabal.test',
             'tenancy_addressing.canonical_scheme' => 'https',
             'tenancy_addressing.canonical_port' => null,

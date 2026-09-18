@@ -21,6 +21,7 @@ final class PlatformTenantRegistryService
     public function __construct(
         private readonly TenantOnboardingService $onboarding,
         private readonly TenantHandleValidator $handles,
+        private readonly TenantHandleLifecycleService $handleLifecycle,
         private readonly TenantProvisioningPresenter $presenter,
         private readonly PlatformTenantApplicationOwnerResolver $applicationOwners,
         private readonly AuditLoggerInterface $audit,
@@ -176,6 +177,18 @@ final class PlatformTenantRegistryService
         ]);
 
         return $this->detail($tenant->fresh(['databaseConfig']));
+    }
+
+    /**
+     * BK-125 Wave 7 — rename Tenant Handle (preserves Tenant ID).
+     *
+     * @return array<string, mixed>
+     */
+    public function renameHandle(Tenant $tenant, string $newHandle, ?string $actorId = null): array
+    {
+        $result = $this->handleLifecycle->rename($tenant, $newHandle, $actorId, 'platform_rename');
+
+        return $this->detail($result['tenant']->fresh(['databaseConfig']));
     }
 
     /**

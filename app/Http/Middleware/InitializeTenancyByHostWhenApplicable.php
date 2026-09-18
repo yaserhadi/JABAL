@@ -25,7 +25,7 @@ class InitializeTenancyByHostWhenApplicable
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $this->addressing->isHost()) {
+        if (! $this->addressing->isPathHost()) {
             return $next($request);
         }
 

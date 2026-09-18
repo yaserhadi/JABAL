@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Tenancy\PlatformOperatorSurface;
 use App\Support\Tenancy\TenantAddressingProfile;
 use Closure;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class InitializeTenancyFromAuthRequest
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $this->validateOnlyInHostMode($request, $next);
         }
 
@@ -63,7 +64,7 @@ class InitializeTenancyFromAuthRequest
             return false;
         }
 
-        if ($request->is('platform', 'platform/*', 'api', 'api/*')) {
+        if ($request->is('api', 'api/*') || app(PlatformOperatorSurface::class)->matches($request)) {
             return false;
         }
 

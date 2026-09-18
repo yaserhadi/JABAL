@@ -12,6 +12,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Tenancy\Http\Requests\CheckTenantHandleAvailabilityRequest;
 use Modules\Tenancy\Http\Requests\PlatformCreateTenantRequest;
+use Modules\Tenancy\Http\Requests\PlatformRenameTenantHandleRequest;
 use Modules\Tenancy\Http\Requests\PlatformUpdateTenantRequest;
 use Modules\Tenancy\Models\Tenant;
 use Modules\Tenancy\Services\PlatformTenantRegistryService;
@@ -104,6 +105,26 @@ class PlatformTenantRegistryController extends Controller
         return redirect()
             ->route('platform.tenants.show', $tenant)
             ->with('success', 'Tenant display name updated.');
+    }
+
+    public function renameHandle(
+        PlatformRenameTenantHandleRequest $request,
+        Tenant $tenant,
+        PlatformTenantRegistryService $registry,
+    ): RedirectResponse|JsonResponse {
+        $detail = $registry->renameHandle(
+            $tenant,
+            (string) $request->validated('handle'),
+            $request->user('platform')?->getAuthIdentifier(),
+        );
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($detail);
+        }
+
+        return redirect()
+            ->route('platform.tenants.show', $tenant->id)
+            ->with('success', 'Tenant Handle renamed. Tenant ID unchanged; previous handle is retired.');
     }
 
     public function checkHandleAvailability(

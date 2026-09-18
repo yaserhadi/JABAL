@@ -1,8 +1,12 @@
 <template>
     <v-app>
         <v-app-bar color="primary" density="comfortable">
-            <v-app-bar-title>Platform Management</v-app-bar-title>
+            <v-app-bar-title>
+                Platform Management
+                <span class="text-caption font-weight-regular ms-2 d-none d-sm-inline">Operator console</span>
+            </v-app-bar-title>
             <v-spacer />
+            <v-btn variant="text" :href="route('platform.dashboard')">Dashboard</v-btn>
             <v-btn variant="text" :href="route('platform.tenants.index')">Tenants</v-btn>
             <v-btn variant="text" :href="route('platform.catalog.index')">Catalog</v-btn>
             <v-btn variant="text" :href="route('platform.legal-organizations.index')">Legal Orgs</v-btn>

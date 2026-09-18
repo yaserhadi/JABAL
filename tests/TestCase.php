@@ -186,14 +186,17 @@ abstract class TestCase extends BaseTestCase
         return $tenant;
     }
 
-    protected function registerTenantUser(string $name = 'Test User', ?string $email = null): TenantUser
+    protected function registerTenantUser(string $name = 'Test User', ?string $email = null, ?string $webAddress = null): TenantUser
     {
         $email ??= 'tenant-'.uniqid().'@example.com';
+        // Unique valid handle (no ws-* legacy); min length 3, a-z0-9 hyphens only.
+        $webAddress ??= 'u'.strtolower(bin2hex(random_bytes(5)));
 
         return app(TenantRegistrationService::class)->registerTenantUser(
             $name,
             $email,
-            'password'
+            'password',
+            $webAddress
         );
     }
 
@@ -221,7 +224,7 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * BK-073 dual-profile CI: rewrite Path-style /t/{key}/… (and central /platform) URIs
-     * onto Host-bound absolute URLs when TENANCY_ADDRESSING_PROFILE=host.
+     * onto PATH_HOST-bound absolute URLs when TENANCY_ADDRESSING_PROFILE=path_host.
      *
      * Production Host mode does not register Path URIs; this adapter keeps the existing
      * Path-oriented suite exercisable under a Host-profile boot without duplicating routes.
@@ -238,7 +241,7 @@ abstract class TestCase extends BaseTestCase
         }
 
         $profile = $this->app->make(\App\Support\Tenancy\TenantAddressingProfile::class);
-        if (! $profile->isHost()) {
+        if (! $profile->isPathHost()) {
             return [$uri, $server];
         }
 
@@ -274,11 +277,44 @@ abstract class TestCase extends BaseTestCase
         }
 
         $platformHost = $profile->platformHost();
-        if ($platformHost !== '' && (
-            str_starts_with($path, '/platform')
-            || in_array($path, ['/login', '/register', '/'], true)
-            || str_starts_with($path, '/password')
+        $apexHost = $profile->apexHost();
+
+        // BK-125 Wave 4 / BK-114: Apex owns /login + /register (+ guest availability) under PATH_HOST.
+        if ($apexHost !== '' && (
+            in_array($path, ['/login', '/register'], true)
+            || $path === '/register/web-address-availability'
         )) {
+            $absolute = $profile->absoluteOriginForHost($apexHost).$path.$query;
+            $server['HTTP_HOST'] = $apexHost;
+            $server['SERVER_NAME'] = $apexHost;
+
+            return [$absolute, $server];
+        }
+
+        // BK-125 Wave 5: Platform Host root Operator paths (no /platform prefix).
+        $platformRootPaths = [
+            '/dashboard',
+            '/tenants',
+            '/settings',
+            '/audit',
+            '/catalog',
+            '/billing',
+            '/emergency',
+            '/legal-organizations',
+            '/logout',
+        ];
+        $isPlatformRoot = $path === '/'
+            || str_starts_with($path, '/password')
+            || str_starts_with($path, '/platform')
+            || in_array($path, $platformRootPaths, true)
+            || str_starts_with($path, '/tenants/')
+            || str_starts_with($path, '/settings/')
+            || str_starts_with($path, '/audit/')
+            || str_starts_with($path, '/billing/')
+            || str_starts_with($path, '/emergency/')
+            || str_starts_with($path, '/legal-organizations/');
+
+        if ($platformHost !== '' && $isPlatformRoot) {
             $absolute = $profile->absoluteOriginForHost($platformHost).$path.$query;
             $server['HTTP_HOST'] = $platformHost;
             $server['SERVER_NAME'] = $platformHost;

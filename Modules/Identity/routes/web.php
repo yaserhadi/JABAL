@@ -63,37 +63,46 @@ Route::get('security/email-change/verify/{token}', [AuthenticationAdministration
     ->middleware('throttle:60,1')
     ->name('auth-admin.email-change.verify');
 
-if ($addressing->isHost()) {
-    // Central Route Authority Matrix — Platform Host: discovery login/register + logout
-    $registrar->onPlatformHost(function () {
+if ($addressing->isPathHost()) {
+    // BK-125 Wave 4: Apex owns Tenant discovery + self-service register (DEC-0028 §C).
+    // Platform Host /login remains Platform Operator only (routes/platform.php).
+    // Do not register discovery `login` on Platform Host — it collides with platform.login.
+    $registrar->onApexHost(function () {
         Route::middleware('guest')->group(function () {
             Route::get('login', [AuthController::class, 'showLogin'])->name('login');
             Route::post('login', [AuthController::class, 'login']);
             Route::get('register', [AuthController::class, 'showRegister'])->name('register');
             Route::post('register', [AuthController::class, 'register']);
+            Route::post('register/web-address-availability', [AuthController::class, 'checkWebAddressAvailability'])
+                ->middleware('throttle:register-web-address-availability')
+                ->name('register.web-address-availability');
         });
+    });
 
+    // Platform Host: Tenant web logout tip surface only (no WSfinder / no /platform/*).
+    $registrar->onPlatformHost(function () {
         Route::middleware('auth')->group(function () {
             Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         });
     });
 
-    // Auth Host ONLY — Enterprise SSO initiate (WS3) + callback (WS4)
+    // Auth Host ONLY — PATH_HOST root-relative (host is the Auth discriminator; no /auth prefix).
     $registrar->onAuthHost(function () {
         Route::middleware(['web', 'guest', 'throttle:sso-enterprise-initiate', EnterpriseSsoTransitionHeaders::class])->group(function () {
-            Route::get('auth/enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
+            Route::get('enterprise-sso/initiate', EnterpriseSsoInitiateController::class)
                 ->name('identity.enterprise-sso.initiate');
         });
         Route::middleware(['web', 'guest', 'throttle:sso-enterprise-callback', EnterpriseSsoTransitionHeaders::class])->group(function () {
-            Route::match(['get', 'post'], 'auth/enterprise-sso/callback', EnterpriseSsoCallbackController::class)
+            Route::match(['get', 'post'], 'enterprise-sso/callback', EnterpriseSsoCallbackController::class)
                 ->name('identity.enterprise-sso.callback');
         });
         // Back-Channel Logout: no session cookie dependency; Auth Host only.
         Route::middleware(['throttle:sso-enterprise-bclogout', EnterpriseSsoTransitionHeaders::class])->group(function () {
-            Route::post('auth/enterprise-sso/backchannel-logout', EnterpriseSsoBackChannelLogoutController::class)
+            Route::post('enterprise-sso/backchannel-logout', EnterpriseSsoBackChannelLogoutController::class)
                 ->name('identity.enterprise-sso.backchannel-logout');
         });
         // BK-103: Path-era identity.sso.callback is not registered on Host (absence ⇒ 404).
+        // BK-125: {auth-host}/auth/* is not a second canonical Auth surface (double-addressing forbidden).
     });
 
     // Tenant Host — wildcard {tenant_label} is NOT a resolver
@@ -312,6 +321,9 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::get('register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('register', [AuthController::class, 'register']);
+    Route::post('register/web-address-availability', [AuthController::class, 'checkWebAddressAvailability'])
+        ->middleware('throttle:register-web-address-availability')
+        ->name('register.web-address-availability');
 });
 
 // BK-097: callback must be reachable while authenticated so D12 ordinary session

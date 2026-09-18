@@ -15,7 +15,7 @@ use Modules\Identity\Http\Middleware\EnsureMfaVerified;
 
 $addressing = app(TenantAddressingProfile::class);
 
-if ($addressing->isHost()) {
+if ($addressing->isPathHost()) {
     app(TenantRouteRegistrar::class)->onTenantHost(function () {
         Route::middleware([
             'web',

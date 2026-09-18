@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { route } from 'ziggy-js';
-import { tenantEntry, tenantRouteParams } from './tenantEntry.js';
+import { tenantEntry, tenantRouteParams, isPathHostProfile } from './tenantEntry.js';
 
 /** Minimal Host-shaped Ziggy fixture (mirrors Laravel {tenant_label} domain param). */
 const hostZiggy = {
@@ -20,11 +20,11 @@ const hostZiggy = {
             domain: '{tenant_label}.jabal.test',
             parameters: ['tenant_label'],
         },
-        'workspaces.show': {
-            uri: 'workspaces/{workspace}',
-            methods: ['GET', 'HEAD'],
+        'members.update-role': {
+            uri: 'members/{user}/role',
+            methods: ['PATCH'],
             domain: '{tenant_label}.jabal.test',
-            parameters: ['tenant_label', 'workspace'],
+            parameters: ['tenant_label', 'user'],
         },
     },
 };
@@ -38,6 +38,15 @@ describe('tenantEntry', () => {
     });
 });
 
+describe('isPathHostProfile', () => {
+    it('accepts path_host and temporary host alias only', () => {
+        expect(isPathHostProfile('path_host')).toBe(true);
+        expect(isPathHostProfile('host')).toBe(true);
+        expect(isPathHostProfile('path')).toBe(false);
+        expect(isPathHostProfile(undefined)).toBe(false);
+    });
+});
+
 describe('tenantRouteParams', () => {
     beforeEach(() => {
         globalThis.window = globalThis.window || {};
@@ -47,14 +56,19 @@ describe('tenantRouteParams', () => {
         delete globalThis.window.__jabalAddressingProfile;
     });
 
-    it('Host profile emits tenant_label and preserves extras', () => {
-        window.__jabalAddressingProfile = 'host';
+    it('PATH_HOST profile emits tenant_label and preserves extras', () => {
+        window.__jabalAddressingProfile = 'path_host';
         expect(tenantRouteParams({ entryKey: 'acme-uat' })).toEqual({ tenant_label: 'acme-uat' });
-        expect(tenantRouteParams({ entryKey: 'acme-uat' }, { workspace: 9 })).toEqual({
+        expect(tenantRouteParams({ entryKey: 'acme-uat' }, { user: 9 })).toEqual({
             tenant_label: 'acme-uat',
-            workspace: 9,
+            user: 9,
         });
         expect(tenantRouteParams(null)).toEqual({});
+    });
+
+    it('temporary host alias matches PATH_HOST Ziggy param shape', () => {
+        window.__jabalAddressingProfile = 'host';
+        expect(tenantRouteParams({ entryKey: 'acme-uat' })).toEqual({ tenant_label: 'acme-uat' });
     });
 
     it('Path profile emits tenant only when profile is explicitly path (not revived for Host UAT)', () => {
@@ -76,7 +90,7 @@ describe('tenantRouteParams', () => {
 describe('Host Ziggy URL generation via tenantRouteParams', () => {
     beforeEach(() => {
         globalThis.window = globalThis.window || {};
-        window.__jabalAddressingProfile = 'host';
+        window.__jabalAddressingProfile = 'path_host';
         globalThis.Ziggy = hostZiggy;
     });
 
@@ -100,13 +114,13 @@ describe('Host Ziggy URL generation via tenantRouteParams', () => {
 
     it('preserves extra route parameters on Host URLs', () => {
         const url = route(
-            'workspaces.show',
-            tenantRouteParams({ entryKey: 'acme-uat' }, { workspace: 42 }),
+            'members.update-role',
+            tenantRouteParams({ entryKey: 'acme-uat' }, { user: 42 }),
             true,
             hostZiggy,
         );
 
-        expect(url).toBe('https://acme-uat.jabal.test/workspaces/42');
+        expect(url).toBe('https://acme-uat.jabal.test/members/42/role');
         expect(url).not.toMatch(/[?&]tenant=/);
     });
 });

@@ -35,7 +35,7 @@ class HttpProxyAwarenessTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->forceAddressingEnv('host', [
+        $this->forceAddressingEnv('path_host', [
             'TENANCY_TRUST_FORWARDED_HEADERS' => 'true',
             'TENANCY_TRUSTED_PROXIES' => implode(',', self::TRUSTED_PROXIES_FIXTURE),
             'SESSION_SECURE_COOKIE' => '',
@@ -334,7 +334,7 @@ class HttpProxyAwarenessTest extends TestCase
         $method->setAccessible(true);
         $url = $method->invoke(app(HostEnterpriseSsoInitiationService::class), $ref);
 
-        $this->assertStringStartsWith('https://auth.jabal.test/auth/enterprise-sso/initiate?', $url);
+        $this->assertStringStartsWith('https://auth.jabal.test/enterprise-sso/initiate?', $url);
     }
 
     public function test_star_proxy_list_fails_validation(): void

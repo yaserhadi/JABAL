@@ -9,9 +9,13 @@
                                 Platform Management
                             </v-card-title>
                             <v-card-subtitle class="text-center pb-2">
-                                Operator sign in
+                                Platform operator sign in
                             </v-card-subtitle>
                             <v-card-text>
+                                <p class="text-body-2 text-medium-emphasis text-center mb-4">
+                                    This plane is for platform operators who manage tenants.
+                                    Workspace members should use workspace sign-in instead.
+                                </p>
                                 <v-form @submit.prevent="submit">
                                     <v-text-field
                                         v-model="form.email"
@@ -21,10 +25,9 @@
                                         required
                                         prepend-inner-icon="mdi-shield-account"
                                     />
-                                    <v-text-field
+                                    <PasswordField
                                         v-model="form.password"
                                         label="Password"
-                                        type="password"
                                         :error-messages="form.errors.password"
                                         required
                                         prepend-inner-icon="mdi-lock"
@@ -34,6 +37,15 @@
                                     </v-btn>
                                 </v-form>
                             </v-card-text>
+                            <v-card-actions class="justify-center flex-column ga-1 pb-4">
+                                <v-btn
+                                    v-if="alternatePlane?.url"
+                                    variant="text"
+                                    :href="alternatePlane.url"
+                                >
+                                    {{ alternatePlane.label }}
+                                </v-btn>
+                            </v-card-actions>
                         </v-card>
                     </v-col>
                 </v-row>
@@ -44,6 +56,19 @@
 
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
+import PasswordField from '@/Components/PasswordField.vue';
+
+defineProps({
+    entryPlane: {
+        type: String,
+        default: 'platform_operator',
+    },
+    alternatePlane: {
+        type: Object,
+        default: null,
+    },
+});
 
 const form = useForm({
     email: '',

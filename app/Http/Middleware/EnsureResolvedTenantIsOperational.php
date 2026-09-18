@@ -55,7 +55,7 @@ class EnsureResolvedTenantIsOperational
             return false;
         }
 
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $class === RequestHostClassifier::CLASS_TENANT_CANDIDATE;
         }
 

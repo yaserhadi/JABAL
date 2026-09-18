@@ -1,14 +1,20 @@
 <?php
 
 /**
- * BK-069 — Tenant Handle policy (canonical product term).
- * Storage column remains tenants.slug.
+ * BK-069 / BK-125 Wave 7 — Tenant Handle policy (canonical product term).
+ * Storage column remains tenants.slug; lifecycle in tenant_handle_allocations.
  */
 return [
 
     'min_length' => 3,
 
     'max_length' => 63,
+
+    /*
+    | Minimum quarantine (days) after retirement before a handle may become RELEASABLE.
+    | Time alone never releases — dependency-clear checks are also required.
+    */
+    'quarantine_days' => max(0, (int) env('TENANT_HANDLE_QUARANTINE_DAYS', 30)),
 
     /*
     | Exact reserved handles (lowercase).

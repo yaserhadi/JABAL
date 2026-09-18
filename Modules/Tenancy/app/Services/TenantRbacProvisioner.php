@@ -20,10 +20,6 @@ class TenantRbacProvisioner
 {
     /** @var array<int, string> */
     protected array $permissions = [
-        'workspace.view',
-        'workspace.create',
-        'workspace.update',
-        'workspace.delete',
         'dashboard.view',
         'member.view',
         'member.assign-role',
@@ -53,10 +49,6 @@ class TenantRbacProvisioner
     /** @var array<string, array<int, string>> */
     protected array $rolePermissions = [
         'tenant-admin' => [
-            'workspace.view',
-            'workspace.create',
-            'workspace.update',
-            'workspace.delete',
             'dashboard.view',
             'member.view',
             'member.assign-role',
@@ -82,7 +74,7 @@ class TenantRbacProvisioner
             'tenant.sso.rotate-secret',
             'tenant.sso.kill-switch',
         ],
-        'member' => ['workspace.view', 'dashboard.view'],
+        'member' => ['dashboard.view'],
     ];
 
     public function __construct(

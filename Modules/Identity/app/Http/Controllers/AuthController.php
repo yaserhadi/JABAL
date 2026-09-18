@@ -5,6 +5,8 @@ namespace Modules\Identity\Http\Controllers;
 use App\Http\Auth\TenantEntryUrlResolver;
 use App\Http\Auth\TenantInertiaProps;
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy\TenantAddressingProfile;
+use App\Support\Tenancy\TenantAuthLookup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +23,48 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
-        return Inertia::render('Auth/Login');
+        return Inertia::render('Auth/Login', [
+            'entryPlane' => 'tenant_user',
+        ]);
+    }
+
+    /**
+     * Apex public product-entry Landing (BK-114 Owner UAT Round 1 / UAT-OBS-001).
+     * Guests on Apex see Landing; authenticated users keep home-tenant redirect;
+     * Tenant Host roots continue via guestRedirectUrl (not a second landing).
+     */
+    public function showLanding(Request $request)
+    {
+        $resolver = app(TenantEntryUrlResolver::class);
+        $addressing = app(TenantAddressingProfile::class);
+
+        if (Auth::guard('web')->check()) {
+            $user = Auth::guard('web')->user();
+            $homeTenant = $user instanceof TenantUser ? $user->homeTenant() : null;
+            if ($homeTenant) {
+                return redirect()->to($resolver->dashboardUrl($homeTenant));
+            }
+
+            return redirect()->to($resolver->guestRedirectUrl($request));
+        }
+
+        if ($addressing->isPathHost()) {
+            $host = strtolower($request->getHost());
+            $apex = strtolower($addressing->apexHost());
+            $platform = strtolower((string) $addressing->platformHost());
+
+            if ($platform !== '' && $host === $platform) {
+                return redirect()->route('platform.login');
+            }
+
+            if ($apex !== '' && $host !== '' && $host !== $apex) {
+                return redirect()->to($resolver->guestRedirectUrl($request));
+            }
+        }
+
+        return Inertia::render('Auth/Landing', [
+            'appName' => config('app.name', 'Jabal'),
+        ]);
     }
 
     public function showTenantLogin(?Tenant $tenant = null)
@@ -151,7 +194,47 @@ class AuthController extends Controller
 
     public function showRegister()
     {
-        return Inertia::render('Auth/Register');
+        $addressing = app(TenantAddressingProfile::class);
+        $baseDomain = $addressing->platformBaseDomain();
+        $bases = $baseDomain !== '' ? [$baseDomain] : [];
+
+        return Inertia::render('Auth/Register', [
+            'webAddressBases' => $bases,
+            'webAddressBaseDomain' => $baseDomain,
+            'entryUrlPreviewExample' => app(TenantEntryUrlResolver::class)->entryUrlForHandle('example'),
+        ]);
+    }
+
+    /**
+     * Guest UX assistance for /register Web address (non-authoritative).
+     * Minimal codes only — no Tenant IDs, names, or allocation history.
+     */
+    public function checkWebAddressAvailability(Request $request)
+    {
+        $raw = (string) $request->input('web_address', $request->input('handle', ''));
+
+        $result = app(\Modules\Tenancy\Support\TenantHandleValidator::class)
+            ->evaluate($raw, checkAvailability: true);
+
+        $code = match ($result['code']) {
+            \Modules\Tenancy\Support\TenantHandleValidator::CODE_AVAILABLE => 'available',
+            \Modules\Tenancy\Support\TenantHandleValidator::CODE_RESERVED => 'reserved',
+            \Modules\Tenancy\Support\TenantHandleValidator::CODE_TAKEN => 'unavailable',
+            default => 'invalid',
+        };
+
+        $message = match ($code) {
+            'available' => 'Available',
+            'reserved' => 'Reserved',
+            'unavailable' => 'Already taken',
+            default => 'Invalid',
+        };
+
+        return response()->json([
+            'code' => $code,
+            'message' => $message,
+            'web_address' => $result['handle'],
+        ]);
     }
 
     public function register(Request $request, TenantRegistrationService $registration)
@@ -160,13 +243,32 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255',
             'password' => 'required|string|min:8|confirmed',
+            'web_address' => 'required|string|max:63',
         ]);
 
-        $tenantUser = $registration->registerTenantUser(
-            $validated['name'],
-            $validated['email'],
-            $validated['password']
-        );
+        // Authoritative uniqueness (no public enumeration endpoint). Generic message only.
+        if (app(TenantAuthLookup::class)->findUserByEmail($validated['email']) instanceof TenantUser) {
+            throw ValidationException::withMessages([
+                'email' => ['This email cannot be used to register.'],
+            ]);
+        }
+
+        try {
+            $tenantUser = $registration->registerTenantUser(
+                $validated['name'],
+                $validated['email'],
+                $validated['password'],
+                $validated['web_address']
+            );
+        } catch (ValidationException $e) {
+            // Ensure Inertia/session bag uses web_address (never internal handle/slug keys).
+            if (isset($e->errors()['web_address'])) {
+                throw $e;
+            }
+
+            $msg = $e->errors()['handle'][0] ?? $e->errors()['slug'][0] ?? 'This web address is not available.';
+            throw ValidationException::withMessages(['web_address' => [$msg]]);
+        }
 
         $tenant = $tenantUser->homeTenant();
 

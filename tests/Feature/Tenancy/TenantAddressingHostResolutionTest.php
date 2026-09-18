@@ -21,14 +21,14 @@ class TenantAddressingHostResolutionTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->forceAddressingEnv('host');
+        $this->forceAddressingEnv('path_host');
         parent::setUp();
 
         // Re-assert Host reserved hosts into config after boot. Mid-suite profile switches
         // (forceAddressingEnv('path') + refreshApplication in sibling Host tests) can leave
         // env()/config out of sync under phpunit.xml (no forced TENANCY_API_HOST).
         config([
-            'tenancy_addressing.profile' => 'host',
+            'tenancy_addressing.profile' => 'path_host',
             'tenancy_addressing.platform_base_domain' => 'jabal.test',
             'tenancy_addressing.platform_host' => 'platform.jabal.test',
             'tenancy_addressing.auth_host' => 'auth.jabal.test',
@@ -89,7 +89,7 @@ class TenantAddressingHostResolutionTest extends TestCase
 
     public function test_tenant_host_resolves_via_stancl_domain_row(): void
     {
-        $this->assertTrue(app(\App\Support\Tenancy\TenantAddressingProfile::class)->isHost());
+        $this->assertTrue(app(\App\Support\Tenancy\TenantAddressingProfile::class)->isPathHost());
 
         $tenant = Tenant::factory()->create(['slug' => 'acme', 'status' => 'active']);
         app(TenantDomainProvisioner::class)->ensurePlatformSubdomain($tenant);
@@ -154,22 +154,67 @@ class TenantAddressingHostResolutionTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_platform_host_login_is_discovery_not_tenant(): void
+    public function test_platform_host_login_is_operator_not_discovery(): void
     {
         $this->withServerVariables(['HTTP_HOST' => 'platform.jabal.test'])
             ->get('http://platform.jabal.test/login')
-            ->assertOk();
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Platform/Login'));
 
         $this->assertFalse(tenancy()->initialized);
     }
 
-    public function test_dashboard_absent_on_platform_host(): void
+    public function test_apex_login_is_tenant_discovery(): void
     {
+        $this->withServerVariables(['HTTP_HOST' => 'jabal.test'])
+            ->get('http://jabal.test/login')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Auth/Login')
+                ->where('entryPlane', 'tenant_user')
+            );
+
+        $this->assertFalse(tenancy()->initialized);
+        $this->assertGuest('platform');
+        $this->assertGuest('web');
+    }
+
+    public function test_apex_register_is_public_tenant_registration(): void
+    {
+        $this->withServerVariables(['HTTP_HOST' => 'jabal.test'])
+            ->get('http://jabal.test/register')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Auth/Register'));
+
+        $this->assertFalse(tenancy()->initialized);
+    }
+
+    public function test_platform_host_has_no_wsfinder_or_platform_prefix_surface(): void
+    {
+        $this->withServerVariables(['HTTP_HOST' => 'platform.jabal.test'])
+            ->get('http://platform.jabal.test/platform/WSfinder')
+            ->assertNotFound();
+
+        $this->withServerVariables(['HTTP_HOST' => 'platform.jabal.test'])
+            ->get('http://platform.jabal.test/platform/login')
+            ->assertNotFound();
+    }
+
+    public function test_platform_host_has_no_canonical_register(): void
+    {
+        $this->withServerVariables(['HTTP_HOST' => 'platform.jabal.test'])
+            ->get('http://platform.jabal.test/register')
+            ->assertNotFound();
+    }
+
+    public function test_platform_host_dashboard_is_operator_home_not_tenant_dashboard(): void
+    {
+        // Guest: Platform /dashboard requires operator auth (redirect to platform.login).
         $this->call(
             'GET',
             'http://platform.jabal.test/dashboard',
             server: ['HTTP_HOST' => 'platform.jabal.test', 'SERVER_NAME' => 'platform.jabal.test']
-        )->assertNotFound();
+        )->assertRedirect(route('platform.login'));
     }
 
     public function test_sso_callback_absent_on_tenant_host(): void
@@ -210,6 +255,6 @@ class TenantAddressingHostResolutionTest extends TestCase
 
     public function test_host_profile_accessor(): void
     {
-        $this->assertTrue(app(TenantAddressingProfile::class)->isHost());
+        $this->assertTrue(app(TenantAddressingProfile::class)->isPathHost());
     }
 }

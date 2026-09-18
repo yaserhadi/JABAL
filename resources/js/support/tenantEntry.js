@@ -1,5 +1,5 @@
 /**
- * Canonical tenant path/host key from Inertia props (BK-066 / BK-073 / BK-107).
+ * Canonical tenant path/host key from Inertia props (BK-066 / BK-073 / BK-107 / BK-125).
  * Prefer backend-provided entryKey; slug/id are compatibility fallbacks only.
  */
 export function tenantEntry(tenant) {
@@ -10,11 +10,18 @@ export function tenantEntry(tenant) {
 }
 
 /**
- * Build Ziggy route params for tenant-scoped named routes (BK-107).
+ * True when the active addressing profile uses PATH_HOST semantics.
+ */
+export function isPathHostProfile(profile) {
+    return profile === 'path_host';
+}
+
+/**
+ * Build Ziggy route params for tenant-scoped named routes (BK-107 / BK-125).
  *
- * Host (TENANCY_ADDRESSING_PROFILE=host): { tenant_label } — Laravel domain param.
- * Path (profile=path only when that profile is active): { tenant } — path param.
- * Unknown / unsupported: throw — never silent Path fallback.
+ * PATH_HOST (path_host, or temporary alias host): { tenant_label } — Laravel domain param.
+ * PATH (path): { tenant } — path param.
+ * Unknown / unsupported: throw — never silent Path↔PATH_HOST fallback.
  *
  * Mirrors App\Http\Auth\TenantEntryUrlResolver::namedRouteUrl.
  */
@@ -23,7 +30,7 @@ export function tenantRouteParams(tenant, extra = {}) {
         ? window.__jabalAddressingProfile
         : undefined;
 
-    if (profile === 'host') {
+    if (isPathHostProfile(profile)) {
         const key = tenantEntry(tenant);
         return key ? { tenant_label: key, ...extra } : { ...extra };
     }

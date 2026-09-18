@@ -13,7 +13,13 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
-        return Inertia::render('Platform/Login');
+        return Inertia::render('Platform/Login', [
+            'entryPlane' => 'platform_operator',
+            'alternatePlane' => [
+                'label' => 'Tenant user? Find your organization',
+                'url' => route('login'),
+            ],
+        ]);
     }
 
     public function login(Request $request)
@@ -41,8 +47,13 @@ class AuthController extends Controller
 
         $request->session()->save();
 
-        // Platform settings is Blade; force full navigation when login is Inertia (Vue).
-        if ($request->header('X-Inertia')) {
+        // Default home is Inertia (Dashboard). Use full location only when client is Inertia
+        // and the target is a non-Inertia (Blade) surface such as Settings.
+        $settingsUrl = route('platform.settings.index');
+        if ($request->header('X-Inertia') && (
+            $target === $settingsUrl
+            || str_ends_with(parse_url($target, PHP_URL_PATH) ?: '', '/settings')
+        )) {
             return Inertia::location($target);
         }
 

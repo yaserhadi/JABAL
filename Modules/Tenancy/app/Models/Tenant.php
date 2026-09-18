@@ -39,6 +39,14 @@ class Tenant extends Model implements TenantContract
 
     protected static function booted(): void
     {
+        static::deleting(function (Tenant $tenant): void {
+            // Soft-delete path: retire handle + clear slug before the row is marked deleted.
+            if (! $tenant->isForceDeleting()) {
+                app(\Modules\Tenancy\Services\TenantHandleLifecycleService::class)
+                    ->retireOnTenantSoftDelete($tenant);
+            }
+        });
+
         static::forceDeleting(function (Tenant $tenant): void {
             throw new TenantHardDeleteProhibitedException(
                 'Hard/force Tenant deletion is prohibited until BK-075 defines domain release policy (application-enforced; Tenant ['.$tenant->id.']).'

@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Auth\TenantEntryUrlResolver;
 use Illuminate\Support\Facades\Route;
+use Modules\Identity\Http\Controllers\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -10,21 +10,8 @@ use Illuminate\Support\Facades\Route;
 |
 | All functional routes (auth, dashboard, admin) live in module route files.
 |
-| BK-064/BK-073: Root redirect uses Membership-based homeTenant.
+| BK-114 / UAT-OBS-001: Apex guest `/` renders public Landing (not /login).
+| Authenticated web users and non-Apex Host roots are handled in showLanding.
 */
 
-Route::get('/', function () {
-    $resolver = app(TenantEntryUrlResolver::class);
-
-    if (auth('web')->check()) {
-        $user = auth('web')->user();
-        $homeTenant = $user->homeTenant();
-        if ($homeTenant) {
-            return redirect()->to($resolver->dashboardUrl($homeTenant));
-        }
-
-        return redirect()->to($resolver->guestRedirectUrl(request()));
-    }
-
-    return redirect()->to($resolver->guestRedirectUrl(request()));
-});
+Route::get('/', [AuthController::class, 'showLanding'])->name('home');

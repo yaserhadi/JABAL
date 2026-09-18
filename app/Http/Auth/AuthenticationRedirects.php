@@ -19,7 +19,11 @@ final class AuthenticationRedirects
     public static function authenticatedRedirect(Request $request): string
     {
         if (Auth::guard('platform')->check()) {
-            return route('platform.settings.index');
+            $user = Auth::guard('platform')->user();
+
+            return $user instanceof \App\Models\PlatformUser
+                ? $user->homeRedirectPath()
+                : route('platform.dashboard');
         }
 
         $user = Auth::guard('web')->user();

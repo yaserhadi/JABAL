@@ -55,10 +55,9 @@
                                         required
                                         prepend-inner-icon="mdi-email"
                                     />
-                                    <v-text-field
+                                    <PasswordField
                                         v-model="form.password"
                                         label="Password"
-                                        type="password"
                                         :error-messages="form.errors.password"
                                         required
                                         prepend-inner-icon="mdi-lock"
@@ -92,6 +91,7 @@ import { onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { tenantRouteParams } from '@/support/tenantEntry';
+import PasswordField from '@/Components/PasswordField.vue';
 
 const props = defineProps({
     tenant: {

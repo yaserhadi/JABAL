@@ -15,7 +15,7 @@ use Modules\Tenancy\Http\Controllers\TenantSetupController;
 
 $addressing = app(TenantAddressingProfile::class);
 
-if ($addressing->isHost()) {
+if ($addressing->isPathHost()) {
     app(TenantRouteRegistrar::class)->onTenantHost(function () {
         Route::middleware([
             'web',

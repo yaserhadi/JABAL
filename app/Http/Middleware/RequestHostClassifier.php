@@ -91,7 +91,7 @@ class RequestHostClassifier
             return self::CLASS_PLATFORM;
         }
 
-        if ($this->addressing->isHost() && $base !== '') {
+        if ($this->addressing->isPathHost() && $base !== '') {
             $suffix = '.'.strtolower($base);
             if (str_ends_with($host, $suffix)) {
                 $label = substr($host, 0, -strlen($suffix));

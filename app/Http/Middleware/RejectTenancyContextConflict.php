@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Http\Tenancy\TenantSessionMismatchGuard;
 use Closure;
 use Illuminate\Http\Request;
 use Modules\Tenancy\Models\Tenant;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Post-session validation only — never re-resolves Tenant (BK-073).
+ * Post-session validation only — never re-resolves Tenant (BK-073 / BK-125 Wave 7).
  *
  * Compares session/token claims against the already-resolved tenancy()->tenant.
+ * Session mismatch → invalidate session + deny (never remap to resolved Tenant).
  */
 class RejectTenancyContextConflict
 {
@@ -24,7 +26,7 @@ class RejectTenancyContextConflict
             $sessionTenantId = $request->session()->get('tenant_id');
             if (is_string($sessionTenantId) && $sessionTenantId !== '') {
                 if ($resolved instanceof Tenant && (string) $resolved->id !== $sessionTenantId) {
-                    abort(403, 'Tenant context conflict.');
+                    TenantSessionMismatchGuard::denyAndInvalidate($request, 'Tenant context conflict.');
                 }
             }
         }

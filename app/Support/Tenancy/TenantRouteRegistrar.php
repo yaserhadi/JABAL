@@ -20,7 +20,22 @@ final class TenantRouteRegistrar
     ) {}
 
     /**
-     * Bind a route group to the Platform Host (authority for discovery /login, /platform/*).
+     * Bind a route group to the public Apex host (Tenant discovery /register — BK-125 Wave 4).
+     */
+    public function onApexHost(Closure $routes): void
+    {
+        $host = $this->addressing->apexHost();
+        if ($host === '') {
+            $routes();
+
+            return;
+        }
+
+        Route::domain($host)->group($routes);
+    }
+
+    /**
+     * Bind a route group to the Platform Host (authority for Operator app at host root under PATH_HOST).
      */
     public function onPlatformHost(Closure $routes): void
     {
@@ -35,7 +50,11 @@ final class TenantRouteRegistrar
     }
 
     /**
-     * Bind a route group to the Auth Host (authority for /auth/sso/callback).
+     * Bind a route group to the Auth Host.
+     *
+     * PATH_HOST: host is the Auth plane discriminator — register root-relative paths
+     * (e.g. /enterprise-sso/callback), never /auth/* on the Auth Host.
+     * PATH: Auth plane uses path discriminator /auth/… on the shared Apex host.
      */
     public function onAuthHost(Closure $routes): void
     {

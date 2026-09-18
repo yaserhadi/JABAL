@@ -30,7 +30,7 @@ class InitializeTenancyFromSsoState
         }
 
         // BK-103 SSO-LG-005: Host does not own Path callback tenancy initialization.
-        if ($this->addressing->isHost()) {
+        if ($this->addressing->isPathHost()) {
             return $next($request);
         }
 
