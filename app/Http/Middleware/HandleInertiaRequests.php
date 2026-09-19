@@ -74,7 +74,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool, canViewSecurityPolicies: bool, canUpdateSecurityPolicies: bool, canViewSso: bool, canUpdateSso: bool, canConfigureSso: bool, ssoEntitlementAvailable: bool}
+     * @return array{canViewTenantSettings: bool, canUpdateTenantSettings: bool, canViewTenantAudit: bool, canViewSecurityPolicies: bool, canUpdateSecurityPolicies: bool, canViewSso: bool, canUpdateSso: bool, canConfigureSso: bool, ssoEntitlementAvailable: bool, canViewMembers: bool}
      */
     protected function sharedTenantUiPermissions(Request $request): array
     {
@@ -88,6 +88,8 @@ class HandleInertiaRequests extends Middleware
             'canUpdateSso' => false,
             'canConfigureSso' => false,
             'ssoEntitlementAvailable' => false,
+            'canViewMembers' => false,
+            'canViewApiTokens' => false,
         ];
         $user = $request->user('web');
         if (! $user || ! function_exists('tenancy') || ! tenancy()->initialized) {
@@ -113,6 +115,9 @@ class HandleInertiaRequests extends Middleware
                 'canUpdateSso' => $user->can('tenant.sso.update'),
                 'canConfigureSso' => $user->can('tenant.sso.configure'),
                 'ssoEntitlementAvailable' => $featureGate->isSsoAvailable($tenant),
+                'canViewMembers' => $user->can('member.view'),
+                // API token summary is an admin/security surface — ordinary members do not see it.
+                'canViewApiTokens' => $user->can('tenant.security-policy.view'),
             ];
         } finally {
             $registrar->setPermissionsTeamId($previousTeamId);

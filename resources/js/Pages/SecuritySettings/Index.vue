@@ -279,6 +279,14 @@
                             <v-list-item>
                                 <v-list-item-title>Tenant policy requires MFA</v-list-item-title>
                                 <template #append>
+                                    <v-chip :color="mfa.policy_required ? 'warning' : 'default'" size="small">
+                                        {{ mfa.policy_required ? 'Yes' : 'No' }}
+                                    </v-chip>
+                                </template>
+                            </v-list-item>
+                            <v-list-item>
+                                <v-list-item-title>MFA enforcement active</v-list-item-title>
+                                <template #append>
                                     <v-chip :color="mfa.required ? 'warning' : 'default'" size="small">
                                         {{ mfa.required ? 'Yes' : 'No' }}
                                     </v-chip>
@@ -315,7 +323,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" md="8" lg="6">
+            <v-col v-if="tokens !== null" cols="12" md="8" lg="6">
                 <v-card class="mb-4">
                     <v-card-title class="text-h6 pa-4">API tokens</v-card-title>
                     <v-card-subtitle class="px-4 pb-2">
@@ -361,7 +369,7 @@ const props = defineProps({
     policies: { type: Object, default: null },
     sessions: { type: Array, default: () => [] },
     mfa: { type: Object, required: true },
-    tokens: { type: Array, default: () => [] },
+    tokens: { type: Array, default: null },
     sso: { type: Object, default: null },
 });
 

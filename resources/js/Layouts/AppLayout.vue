@@ -46,7 +46,7 @@
                     @click="visitTenantRoute('workspaces.index')"
                 />
                 <v-list-item
-                    v-if="tenant"
+                    v-if="tenant_ui_permissions?.canViewMembers && tenant"
                     prepend-icon="mdi-account-group"
                     title="Members"
                     @click="visitTenantRoute('members.index')"

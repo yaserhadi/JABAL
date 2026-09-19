@@ -17,6 +17,7 @@ use Modules\Identity\Services\MfaService;
 use Modules\Identity\Services\SecurityPolicyService;
 use Modules\Identity\Services\SessionRegistryService;
 use Modules\Identity\Services\SsoConfigService;
+use Modules\Identity\Support\SecurityFeatureGate;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -64,21 +65,37 @@ class SecuritySettingsController extends Controller
             ->values()
             ->all();
 
+        $policyRequired = $this->securityPolicyService->isMfaRequired($tenant);
+
         $mfa = [
             'available' => $this->mfaService->isMfaAvailable($tenant),
+            // Stored tenant policy only (authoritative for "Tenant policy requires MFA").
+            'policy_required' => $policyRequired,
+            // Effective ordinary-user require = availability ∧ policy (Option A).
             'required' => $this->mfaService->isMfaRequired($tenant),
             'enrolled' => $this->mfaService->userHasConfirmedMfa($user),
         ];
 
-        $tokens = collect($this->apiTokenService->formatTokenList(
-            $this->apiTokenService->listTokensForTenant($user, $tenant->id)
-        ))
-            ->map(fn (array $token) => Arr::only($token, ['id', 'name', 'created_at', 'last_used_at', 'expires_at']))
-            ->values()
-            ->all();
+        $canViewApiTokens = $this->withTenantPermissions($tenant, function () use ($user) {
+            return $user->can('tenant.security-policy.view');
+        });
+
+        $tokens = $canViewApiTokens
+            ? collect($this->apiTokenService->formatTokenList(
+                $this->apiTokenService->listTokensForTenant($user, $tenant->id)
+            ))
+                ->map(fn (array $token) => Arr::only($token, ['id', 'name', 'created_at', 'last_used_at', 'expires_at']))
+                ->values()
+                ->all()
+            : null;
 
         $sso = $this->withTenantPermissions($tenant, function () use ($tenant, $user) {
             if (! $user->can('tenant.sso.view')) {
+                return null;
+            }
+
+            $featureGate = app(SecurityFeatureGate::class);
+            if (! $featureGate->isSsoAvailable($tenant)) {
                 return null;
             }
 

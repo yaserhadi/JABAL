@@ -32,7 +32,7 @@
                                         v-model="form.password"
                                         label="Password"
                                         type="password"
-                                        :error-messages="form.errors.password"
+                                        :error-messages="passwordErrors.password"
                                         required
                                         prepend-inner-icon="mdi-lock"
                                     />
@@ -40,7 +40,7 @@
                                         v-model="form.password_confirmation"
                                         label="Confirm Password"
                                         type="password"
-                                        :error-messages="form.errors.password_confirmation"
+                                        :error-messages="passwordErrors.password_confirmation"
                                         required
                                         prepend-inner-icon="mdi-lock-check"
                                     />
@@ -73,7 +73,9 @@
 </template>
 
 <script setup>
+import { passwordFieldErrors } from '@/support/registerFormFeedback';
 import { useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { route } from 'ziggy-js';
 
 const appName = import.meta.env.VITE_APP_NAME || 'JABAL';
@@ -84,6 +86,8 @@ const form = useForm({
     password: '',
     password_confirmation: '',
 });
+
+const passwordErrors = computed(() => passwordFieldErrors(form.errors));
 
 const submit = () => {
     form.post(route('register'), {

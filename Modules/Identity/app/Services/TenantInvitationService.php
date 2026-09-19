@@ -253,6 +253,20 @@ class TenantInvitationService
             ->first();
     }
 
+    /**
+     * Resolve any invitation by raw token (including accepted / revoked / expired).
+     * Unknown hashes return null (fail-closed).
+     */
+    public function findByToken(string $plainToken): ?TenantInvitation
+    {
+        $hash = hash('sha256', $plainToken);
+
+        return TenantInvitation::query()
+            ->withoutGlobalScope('tenant')
+            ->where('token_hash', $hash)
+            ->first();
+    }
+
     public function acceptInvitation(string $plainToken, TenantUser $acceptingUser): Membership
     {
         $invitation = $this->findValidByToken($plainToken);

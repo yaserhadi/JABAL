@@ -202,7 +202,7 @@
         <v-dialog v-model="inviteDialog" max-width="520">
             <v-card title="New user">
                 <v-card-subtitle class="px-4">
-                    Create User first, then send a 24-hour account-completion invite.
+                    Invite a teammate by email. They will receive a 24-hour link to join.
                 </v-card-subtitle>
                 <v-card-text>
                     <v-alert
@@ -250,7 +250,7 @@
                     <v-spacer />
                     <v-btn variant="text" @click="inviteDialog = false">Cancel</v-btn>
                     <v-btn color="primary" :loading="inviteForm.processing" @click="submitInvite">
-                        Create user and send invite
+                        Send invite
                     </v-btn>
                 </v-card-actions>
             </v-card>
@@ -342,6 +342,7 @@ const submitInvite = () => {
         onSuccess: () => {
             inviteDialog.value = false;
             inviteForm.reset();
+            activeTab.value = 'pending';
         },
     });
 };

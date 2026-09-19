@@ -66,7 +66,7 @@ class SecuritySettingsControllerTest extends TestCase
             ->has('tenant')
             ->has('sessions')
             ->has('mfa')
-            ->has('tokens'));
+            ->where('tokens', null));
     }
 
     public function test_policies_prop_present_for_admin_with_view_permission(): void
@@ -257,14 +257,25 @@ class SecuritySettingsControllerTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->has('mfa.available')
             ->has('mfa.required')
+            ->has('mfa.policy_required')
             ->has('mfa.enrolled')
             ->where('mfa.enrolled', false));
     }
 
-    public function test_api_tokens_list_safe_fields_only(): void
+    public function test_api_tokens_hidden_for_ordinary_member(): void
     {
         $this->actingAsTenantUser($this->member, $this->tenant);
         $this->member->createToken('ui-test-token', ['tenant:'.$this->tenant->id, 'extra:ability']);
+
+        $response = $this->get('/t/'.$this->tenant->id.'/security/settings');
+
+        $response->assertInertia(fn ($page) => $page->where('tokens', null));
+    }
+
+    public function test_api_tokens_list_safe_fields_only_for_admin(): void
+    {
+        $this->actingAsTenantUser($this->admin, $this->tenant);
+        $this->admin->createToken('ui-test-token', ['tenant:'.$this->tenant->id, 'extra:ability']);
 
         $response = $this->get('/t/'.$this->tenant->id.'/security/settings');
 
