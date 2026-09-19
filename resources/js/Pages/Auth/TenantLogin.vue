@@ -13,6 +13,16 @@
                             </v-card-subtitle>
                             <v-card-text>
                                 <v-alert
+                                    v-if="accountActivated"
+                                    type="success"
+                                    variant="tonal"
+                                    class="mb-4"
+                                    data-testid="account-activated-banner"
+                                >
+                                    Account created. Sign in to continue.
+                                </v-alert>
+
+                                <v-alert
                                     v-if="$page.props.errors?.email"
                                     type="error"
                                     variant="tonal"
@@ -74,7 +84,7 @@
                                         :loading="form.processing"
                                         class="mt-2"
                                     >
-                                        Sign in with password
+                                        Sign in
                                     </v-btn>
                                 </v-form>
                             </v-card-text>
@@ -87,7 +97,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { tenantRouteParams } from '@/support/tenantEntry';
@@ -114,6 +124,14 @@ const props = defineProps({
         type: String,
         default: '',
     },
+});
+
+const accountActivated = computed(() => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    return new URL(window.location.href).searchParams.get('account') === 'activated';
 });
 
 const form = useForm({

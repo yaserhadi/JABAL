@@ -105,8 +105,11 @@ class InvitationAcceptController extends Controller
 
     /**
      * WAVE-3 GAP-004: Complete account for the already-created User (set Password; do not create User).
+     *
+     * Activation ≠ login: persist password + accept invitation, then send the guest to the
+     * canonical tenant login URL. Do not Auth::attempt / establish an application session.
      */
-    public function registerAndAccept(Request $request): RedirectResponse
+    public function registerAndAccept(Request $request): RedirectResponse|\Symfony\Component\HttpFoundation\Response
     {
         if (auth()->check()) {
             return redirect()->route('invitations.show');
@@ -134,27 +137,18 @@ class InvitationAcceptController extends Controller
 
         $this->forgetSessionInvitation($request);
 
-        $tenant = $result['tenant'];
-        $user = $result['user'];
-
-        tenancy()->initialize($tenant);
-
-        if (! Auth::guard('web')->attempt([
-            'email' => $user->email,
-            'password' => $validated['password'],
-        ])) {
-            tenancy()->end();
-
-            throw ValidationException::withMessages([
-                'email' => ['Unable to sign in after account completion.'],
-            ]);
+        // Guest must remain unauthenticated after activation (BK-127 #25 Owner law).
+        if (Auth::guard('web')->check()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
 
-        $request->session()->regenerate();
-        $request->session()->put('tenant_id', $tenant->id);
+        $loginUrl = $this->tenantEntryUrls->loginUrl($result['tenant']);
+        $separator = str_contains($loginUrl, '?') ? '&' : '?';
 
-        return redirect()->to($this->tenantEntryUrls->dashboardUrl($tenant))
-            ->with('success', 'Account completed and invitation accepted.');
+        // Cross-host under path_host: force a full browser navigation (Inertia location).
+        return Inertia::location($loginUrl.$separator.'account=activated');
     }
 
     /**
