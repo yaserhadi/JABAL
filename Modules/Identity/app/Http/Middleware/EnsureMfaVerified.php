@@ -27,6 +27,12 @@ class EnsureMfaVerified
         }
 
         if (! $this->mfaService->userHasConfirmedMfa($user)) {
+            // Policy administration must not hijack an existing session into enrollment.
+            // Enrollment is enforced only after a fresh authentication boundary (next login).
+            if (! $this->mfaService->postLoginEnrollmentRequired($request)) {
+                return $next($request);
+            }
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,

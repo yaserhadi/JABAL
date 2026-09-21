@@ -107,7 +107,11 @@ class TenantInvitationTest extends TestCase
             ]);
 
         $response->assertSessionHasNoErrors();
-        $response->assertSessionHas('inviteUrl');
+        $response->assertSessionHas(
+            'success',
+            'User created and invitation sent — email delivered.'
+        );
+        $response->assertSessionMissing('inviteUrl');
 
         tenancy()->initialize($this->tenant);
         $invitation = TenantInvitation::query()->withoutGlobalScope('tenant')->where('email', $email)->pending()->first();

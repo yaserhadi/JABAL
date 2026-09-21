@@ -16,6 +16,18 @@ use PragmaRX\Google2FA\Google2FA;
 /** Tenant-layer MFA (AVM — ADR-0007 R8). No central auth artifacts. */
 class MfaService
 {
+    /**
+     * Set at password/SSO login when MFA is required and the user is not enrolled.
+     * Existing authenticated sessions without this marker are not hijacked into enrollment
+     * when an admin turns on tenant MFA Required (BK-127 #32).
+     *
+     * Cookie (not session-only): survives ConfigureApplicationRuntime session instance resets
+     * under phpunit's array session driver while remaining scoped to the browser that just logged in.
+     */
+    public const SESSION_POST_LOGIN_ENROLLMENT = 'mfa_post_login_enrollment';
+
+    public const COOKIE_POST_LOGIN_ENROLLMENT = 'jabal_mfa_enroll_gate';
+
     public function __construct(
         protected SecurityFeatureGate $featureGate,
         protected Google2FA $google2fa,
@@ -50,8 +62,65 @@ class MfaService
         return session('mfa_verified_at') !== null;
     }
 
+    public function markPostLoginEnrollmentRequired(): void
+    {
+        session([self::SESSION_POST_LOGIN_ENROLLMENT => true]);
+    }
+
     /**
-     * @return array{secret: string, qr_url: string}
+     * Cookie attached to the login redirect response (browser + HTTP tests).
+     */
+    public function postLoginEnrollmentCookie(): \Symfony\Component\HttpFoundation\Cookie
+    {
+        return cookie(
+            self::COOKIE_POST_LOGIN_ENROLLMENT,
+            '1',
+            120,
+            '/',
+            null,
+            null,
+            true,
+            false,
+            'lax'
+        );
+    }
+
+    public function postLoginEnrollmentRequired(?\Illuminate\Http\Request $request = null): bool
+    {
+        if ((bool) session(self::SESSION_POST_LOGIN_ENROLLMENT)) {
+            return true;
+        }
+
+        $request ??= request();
+
+        return $request instanceof \Illuminate\Http\Request
+            && (string) $request->cookie(self::COOKIE_POST_LOGIN_ENROLLMENT) === '1';
+    }
+
+    public function clearPostLoginEnrollmentRequired(): void
+    {
+        session()->forget(self::SESSION_POST_LOGIN_ENROLLMENT);
+        cookie()->queue(cookie()->forget(self::COOKIE_POST_LOGIN_ENROLLMENT));
+    }
+
+    /**
+     * After a successful authentication boundary: if policy requires MFA and the user
+     * is not enrolled, mark the post-login gate and return the enroll URL; otherwise null.
+     */
+    public function enrollUrlAfterLoginIfRequired(Tenant $tenant, TenantUser $user): ?string
+    {
+        if (! $this->isMfaRequired($tenant) || $this->userHasConfirmedMfa($user)) {
+            return null;
+        }
+
+        $this->markPostLoginEnrollmentRequired();
+
+        return app(\App\Http\Auth\TenantEntryUrlResolver::class)
+            ->namedRouteUrl('identity.mfa.enroll', $tenant);
+    }
+
+    /**
+     * @return array{secret: string, qr_url: string, otpauth_uri: string}
      */
     public function beginEnrollment(TenantUser $user): array
     {
@@ -62,13 +131,18 @@ class MfaService
             ['secret' => $secret, 'confirmed_at' => null]
         );
 
-        $qrUrl = $this->google2fa->getQRCodeUrl(
+        // otpauth:// URI for local QR rendering — never an external QR image service.
+        $otpauthUri = $this->google2fa->getQRCodeUrl(
             config('app.name'),
             $user->email,
             $secret
         );
 
-        return ['secret' => $secret, 'qr_url' => $qrUrl];
+        return [
+            'secret' => $secret,
+            'qr_url' => $otpauthUri,
+            'otpauth_uri' => $otpauthUri,
+        ];
     }
 
     /**
@@ -85,6 +159,7 @@ class MfaService
         $record->save();
 
         $plainCodes = $this->regenerateRecoveryCodes($user);
+        $this->clearPostLoginEnrollmentRequired();
         session(['mfa_verified_at' => now()->toIso8601String()]);
         MfaVerificationContext::markVerified('login');
 

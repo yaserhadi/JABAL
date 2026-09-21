@@ -18,5 +18,8 @@
         "vue": "^3.5.0",
         "vuetify": "^3.7.0",
         "ziggy-js": "^2.6.0"
+    },
+    "dependencies": {
+        "qrcode": "^1.5.4"
     }
 }

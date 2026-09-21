@@ -41,6 +41,7 @@ class MfaController extends Controller
 
         if ($request->expectsJson()) {
             return ApiResponse::success([
+                'otpauth_uri' => $setup['otpauth_uri'],
                 'qr_url' => $setup['qr_url'],
                 'secret' => $setup['secret'],
             ]);
@@ -48,6 +49,7 @@ class MfaController extends Controller
 
         return Inertia::render('Security/MfaEnroll', [
             'tenant' => TenantInertiaProps::from($tenantModel),
+            'otpauth_uri' => $setup['otpauth_uri'],
             'qr_url' => $setup['qr_url'],
             'secret' => $setup['secret'],
         ]);

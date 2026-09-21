@@ -119,11 +119,16 @@ class SecuritySettingsController extends Controller
             abort(404);
         }
 
-        $this->securityPolicyService->update($tenant, $request->validated());
+        $payload = $request->validated();
+        $this->securityPolicyService->update($tenant, $payload);
+
+        $message = array_key_exists('mfa_required', $payload)
+            ? 'MFA requirement updated.'
+            : 'Security policies updated.';
 
         return redirect()
             ->to($this->tenantEntryUrls->namedRouteUrl('identity.security-settings.show', $tenant))
-            ->with('success', 'Security policies updated.');
+            ->with('success', $message);
     }
 
     public function revokeSession(Request $request): RedirectResponse

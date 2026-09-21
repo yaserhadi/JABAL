@@ -49,7 +49,10 @@ class WorkforceSsoEnrollmentStepUpController extends Controller
         $tenant = $this->tenant();
 
         if (! $this->mfaService->userHasConfirmedMfa($user)) {
-            return redirect()->away($this->urls->namedRouteUrl('identity.mfa.enroll', $tenant));
+            $this->mfaService->markPostLoginEnrollmentRequired();
+
+            return redirect()->away($this->urls->namedRouteUrl('identity.mfa.enroll', $tenant))
+                ->withCookie($this->mfaService->postLoginEnrollmentCookie());
         }
 
         return redirect()->away($this->urls->namedRouteUrl('identity.mfa.challenge', $tenant));

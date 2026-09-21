@@ -18,13 +18,6 @@
                         <v-alert v-if="flash?.success" type="success" variant="tonal" class="mb-4" dismissible>
                             {{ flash.success }}
                         </v-alert>
-                        <v-alert v-if="flash?.inviteUrl" type="info" variant="tonal" class="mb-4">
-                            <div class="mb-2">You can also share this invitation link manually:</div>
-                            <div class="d-flex align-center ga-2">
-                                <code class="flex-grow-1 text-truncate">{{ flash.inviteUrl }}</code>
-                                <v-btn size="small" variant="outlined" @click="copyUrl(flash.inviteUrl)">Copy</v-btn>
-                            </div>
-                        </v-alert>
 
                         <v-tabs v-model="activeTab" class="mb-4">
                             <v-tab value="active">Active members</v-tab>
@@ -256,7 +249,6 @@
             </v-card>
         </v-dialog>
 
-        <v-snackbar v-model="copySnackbar" timeout="2000">Copied to clipboard</v-snackbar>
     </AppLayout>
 </template>
 
@@ -293,7 +285,6 @@ watch(showRemovedTab, (visible) => {
     }
 });
 const inviteDialog = ref(false);
-const copySnackbar = ref(false);
 const inviteForm = useForm({
     first_name: '',
     last_name: '',
@@ -328,11 +319,6 @@ const activateSuspendedFromInvite = () => {
 
     inviteDialog.value = false;
     openActivate(member);
-};
-
-const copyUrl = async (url) => {
-    await navigator.clipboard.writeText(url);
-    copySnackbar.value = true;
 };
 
 const submitInvite = () => {

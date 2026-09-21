@@ -178,8 +178,7 @@ class TenantMemberController extends Controller
         }
 
         return back()->with([
-            'success' => 'User created and invitation sent — email delivered; you can also copy the link below.',
-            'inviteUrl' => $result['acceptUrl'],
+            'success' => 'User created and invitation sent — email delivered.',
         ]);
     }
 
@@ -243,8 +242,7 @@ class TenantMemberController extends Controller
         }
 
         return back()->with([
-            'success' => 'Invitation sent — email delivered; you can also copy the link below.',
-            'inviteUrl' => $result['acceptUrl'],
+            'success' => 'Invitation sent — email delivered.',
         ]);
     }
 

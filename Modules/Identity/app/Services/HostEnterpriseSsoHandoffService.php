@@ -246,14 +246,24 @@ class HostEnterpriseSsoHandoffService
             'handoff_id' => (string) $handoff->id,
         ]);
 
-        $target = $this->mfaService->userHasConfirmedMfa($user)
-            ? $this->entryUrls->namedRouteUrl('identity.mfa.challenge', $tenant)
-            : $this->entryUrls->namedRouteUrl('identity.mfa.enroll', $tenant);
+        if ($this->mfaService->userHasConfirmedMfa($user)) {
+            $target = $this->entryUrls->namedRouteUrl('identity.mfa.challenge', $tenant);
 
-        return redirect()->to($target)->withCookie(SsoBrowserBindingCookieFactory::clear(
-            SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
-            $request->isSecure(),
-        ));
+            return redirect()->to($target)->withCookie(SsoBrowserBindingCookieFactory::clear(
+                SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
+                $request->isSecure(),
+            ));
+        }
+
+        $this->mfaService->markPostLoginEnrollmentRequired();
+        $target = $this->entryUrls->namedRouteUrl('identity.mfa.enroll', $tenant);
+
+        return redirect()->to($target)
+            ->withCookie($this->mfaService->postLoginEnrollmentCookie())
+            ->withCookie(SsoBrowserBindingCookieFactory::clear(
+                SsoBrowserBindingCookieFactory::TENANT_CONTINUATION,
+                $request->isSecure(),
+            ));
     }
 
     protected function issueFullSession(

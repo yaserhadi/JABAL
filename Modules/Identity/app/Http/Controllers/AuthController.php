@@ -189,6 +189,14 @@ class AuthController extends Controller
             }
         }
 
+        // BK-127 #32: enforce MFA enrollment at next login, not mid-session after policy save.
+        $mfaService = app(\Modules\Identity\Services\MfaService::class);
+        $enrollUrl = $mfaService->enrollUrlAfterLoginIfRequired($tenant, $tenantUser);
+        if (is_string($enrollUrl)) {
+            return redirect()->to($enrollUrl)
+                ->withCookie($mfaService->postLoginEnrollmentCookie());
+        }
+
         return app(TenantEntryUrlResolver::class)->redirectAfterLogin($request, $tenant);
     }
 
@@ -307,8 +315,10 @@ class AuthController extends Controller
         $request->session()->forget([
             'mfa_verified_at',
             'tenant_id',
+            \Modules\Identity\Services\MfaService::SESSION_POST_LOGIN_ENROLLMENT,
             \Modules\Identity\Support\Sso\SsoMfaContinuation::DEFER_USER_SESSION_KEY,
         ]);
+        cookie()->queue(cookie()->forget(\Modules\Identity\Services\MfaService::COOKIE_POST_LOGIN_ENROLLMENT));
 
         Auth::guard('web')->logout();
         if (tenancy()->initialized) {
